@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<uamapping>
+  <config rootFolder="TestFolder_1" description="Directory for testing">
+    <serverConfig applicationName="OPCUAServer" port="16664" />
+    <login username="test" password="test123" /> 
+  </config>
+
+  <application name="MyMappning">
+    <map sourceVariableName="/Scalar/int32">
+      <unrollPath pathSep="_">True</unrollPath>
+      <folder>NorthSideLINAC</folder>
+    </map>
+  </application>
+
+</uamapping>
