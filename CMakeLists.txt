@@ -1,4 +1,4 @@
-project(DeviceAccess-OPC-UA-Backend)
+project(ChimeraTK-DeviceAccess-OPC-UA-Backend)
 cmake_minimum_required(VERSION 2.8)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 00)
@@ -19,9 +19,16 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb")
 # linker flags
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--export-dynamic")
 
+# Options
+option(WithCSA-OPCUA "Test against ControlsystemAdapter-OPC-UA")
+
+
 include(cmake/add_dependency.cmake)
-add_dependency(mtca4u-deviceaccess 00.29 REQUIRED)
-add_dependency(ChimeraTK-ControlSystemAdapter-OPCUAAdapter 01.05 REQUIRED)
+add_dependency(ChimeraTK-DeviceAccess 00.29 REQUIRED)
+
+if(WithCSA-OPCUA)
+  add_dependency(ChimeraTK-ControlSystemAdapter-OPCUAAdapter 01.05 REQUIRED)
+endif(WithCSA-OPCUA)
 
 # add support for latest C++ standard to compiler flags
 include(cmake/enable_latest_cxx_support.cmake)
@@ -31,20 +38,37 @@ include_directories( include )
 aux_source_directory(${CMAKE_SOURCE_DIR}/src library_sources)
 
 add_library(${PROJECT_NAME} SHARED ${library_sources} )
+target_link_libraries(${PROJECT_NAME} ${ChimeraTK-DeviceAccess_LIBRARIES}) 
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_FULL_LIBRARY_VERSION} SOVERSION ${${PROJECT_NAME}_SOVERSION})
 
-FIND_PACKAGE(Boost COMPONENTS unit_test_framework)
+find_package( Threads )
+FIND_PACKAGE(Boost COMPONENTS unit_test_framework system)
+
 
 if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   ENABLE_TESTING()
+  if(WithCSA-OPCUA)
   FILE( COPY ${CMAKE_SOURCE_DIR}/test/test_mapping.xml DESTINATION ${PROJECT_BINARY_DIR})
   add_executable(testClient ${CMAKE_SOURCE_DIR}/test/testClient.C )
-  target_link_libraries(testClient  ${mtca4u-deviceaccess_LIBRARIES} 
+  target_link_libraries(testClient  ${ChimeraTK-DeviceAccess_LIBRARIES}
                                     ${ChimeraTK-ControlSystemAdapter-OPCUAAdapter_LIBRARIES}
                                     ${Boost_LIBRARIES}
                                     ${PROJECT_NAME})
   add_test(testClient testSoftwareMasterBackend)
+  endif(WithCSA-OPCUA)
+
+  #set_property(SOURCE ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C PROPERTY COMPILE_FLAGS "-std=c99")
+  #SET_SOURCE_FILES_PROPERTIES( ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C  PROPERTIES LANGUAGE C )  
+  add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
+  target_link_libraries( testSimpleServer ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  add_test(testClient testSimpleServer)
 else()
   message(STATUS "Boost unit test framework not found. No tests will be build.")
 endif()
+
+#Install the library and the executables
+install(TARGETS ${PROJECT_NAME}
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION lib
+  )
 

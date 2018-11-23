@@ -12,8 +12,8 @@
 #include <boost/filesystem.hpp>
 using namespace boost::unit_test_framework;
 
-#include <mtca4u/Device.h>
-#include <mtca4u/DeviceException.h>
+#include <ChimeraTK/Device.h>
+#include <ChimeraTK/DeviceException.h>
 #include <ChimeraTK-ControlSystemAdapter-OPCUAAdapter/csa_opcua_adapter.h>
 #include "ChimeraTK/ControlSystemAdapter/ControlSystemSynchronizationUtility.h"
 
@@ -61,15 +61,6 @@ struct Server{
     csaOPCUA->stop();
     BOOST_CHECK(csaOPCUA->isRunning() != true);
   }
-};
-
-
-struct testEnvironment{
-  testEnvironment(){
-  }
-  ~testEnvironment() {
-  }
-
 };
 
 BOOST_AUTO_TEST_CASE(testWithServer) {
