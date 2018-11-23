@@ -75,14 +75,27 @@ template<typename UserType>
   {
     //\ToDo: Check if variable is array
     try {
+      UA_Variant *val = UA_Variant_new();
+      UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
       // allocate buffers
-      NDRegisterAccessor<UserType>::buffer_2D.resize(1);
-      NDRegisterAccessor<UserType>::buffer_2D[0].resize(1);
+      if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val)){
+        NDRegisterAccessor<UserType>::buffer_2D.resize(1);
+        NDRegisterAccessor<UserType>::buffer_2D[0].resize(1);
+      } else if (retval == UA_STATUSCODE_GOOD ){
+        NDRegisterAccessor<UserType>::buffer_2D.resize(1);
+        if(val->arrayLength == 0){
+          throw ChimeraTK::runtime_error("Array length is 0!");
+        } else {
+          printf("\nFound array of size: %d\n", (int)val->arrayLength);
+          NDRegisterAccessor<UserType>::buffer_2D[0].resize(val->arrayLength);
+        }
+      }
 
       _readonly = false;
     }
     catch(...) {
       this->shutdown();
+      std::cerr << "Shuting down..." << std::endl;
       throw;
     }
   }
@@ -198,6 +211,14 @@ template<typename UserType>
       UA_Double value = *(UA_Double*)val->data;
       NDRegisterAccessor<double>::buffer_2D[0][0] = value;
       printf("the value is: %f\n", value);
+    } else if (retval == UA_STATUSCODE_GOOD && !UA_Variant_isScalar(val) &&
+        val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
+      for(size_t i = 0; i < val->arrayLength; i++){
+        UA_Double* tmp = (UA_Double*)val->data;
+        UA_Double value = tmp[i];
+        NDRegisterAccessor<double>::buffer_2D[0][i] = value;
+        printf("the value is: %f\n", value);
+      }
     }
     UA_Variant_delete(val);
   }

@@ -157,7 +157,7 @@ namespace ChimeraTK{
     printf("\n Browsing subinformation...\n");
     UA_QualifiedName *outBrowseName = UA_QualifiedName_new();
     UA_Client_readBrowseNameAttribute(_client, UA_NODEID_NUMERIC(1, node), outBrowseName);
-    std::string nodeName ((char*)outBrowseName->name.data);
+    std::string nodeName ((char*)outBrowseName->name.data, outBrowseName->name.length);
     UA_QualifiedName_delete(outBrowseName);
 //    std::set<UA_UInt32> subnodes = browse(_client, 1, node);
 
