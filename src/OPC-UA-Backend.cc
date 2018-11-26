@@ -63,13 +63,13 @@ namespace ChimeraTK{
       std::string _unit;
       std::string _dataType;
       RegisterInfo::DataDescriptor dataDescriptor;
+      bool _isReadonly;
 
   };
 
   std::set<UA_UInt32> OpcUABackend::browse(UA_UInt32 node, UA_UInt16 ns) const{
     std::set<UA_UInt32> nodes;
     /* Browse some objects */
-    printf("Browsing nodes (%d) in objects folder:\n", node);
     UA_BrowseRequest bReq;
     UA_BrowseRequest_init(&bReq);
     bReq.requestedMaxReferencesPerNode = 0;
@@ -78,30 +78,15 @@ namespace ChimeraTK{
     bReq.nodesToBrowse[0].nodeId = UA_NODEID_NUMERIC(ns, node); /* browse objects folder */
     bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
     UA_BrowseResponse bResp = UA_Client_Service_browse(_client, bReq);
-    printf("%-9s %-16s %-16s %-16s\n", "NAMESPACE", "NODEID", "BROWSE NAME", "DISPLAY NAME");
     for (size_t i = 0; i < bResp.resultsSize; ++i) {
-        for (size_t j = 0; j < bResp.results[i].referencesSize; ++j) {
-            UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
-            if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
-                printf("%-9d %-16d %-16.*s %-16.*s\n", ref->nodeId.nodeId.namespaceIndex,
-                       ref->nodeId.nodeId.identifier.numeric, (int)ref->browseName.name.length,
-                       ref->browseName.name.data, (int)ref->displayName.text.length,
-                       ref->displayName.text.data);
-            } else if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_STRING) {
-                printf("%-9d %-16.*s %-16.*s  \n", ref->nodeId.nodeId.namespaceIndex,
-                       (int)ref->nodeId.nodeId.identifier.string.length,
-                       ref->nodeId.nodeId.identifier.string.data,
-                       (int)ref->browseName.name.length, ref->browseName.name.data,
-                       (int)ref->displayName.text.length, ref->displayName.text.data);
-            }
-            if(ref->nodeId.nodeId.namespaceIndex == 1){
-              if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
-                nodes.insert(ref->nodeId.nodeId.identifier.numeric);
-                printf("Found  node: %d\n", ref->nodeId.nodeId.identifier.numeric);
-              }
-            }
-            /* TODO: distinguish further types */
+      for (size_t j = 0; j < bResp.results[i].referencesSize; ++j) {
+        UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
+        if(ref->nodeId.nodeId.namespaceIndex == 1){
+          if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
+            nodes.insert(ref->nodeId.nodeId.identifier.numeric);
+          }
         }
+      }
     }
     UA_BrowseRequest_deleteMembers(&bReq);
     UA_BrowseResponse_deleteMembers(&bResp);
@@ -154,70 +139,75 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::addCatalogueEntry(const UA_UInt32 &node) const {
-    printf("\n Browsing subinformation...\n");
     UA_QualifiedName *outBrowseName = UA_QualifiedName_new();
     UA_Client_readBrowseNameAttribute(_client, UA_NODEID_NUMERIC(1, node), outBrowseName);
     std::string nodeName ((char*)outBrowseName->name.data, outBrowseName->name.length);
     UA_QualifiedName_delete(outBrowseName);
-//    std::set<UA_UInt32> subnodes = browse(_client, 1, node);
 
     boost::shared_ptr<OpcUABackendRegisterInfo> entry(new OpcUABackendRegisterInfo(_serverAddress, nodeName.substr(1,nodeName.size()-1)));
-    printf("\n Node name is %s\n", nodeName.substr(1,nodeName.size()-1).c_str());
-//    printf("\n Number of subnodes: %d ", subnodes.size());
-//    for(auto it = subnodes.begin(), ite = subnodes.end(); it != ite; it++){
-      UA_BrowseRequest bReq;
-      UA_BrowseRequest_init(&bReq);
-      bReq.requestedMaxReferencesPerNode = 0;
-      bReq.nodesToBrowse = UA_BrowseDescription_new();
-      bReq.nodesToBrowseSize = 1;
-      bReq.nodesToBrowse[0].nodeId = UA_NODEID_NUMERIC(1, node); /* browse objects folder */
-      bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
-      UA_BrowseResponse bResp = UA_Client_Service_browse(_client, bReq);
-      for (size_t i = 0; i < bResp.resultsSize; ++i) {
-        for (size_t j = 0; j < bResp.results[i].referencesSize; ++j) {
-          UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
-          if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
-            UA_Variant *val = UA_Variant_new();
-            UA_String str_val;
-            UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_NUMERIC(1, ref->nodeId.nodeId.identifier.numeric), val);
-            if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
-                    val->type == &UA_TYPES[UA_TYPES_STRING]) {
-              std::string tmp((char*)ref->browseName.name.data);
-              printf("\n Subnode: %s ", tmp.c_str());
-              if(tmp.compare("Description") == 0){
-                str_val = *(UA_String*)val->data;
-                if(str_val.length != 0){
-                  entry->_description = std::string((char*)str_val.data);
-                  printf("\n Description: %s ", entry->_description.c_str());
-                }
-              } else if (tmp.compare("EngineeringUnit") == 0){
-                str_val = *(UA_String*)val->data;
-                if(str_val.length != 0){
-                  entry->_unit = std::string((char*)str_val.data);
-                  printf("\n Unit: %s ", entry->_unit.c_str());
-                }
-              } else if (tmp.compare("Type") == 0){
-                str_val = *(UA_String*)val->data;
-                if(str_val.length != 0){
-                  entry->_dataType = std::string((char*)str_val.data);
-                  printf("\n Type: %s ", entry->_dataType.c_str());
-                }
+    UA_BrowseRequest bReq;
+    UA_BrowseRequest_init(&bReq);
+    bReq.requestedMaxReferencesPerNode = 0;
+    bReq.nodesToBrowse = UA_BrowseDescription_new();
+    bReq.nodesToBrowseSize = 1;
+    bReq.nodesToBrowse[0].nodeId = UA_NODEID_NUMERIC(1, node); /* browse objects folder */
+    bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
+    UA_BrowseResponse bResp = UA_Client_Service_browse(_client, bReq);
+    for (size_t i = 0; i < bResp.resultsSize; ++i) {
+      for (size_t j = 0; j < bResp.results[i].referencesSize; ++j) {
+        // Loop over Description, EngineeringUnit, Name, Type, Value
+        UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
+        if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
+          UA_Variant *val = UA_Variant_new();
+          UA_String str_val;
+          UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_NUMERIC(1, ref->nodeId.nodeId.identifier.numeric), val);
+          if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
+                  val->type == &UA_TYPES[UA_TYPES_STRING]) {
+            std::string tmp((char*)ref->browseName.name.data);
+            if(tmp.compare("Description") == 0){
+              str_val = *(UA_String*)val->data;
+              if(str_val.length != 0){
+                entry->_description = std::string((char*)str_val.data);
+              }
+            } else if (tmp.compare("EngineeringUnit") == 0){
+              str_val = *(UA_String*)val->data;
+              if(str_val.length != 0){
+                entry->_unit = std::string((char*)str_val.data);
+              }
+            } else if (tmp.compare("Type") == 0){
+              str_val = *(UA_String*)val->data;
+              if(str_val.length != 0){
+                entry->_dataType = std::string((char*)str_val.data);
               }
             }
-            UA_Variant_delete(val);
+          } else if (retval != UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
+              val->type == &UA_TYPES[UA_TYPES_STRING]){
+            throw ChimeraTK::runtime_error(std::string("Failed to read node information for node: ") + nodeName);
+          }
 
-          } else if (ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_STRING){
-            // don't read value here...
+          UA_Variant_delete(val);
+
+        } else if (ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_STRING){
+          UA_Byte *outUserAccessLevel = UA_Byte_new();
+          UA_StatusCode retval = UA_Client_readUserAccessLevelAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(nodeName.c_str())),outUserAccessLevel);
+          if(retval == UA_STATUSCODE_GOOD && (*outUserAccessLevel == (UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE) )){
+            entry->_isReadonly = false;
+          } else if (retval == UA_STATUSCODE_GOOD && (*outUserAccessLevel == UA_ACCESSLEVELMASK_READ)){
+            entry->_isReadonly = true;
+          } else {
+            throw ChimeraTK::runtime_error(std::string("Failed to read access rights for node: ") + nodeName);
+          }
+          UA_Byte_delete(outUserAccessLevel);
+          // don't read value here...
 //            UA_Variant *val = UA_Variant_new();
 //            UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(nodeName.c_str())), val);
 //            std::string test((char*)ref->browseName.name.data);
 //            UA_Variant_delete(val);
-          }
         }
       }
-      UA_BrowseRequest_deleteMembers(&bReq);
-      UA_BrowseResponse_deleteMembers(&bResp);
-//    }
+    }
+    UA_BrowseRequest_deleteMembers(&bReq);
+    UA_BrowseResponse_deleteMembers(&bResp);
     if((entry->_dataType.compare("uint32_t") == 0) || (entry->_dataType.compare("uint64_t") == 0)){
       entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
                     true, false, 320, 300 );

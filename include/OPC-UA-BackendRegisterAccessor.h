@@ -120,15 +120,19 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<int32_t>::doReadTransfer() {
-    UA_Int32 value = 0;
     std::cout << "Reading int value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
-      val->type == &UA_TYPES[UA_TYPES_INT32]) {
-      value = *(UA_Int32*)val->data;
-      NDRegisterAccessor<int32_t>::buffer_2D[0][0] = value;
-      printf("the value is: %i\n", value);
+    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_INT32]) {
+      size_t imax = val->arrayLength;
+      if(UA_Variant_isScalar(val))
+        imax = 1;
+      for(size_t i = 0; i < imax; i++){
+        UA_Int32* tmp = (UA_Int32*)val->data;
+        UA_Int32 value = tmp[i];
+        NDRegisterAccessor<int32_t>::buffer_2D[0][i] = value;
+        printf("the value is: %i\n", value);
+      }
     }
     UA_Variant_delete(val);
   }
@@ -147,15 +151,19 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<uint>::doReadTransfer() {
-    UA_UInt32 value = 0;
     std::cout << "Reading uint value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
-      val->type == &UA_TYPES[UA_TYPES_UINT32]) {
-      value = *(UA_UInt32*)val->data;
-      NDRegisterAccessor<uint>::buffer_2D[0][0] = value;
-      printf("the value is: %i\n", value);
+    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_UINT32]) {
+      size_t imax = val->arrayLength;
+      if(UA_Variant_isScalar(val))
+        imax = 1;
+      for(size_t i = 0; i < imax; i++){
+        UA_UInt32* tmp = (UA_UInt32*)val->data;
+        UA_UInt32 value = tmp[i];
+        NDRegisterAccessor<uint>::buffer_2D[0][i] = value;
+        printf("the value is: %i\n", value);
+      }
     }
     UA_Variant_delete(val);
   }
@@ -177,14 +185,19 @@ template<typename UserType>
     std::cout << "Reading string value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
-      val->type == &UA_TYPES[UA_TYPES_STRING]) {
-      UA_String value = *(UA_String*)val->data;
-      if(value.length != 0)
-        NDRegisterAccessor<std::string>::buffer_2D[0][0] = std::string((char*)value.data, value.length);
-      else
-        NDRegisterAccessor<std::string>::buffer_2D[0][0] = std::string("");
-      printf("the value is: %-16.*s\n", value.length, value.data);
+    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_STRING]) {
+      size_t imax = val->arrayLength;
+      if(UA_Variant_isScalar(val))
+        imax = 1;
+      for(size_t i = 0; i < imax; i++){
+        UA_String* tmp = (UA_String*)val->data;
+        UA_String value = tmp[i];
+        if(value.length != 0)
+          NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::string((char*)value.data, value.length);
+        else
+          NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::string("");
+        printf("the value is: %-16.*s\n", value.length, value.data);
+      }
     }
     UA_Variant_delete(val);
   }
@@ -206,14 +219,11 @@ template<typename UserType>
     std::cout << "Reading double value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
-      val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
-      UA_Double value = *(UA_Double*)val->data;
-      NDRegisterAccessor<double>::buffer_2D[0][0] = value;
-      printf("the value is: %f\n", value);
-    } else if (retval == UA_STATUSCODE_GOOD && !UA_Variant_isScalar(val) &&
-        val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
-      for(size_t i = 0; i < val->arrayLength; i++){
+    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
+      size_t imax = val->arrayLength;
+      if(UA_Variant_isScalar(val))
+        imax = 1;
+      for(size_t i = 0; i < imax; i++){
         UA_Double* tmp = (UA_Double*)val->data;
         UA_Double value = tmp[i];
         NDRegisterAccessor<double>::buffer_2D[0][i] = value;
@@ -240,11 +250,16 @@ template<typename UserType>
     std::cout << "Reading float value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
-      val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
-      UA_Float value = *(UA_Float*)val->data;
-      NDRegisterAccessor<float>::buffer_2D[0][0] = value;
-      printf("the value is: %f\n", value);
+    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
+      size_t imax = val->arrayLength;
+      if(UA_Variant_isScalar(val))
+        imax = 1;
+      for(size_t i = 0; i < imax; i++){
+        UA_Float* tmp = (UA_Float*)val->data;
+        UA_Float value = tmp[i];
+        NDRegisterAccessor<float>::buffer_2D[0][i] = value;
+        printf("the value is: %f\n", value);
+      }
     }
     UA_Variant_delete(val);
   }
