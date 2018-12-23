@@ -26,9 +26,7 @@ template<typename UserType>
 
    bool doReadTransferLatest() override;
 
-   virtual bool doWriteTransfer(ChimeraTK::VersionNumber /*versionNumber*/={}){
-     return false;
-   }
+   virtual bool doWriteTransfer(ChimeraTK::VersionNumber /*versionNumber*/={}) override;
 
    AccessModeFlags getAccessModeFlags() const override {
      return {};
@@ -66,6 +64,8 @@ template<typename UserType>
 
    UA_Client *_client;
    std::string _node_id;
+   size_t _arraySize;
+   bool _isScalar;
 
   };
 
@@ -81,13 +81,17 @@ template<typename UserType>
       if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val)){
         NDRegisterAccessor<UserType>::buffer_2D.resize(1);
         NDRegisterAccessor<UserType>::buffer_2D[0].resize(1);
+        _arraySize = 1;
+        _isScalar = true;
       } else if (retval == UA_STATUSCODE_GOOD ){
+        _isScalar = false;
         NDRegisterAccessor<UserType>::buffer_2D.resize(1);
         if(val->arrayLength == 0){
           throw ChimeraTK::runtime_error("Array length is 0!");
         } else {
           printf("\nFound array of size: %d\n", (int)val->arrayLength);
           NDRegisterAccessor<UserType>::buffer_2D[0].resize(val->arrayLength);
+          _arraySize = val->arrayLength;
         }
       }
 
@@ -118,16 +122,18 @@ template<typename UserType>
     return true;
   }
 
+  template<typename UserType>
+  bool OpcUABackendRegisterAccessor<UserType>::doWriteTransfer(ChimeraTK::VersionNumber){
+    return false;
+  }
+
   template<>
   void OpcUABackendRegisterAccessor<int32_t>::doReadTransfer() {
     std::cout << "Reading int value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_INT32]) {
-      size_t imax = val->arrayLength;
-      if(UA_Variant_isScalar(val))
-        imax = 1;
-      for(size_t i = 0; i < imax; i++){
+      for(size_t i = 0; i < _arraySize; i++){
         UA_Int32* tmp = (UA_Int32*)val->data;
         UA_Int32 value = tmp[i];
         NDRegisterAccessor<int32_t>::buffer_2D[0][i] = value;
@@ -155,10 +161,7 @@ template<typename UserType>
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_UINT32]) {
-      size_t imax = val->arrayLength;
-      if(UA_Variant_isScalar(val))
-        imax = 1;
-      for(size_t i = 0; i < imax; i++){
+      for(size_t i = 0; i < _arraySize; i++){
         UA_UInt32* tmp = (UA_UInt32*)val->data;
         UA_UInt32 value = tmp[i];
         NDRegisterAccessor<uint>::buffer_2D[0][i] = value;
@@ -181,15 +184,32 @@ template<typename UserType>
   }
 
   template<>
+  bool OpcUABackendRegisterAccessor<uint>::doWriteTransfer(ChimeraTK::VersionNumber){
+    UA_Variant *val = UA_Variant_new();
+    if(_isScalar){
+      UA_Variant_setScalarCopy(val, &NDRegisterAccessor<uint>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_UINT32]);
+    } else {
+      UA_Variant_setArrayCopy(val, &NDRegisterAccessor<uint>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_UINT32]);
+    }
+    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
+    UA_Variant_delete(val);
+    if(retval == UA_STATUSCODE_GOOD){
+      return true;
+    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
+      throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
+    } else {
+      printf("Failed writing with error code: %zu", retval);
+      return false;
+    }
+  }
+
+  template<>
   void OpcUABackendRegisterAccessor<std::string>::doReadTransfer() {
     std::cout << "Reading string value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_STRING]) {
-      size_t imax = val->arrayLength;
-      if(UA_Variant_isScalar(val))
-        imax = 1;
-      for(size_t i = 0; i < imax; i++){
+      for(size_t i = 0; i < _arraySize; i++){
         UA_String* tmp = (UA_String*)val->data;
         UA_String value = tmp[i];
         if(value.length != 0)
@@ -215,15 +235,32 @@ template<typename UserType>
   }
 
   template<>
+  bool OpcUABackendRegisterAccessor<std::string>::doWriteTransfer(ChimeraTK::VersionNumber){
+    UA_Variant *val = UA_Variant_new();
+    if(_isScalar){
+      UA_Variant_setScalarCopy(val, &NDRegisterAccessor<std::string>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_STRING]);
+    } else {
+      UA_Variant_setArrayCopy(val, &NDRegisterAccessor<std::string>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_STRING]);
+    }
+    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
+    UA_Variant_delete(val);
+    if(retval == UA_STATUSCODE_GOOD){
+      return true;
+    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
+      throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
+    } else {
+      printf("Failed writing with error code: %zu", retval);
+      return false;
+    }
+  }
+
+  template<>
   void OpcUABackendRegisterAccessor<double>::doReadTransfer() {
     std::cout << "Reading double value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
-      size_t imax = val->arrayLength;
-      if(UA_Variant_isScalar(val))
-        imax = 1;
-      for(size_t i = 0; i < imax; i++){
+      for(size_t i = 0; i < _arraySize; i++){
         UA_Double* tmp = (UA_Double*)val->data;
         UA_Double value = tmp[i];
         NDRegisterAccessor<double>::buffer_2D[0][i] = value;
@@ -246,15 +283,32 @@ template<typename UserType>
   }
 
   template<>
+  bool OpcUABackendRegisterAccessor<double>::doWriteTransfer(ChimeraTK::VersionNumber){
+    UA_Variant *val = UA_Variant_new();
+    if(_isScalar){
+      UA_Variant_setScalarCopy(val, &NDRegisterAccessor<double>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_DOUBLE]);
+    } else {
+      UA_Variant_setArrayCopy(val, &NDRegisterAccessor<double>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_DOUBLE]);
+    }
+    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
+    UA_Variant_delete(val);
+    if(retval == UA_STATUSCODE_GOOD){
+      return true;
+    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
+      throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
+    } else {
+      printf("Failed writing with error code: %zu", retval);
+      return false;
+    }
+  }
+
+  template<>
   void OpcUABackendRegisterAccessor<float>::doReadTransfer() {
     std::cout << "Reading float value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
-      size_t imax = val->arrayLength;
-      if(UA_Variant_isScalar(val))
-        imax = 1;
-      for(size_t i = 0; i < imax; i++){
+      for(size_t i = 0; i < _arraySize; i++){
         UA_Float* tmp = (UA_Float*)val->data;
         UA_Float value = tmp[i];
         NDRegisterAccessor<float>::buffer_2D[0][i] = value;
@@ -274,6 +328,26 @@ template<typename UserType>
   bool OpcUABackendRegisterAccessor<float>::doReadTransferNonBlocking() {
     doReadTransfer();
     return true;
+  }
+
+  template<>
+  bool OpcUABackendRegisterAccessor<float>::doWriteTransfer(ChimeraTK::VersionNumber){
+    UA_Variant *val = UA_Variant_new();
+    if(_isScalar){
+      UA_Variant_setScalarCopy(val, &NDRegisterAccessor<float>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_FLOAT]);
+    } else {
+      UA_Variant_setArrayCopy(val, &NDRegisterAccessor<float>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_FLOAT]);
+    }
+    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
+    UA_Variant_delete(val);
+    if(retval == UA_STATUSCODE_GOOD){
+      return true;
+    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
+      throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
+    } else {
+      printf("Failed writing with error code: %zu", retval);
+      return false;
+    }
   }
 }
 

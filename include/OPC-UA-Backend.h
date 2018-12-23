@@ -77,6 +77,7 @@ namespace ChimeraTK {
     std::string _password;
 
     UA_Client *_client;
+    UA_ClientConfig _config;
 
     /**
      * Delete the client connection and set the client pointer
