@@ -129,16 +129,21 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<int32_t>::doReadTransfer() {
-    std::cout << "Reading int value of node (1, \"" << _node_id << "\":" << std::endl;
+//    std::cout << "Reading int value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_INT32]) {
+    if(retval != UA_STATUSCODE_GOOD){
+      throw ChimeraTK::runtime_error(std::string("Failed to read data from variable: ") + _node_id);
+    }
+    if(val->type == &UA_TYPES[UA_TYPES_INT32]) {
       for(size_t i = 0; i < _arraySize; i++){
         UA_Int32* tmp = (UA_Int32*)val->data;
         UA_Int32 value = tmp[i];
         NDRegisterAccessor<int32_t>::buffer_2D[0][i] = value;
-        printf("the value is: %i\n", value);
+//        printf("the value is: %i\n", value);
       }
+    } else {
+      throw ChimeraTK::runtime_error(std::string("Type mismatch when reading variable: ") + _node_id);
     }
     UA_Variant_delete(val);
   }
@@ -157,16 +162,21 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<uint>::doReadTransfer() {
-    std::cout << "Reading uint value of node (1, \"" << _node_id << "\":" << std::endl;
+//    std::cout << "Reading uint value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_UINT32]) {
+    if(retval != UA_STATUSCODE_GOOD){
+      throw ChimeraTK::runtime_error(std::string("Failed to read data from variable: ") + _node_id);
+    }
+    if(val->type == &UA_TYPES[UA_TYPES_UINT32]) {
       for(size_t i = 0; i < _arraySize; i++){
         UA_UInt32* tmp = (UA_UInt32*)val->data;
         UA_UInt32 value = tmp[i];
         NDRegisterAccessor<uint>::buffer_2D[0][i] = value;
-        printf("the value is: %i\n", value);
+//        printf("the value is: %i\n", value);
       }
+    } else {
+      throw ChimeraTK::runtime_error(std::string("Type mismatch when reading variable: ") + _node_id);
     }
     UA_Variant_delete(val);
   }
@@ -198,14 +208,14 @@ template<typename UserType>
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
       throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
     } else {
-      printf("Failed writing with error code: %zu", retval);
+//      printf("Failed writing with error code: %zu", retval);
       return false;
     }
   }
 
   template<>
   void OpcUABackendRegisterAccessor<std::string>::doReadTransfer() {
-    std::cout << "Reading string value of node (1, \"" << _node_id << "\":" << std::endl;
+//    std::cout << "Reading string value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_STRING]) {
@@ -216,7 +226,7 @@ template<typename UserType>
           NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::string((char*)value.data, value.length);
         else
           NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::string("");
-        printf("the value is: %-16.*s\n", value.length, value.data);
+//        printf("the value is: %-16.*s\n", value.length, value.data);
       }
     }
     UA_Variant_delete(val);
@@ -249,23 +259,28 @@ template<typename UserType>
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
       throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
     } else {
-      printf("Failed writing with error code: %zu", retval);
+//      printf("Failed writing with error code: %zu", retval);
       return false;
     }
   }
 
   template<>
   void OpcUABackendRegisterAccessor<double>::doReadTransfer() {
-    std::cout << "Reading double value of node (1, \"" << _node_id << "\":" << std::endl;
+//    std::cout << "Reading double value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
+    if(retval != UA_STATUSCODE_GOOD){
+      throw ChimeraTK::runtime_error(std::string("Failed to read data from variable: ") + _node_id);
+    }
+    if(val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
       for(size_t i = 0; i < _arraySize; i++){
         UA_Double* tmp = (UA_Double*)val->data;
         UA_Double value = tmp[i];
         NDRegisterAccessor<double>::buffer_2D[0][i] = value;
-        printf("the value is: %f\n", value);
+//        printf("the value is: %f\n", value);
       }
+    } else {
+      throw ChimeraTK::runtime_error(std::string("Type mismatch when reading variable: ") + _node_id);
     }
     UA_Variant_delete(val);
   }
@@ -297,23 +312,28 @@ template<typename UserType>
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
       throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
     } else {
-      printf("Failed writing with error code: %zu", retval);
+//      printf("Failed writing with error code: %zu", retval);
       return false;
     }
   }
 
   template<>
   void OpcUABackendRegisterAccessor<float>::doReadTransfer() {
-    std::cout << "Reading float value of node (1, \"" << _node_id << "\":" << std::endl;
+//    std::cout << "Reading float value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
-    if(retval == UA_STATUSCODE_GOOD && val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
+    if(retval != UA_STATUSCODE_GOOD){
+      throw ChimeraTK::runtime_error(std::string("Failed to read data from variable: ") + _node_id);
+    }
+    if(val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
       for(size_t i = 0; i < _arraySize; i++){
         UA_Float* tmp = (UA_Float*)val->data;
         UA_Float value = tmp[i];
         NDRegisterAccessor<float>::buffer_2D[0][i] = value;
-        printf("the value is: %f\n", value);
+//        printf("the value is: %f\n", value);
       }
+    } else {
+      throw ChimeraTK::runtime_error(std::string("Type mismatch when reading variable: ") + _node_id);
     }
     UA_Variant_delete(val);
   }
@@ -345,7 +365,7 @@ template<typename UserType>
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
       throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
     } else {
-      printf("Failed writing with error code: %zu", retval);
+//      printf("Failed writing with error code: %zu", retval);
       return false;
     }
   }
