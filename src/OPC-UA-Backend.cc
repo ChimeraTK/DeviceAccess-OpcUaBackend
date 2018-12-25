@@ -145,6 +145,9 @@ namespace ChimeraTK{
     UA_Client_readBrowseNameAttribute(_client, UA_NODEID_NUMERIC(1, node), outBrowseName);
     std::string nodeName ((char*)outBrowseName->name.data, outBrowseName->name.length);
     UA_QualifiedName_delete(outBrowseName);
+    //\ToDo: Why this happens (seen with llrf_server)??
+    if(nodeName.empty())
+      return;
 
     boost::shared_ptr<OpcUABackendRegisterInfo> entry(new OpcUABackendRegisterInfo(_serverAddress, nodeName.substr(1,nodeName.size()-1)));
     UA_BrowseRequest bReq;
