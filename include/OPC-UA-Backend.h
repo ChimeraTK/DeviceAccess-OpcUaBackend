@@ -12,15 +12,23 @@
 
 #include "open62541.h"
 #include <sstream>
+#include <mutex>
 
 namespace ChimeraTK {
+  /**
+   * This is used since async access is not supported by OPC-UA.
+   [12/26/2018 20:55:49.705] error/client	Reply answers the wrong requestId. Async services are not yet implemented.
+   [12/26/2018 20:55:49.705] info/client	Error receiving the response
+   * One could also use a client per process varibale...
+   */
+  extern std::mutex opcua_mutex;
   class OpcUABackend : public DeviceBackendImpl {
   public:
     virtual ~OpcUABackend(){}
   protected:
     OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "");
 
-    void fillCatalogue() const;
+    void fillCatalogue();
 
     /**
      * Return the catalogue and if not filled yet fill it.
@@ -88,7 +96,12 @@ namespace ChimeraTK {
     /**
      * Used to iteratively loop over all device files
      */
-    void addCatalogueEntry(const UA_UInt32 &node) const;
+    void addCatalogueEntry(const UA_UInt32 &node);
+
+    /**
+     * Reconnect the client in case the connection is lost.
+     */
+    void reconnect();
 
     /**
      * Browse all references of the given node and return a list of nodes from namespace 1 that are numeric nodes.

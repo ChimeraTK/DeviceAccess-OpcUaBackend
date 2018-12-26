@@ -53,7 +53,7 @@ namespace ChimeraTK{
 
       unsigned int getNumberOfChannels() const override { return 1; }
 
-      unsigned int getNumberOfDimensions() const override { return _arrayLength > 1 ? 1 : 0;0; }
+      unsigned int getNumberOfDimensions() const override { return _arrayLength > 1 ? 1 : 0; }
 
       const RegisterInfo::DataDescriptor& getDataDescriptor() const override { return dataDescriptor; }
 
@@ -120,7 +120,7 @@ namespace ChimeraTK{
     return serverNodes;
   }
 
-  void OpcUABackend::fillCatalogue() const {
+  void OpcUABackend::fillCatalogue() {
     std::set<UA_UInt32> nodes = browse(UA_NS0ID_OBJECTSFOLDER, 0);
 //    std::set<UA_UInt32> nodes;// = browse(_client, 0,UA_NS0ID_OBJECTSFOLDER);
     if(nodes.size() != 1){
@@ -140,9 +140,14 @@ namespace ChimeraTK{
     }
   }
 
-  void OpcUABackend::addCatalogueEntry(const UA_UInt32 &node) const {
+  void OpcUABackend::addCatalogueEntry(const UA_UInt32 &node) {
     UA_QualifiedName *outBrowseName = UA_QualifiedName_new();
-    UA_Client_readBrowseNameAttribute(_client, UA_NODEID_NUMERIC(1, node), outBrowseName);
+    UA_StatusCode retval = UA_Client_readBrowseNameAttribute(_client, UA_NODEID_NUMERIC(1, node), outBrowseName);
+    if(retval != UA_STATUSCODE_GOOD){
+      UA_QualifiedName_delete(outBrowseName);
+      reconnect();
+      return;
+    }
     std::string nodeName ((char*)outBrowseName->name.data, outBrowseName->name.length);
     UA_QualifiedName_delete(outBrowseName);
     //\ToDo: Why this happens (seen with llrf_server)??
@@ -194,13 +199,15 @@ namespace ChimeraTK{
 
         } else if (ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_STRING){
           UA_Byte *outUserAccessLevel = UA_Byte_new();
-          UA_StatusCode retval = UA_Client_readUserAccessLevelAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(nodeName.c_str())),outUserAccessLevel);
+          retval = UA_Client_readUserAccessLevelAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(nodeName.c_str())),outUserAccessLevel);
           if(retval == UA_STATUSCODE_GOOD && (*outUserAccessLevel == (UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE) )){
             entry->_isReadonly = false;
           } else if (retval == UA_STATUSCODE_GOOD && (*outUserAccessLevel == UA_ACCESSLEVELMASK_READ)){
             entry->_isReadonly = true;
           } else {
-            throw ChimeraTK::runtime_error(std::string("Failed to read access rights for node: ") + nodeName);
+//            throw ChimeraTK::runtime_error(std::string("Failed to read access rights for node: ") + nodeName);
+            std::cerr << "Failed to read access rights for node: " << nodeName << " -> set readonly." << std::endl;
+            entry->_isReadonly = true;
           }
           UA_Byte_delete(outUserAccessLevel);
           UA_Variant *val = UA_Variant_new();
@@ -230,7 +237,9 @@ namespace ChimeraTK{
       entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
                           false, true, 320, 300 );
     } else {
-      throw ChimeraTK::runtime_error(std::string("Unknown data type: ") + entry->_dataType);
+//      throw ChimeraTK::runtime_error(std::string("Unknown data type: ") + entry->_dataType);
+      std::cerr << "Failed to determine data type for node: " << nodeName << " -> entry is not added to the catalogue." << std::endl;
+      return;
     }
     _catalogue_mutable.addRegister(entry);
 
@@ -273,6 +282,31 @@ namespace ChimeraTK{
     _opened = false;
   }
 
+  void OpcUABackend::reconnect(){
+    /** Test connection **/
+    if(UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED){
+      _opened = false;
+      deleteClient();
+      _client = UA_Client_new(_config);
+      UA_StatusCode retval;
+      /** Connect **/
+      if(UA_Client_getState(_client) != UA_CLIENTSTATE_READY){
+        deleteClient();
+        throw ChimeraTK::runtime_error("Failed to set up opc client.");
+      }
+      if(_username.empty() || _password.empty()){
+        retval = UA_Client_connect(_client, _serverAddress.c_str());
+      } else {
+        retval = UA_Client_connect_username(_client, _serverAddress.c_str(), _username.c_str(), _password.c_str());
+      }
+      if(retval != UA_STATUSCODE_GOOD) {
+        deleteClient();
+        throw ChimeraTK::runtime_error(std::string("Failed to connect to opc server: ") + _serverAddress.c_str());
+      }
+      _opened = true;
+    }
+  }
+
   template<typename UserType>
   boost::shared_ptr< NDRegisterAccessor<UserType> > OpcUABackend::getRegisterAccessor_impl(
       const RegisterPath &registerPathName) {
@@ -296,8 +330,6 @@ namespace ChimeraTK{
   }
 
   const RegisterCatalogue& OpcUABackend::getRegisterCatalogue() const {
-    if(!_catalogue_filled)
-      fillCatalogue();
     return _catalogue_mutable;
  }
 

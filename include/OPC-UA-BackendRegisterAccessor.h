@@ -13,6 +13,7 @@
 #include <ChimeraTK/AccessMode.h>
 
 namespace ChimeraTK {
+  std::mutex opcua_mutex;
 template<typename UserType>
   class OpcUABackendRegisterAccessor : public SyncNDRegisterAccessor<UserType> {
 
@@ -129,6 +130,7 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<int32_t>::doReadTransfer() {
+    std::lock_guard<std::mutex> lock(opcua_mutex);
 //    std::cout << "Reading int value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
@@ -162,6 +164,7 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<uint>::doReadTransfer() {
+    std::lock_guard<std::mutex> lock(opcua_mutex);
 //    std::cout << "Reading uint value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
@@ -195,6 +198,7 @@ template<typename UserType>
 
   template<>
   bool OpcUABackendRegisterAccessor<uint>::doWriteTransfer(ChimeraTK::VersionNumber){
+    std::lock_guard<std::mutex> lock(opcua_mutex);
     UA_Variant *val = UA_Variant_new();
     if(_isScalar){
       UA_Variant_setScalarCopy(val, &NDRegisterAccessor<uint>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_UINT32]);
@@ -215,6 +219,7 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<std::string>::doReadTransfer() {
+    std::lock_guard<std::mutex> lock(opcua_mutex);
 //    std::cout << "Reading string value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
@@ -246,6 +251,7 @@ template<typename UserType>
 
   template<>
   bool OpcUABackendRegisterAccessor<std::string>::doWriteTransfer(ChimeraTK::VersionNumber){
+    std::lock_guard<std::mutex> lock(opcua_mutex);
     UA_Variant *val = UA_Variant_new();
     if(_isScalar){
       UA_Variant_setScalarCopy(val, &NDRegisterAccessor<std::string>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_STRING]);
@@ -266,6 +272,7 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<double>::doReadTransfer() {
+    std::lock_guard<std::mutex> lock(opcua_mutex);
 //    std::cout << "Reading double value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
@@ -299,6 +306,7 @@ template<typename UserType>
 
   template<>
   bool OpcUABackendRegisterAccessor<double>::doWriteTransfer(ChimeraTK::VersionNumber){
+    std::lock_guard<std::mutex> lock(opcua_mutex);
     UA_Variant *val = UA_Variant_new();
     if(_isScalar){
       UA_Variant_setScalarCopy(val, &NDRegisterAccessor<double>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_DOUBLE]);
@@ -319,6 +327,7 @@ template<typename UserType>
 
   template<>
   void OpcUABackendRegisterAccessor<float>::doReadTransfer() {
+    std::lock_guard<std::mutex> lock(opcua_mutex);
 //    std::cout << "Reading float value of node (1, \"" << _node_id << "\":" << std::endl;
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
@@ -352,6 +361,7 @@ template<typename UserType>
 
   template<>
   bool OpcUABackendRegisterAccessor<float>::doWriteTransfer(ChimeraTK::VersionNumber){
+    std::lock_guard<std::mutex> lock(opcua_mutex);
     UA_Variant *val = UA_Variant_new();
     if(_isScalar){
       UA_Variant_setScalarCopy(val, &NDRegisterAccessor<float>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_FLOAT]);
