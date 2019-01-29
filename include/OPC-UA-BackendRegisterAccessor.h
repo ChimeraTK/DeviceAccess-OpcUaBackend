@@ -125,7 +125,7 @@ template<typename UserType>
 
   template<typename UserType>
   bool OpcUABackendRegisterAccessor<UserType>::doWriteTransfer(ChimeraTK::VersionNumber){
-    return false;
+    throw ChimeraTK::runtime_error("Data type not supported by OneWireBackendRegisterAccessor.");
   }
 
   template<>
@@ -160,6 +160,28 @@ template<typename UserType>
   bool OpcUABackendRegisterAccessor<int32_t>::doReadTransferNonBlocking() {
     doReadTransfer();
     return true;
+  }
+
+
+  template<>
+  bool OpcUABackendRegisterAccessor<int32_t>::doWriteTransfer(ChimeraTK::VersionNumber){
+    std::lock_guard<std::mutex> lock(opcua_mutex);
+    UA_Variant *val = UA_Variant_new();
+    if(_isScalar){
+      UA_Variant_setScalarCopy(val, &NDRegisterAccessor<int32_t>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_INT32]);
+    } else {
+      UA_Variant_setArrayCopy(val, &NDRegisterAccessor<int32_t>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_INT32]);
+    }
+    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
+    UA_Variant_delete(val);
+    if(retval == UA_STATUSCODE_GOOD){
+      return true;
+    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
+      throw ChimeraTK::runtime_error(std::string("Variable ") + _node_id + " is not writable!");
+    } else {
+//      printf("Failed writing with error code: %zu", retval);
+      return false;
+    }
   }
 
   template<>
