@@ -37,8 +37,10 @@ include_directories( include )
 aux_source_directory(${CMAKE_SOURCE_DIR}/src library_sources)
 
 add_library(${PROJECT_NAME} SHARED ${library_sources} )
-target_link_libraries(${PROJECT_NAME} ${ChimeraTK-DeviceAccess_LIBRARIES}) 
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_FULL_LIBRARY_VERSION} SOVERSION ${${PROJECT_NAME}_SOVERSION})
+set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_FLAGS "-Wl,--enable-new-dtags")
+set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "${ChimeraTK-DeviceAccess_CXX_FLAGS}")
+target_link_libraries(${PROJECT_NAME} ${ChimeraTK-DeviceAccess_LIBRARIES}) 
 
 find_package( Threads )
 FIND_PACKAGE(Boost COMPONENTS unit_test_framework system)
@@ -74,4 +76,24 @@ install(TARGETS ${PROJECT_NAME}
             RUNTIME DESTINATION bin
             LIBRARY DESTINATION lib
   )
+  
+#all include files go into include/PROJECT_NAME
+#The exclusion of ${PROJECT_NAME} prevents the recursive installation of the files just being installed.
+#The original headers are in include/*.h, the installed ones in include/PROJECT_NAME/*.h.
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include/${PROJECT_NAME}
+          FILES_MATCHING PATTERN "*.h"
+          PATTERN ".svn" EXCLUDE
+          PATTERN "${PROJECT_NAME}" EXCLUDE
+          )
+
+#Create the config files by filling the correct variables into the template (*.cmake.in).
+#All variables @VARIABLE@ are replaced with the current values, but they have to be set first....
+#Only the reference header is needed. The other variables are for dependencies of this library,
+#but there are none.
+set(${PROJECT_NAME}_INCLUDE_DIRS "${CMAKE_INSTALL_PREFIX}/include ${Boost_INCLUDE_DIRS}")
+set(${PROJECT_NAME}_LIBRARIES "${PROJECT_NAME} ${ChimeraTK-DeviceAccess_LIBRARIES}")
+set(${PROJECT_NAME}_LIBRARY_DIRS "${CMAKE_INSTALL_PREFIX}/lib ${ChimeraTK-DeviceAccess_LIBRARY_DIRS}")
+set(${PROJECT_NAME}_CPPFLAGS "${ChimeraTK-DeviceAccess_CXX_FLAGS}")
+set(${PROJECT_NAME}_LINKER_FLAGS "-Wl,-rpath=${CMAKE_INSTALL_PREFIX}/lib,--enable-new-dtags")
+include(${CMAKE_SOURCE_DIR}/cmake/create_cmake_config_files.cmake)  
 
