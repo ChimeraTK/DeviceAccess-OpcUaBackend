@@ -6,10 +6,6 @@ set(${PROJECT_NAME}_MINOR_VERSION 00)
 set(${PROJECT_NAME}_PATCH_VERSION 01)
 include(cmake/set_version_numbers.cmake)
 
-# Needed by ControlsystemAdapter-OPC-UA-Adapter in the tests
-find_package(LibXml2 REQUIRED)
-include_directories(SYSTEM ${LIBXML2_INCLUDE_DIR})
-
 #Moderate version of the compiler flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -Wextra -ansi -Wuninitialized")
 
@@ -28,6 +24,9 @@ add_dependency(ChimeraTK-DeviceAccess 00.29 REQUIRED)
 
 if(WithCSA-OPCUA)
   add_dependency(ChimeraTK-ControlSystemAdapter-OPCUAAdapter 01.05 REQUIRED)
+  # Needed by ControlsystemAdapter-OPC-UA-Adapter in the tests
+  find_package(LibXml2 REQUIRED)
+  include_directories(SYSTEM ${LIBXML2_INCLUDE_DIR})
 endif(WithCSA-OPCUA)
 
 # add support for latest C++ standard to compiler flags
@@ -62,6 +61,10 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
   target_link_libraries( testSimpleServer ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   add_test(testClient testSimpleServer)
+  
+  add_executable(testBrowse ${CMAKE_SOURCE_DIR}/test/testBrowse.C )
+  target_link_libraries( testBrowse ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  add_test(testBrowse testBrowse)
 else()
   message(STATUS "Boost unit test framework not found. No tests will be build.")
 endif()
