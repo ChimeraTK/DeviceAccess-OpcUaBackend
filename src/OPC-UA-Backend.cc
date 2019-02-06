@@ -121,6 +121,7 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::fillCatalogue() {
+    std::lock_guard<std::mutex> lock(opcua_mutex);
     std::set<UA_UInt32> nodes = browse(UA_NS0ID_OBJECTSFOLDER, 0);
 //    std::set<UA_UInt32> nodes;// = browse(_client, 0,UA_NS0ID_OBJECTSFOLDER);
     if(nodes.size() != 1){
@@ -145,6 +146,7 @@ namespace ChimeraTK{
     UA_StatusCode retval = UA_Client_readBrowseNameAttribute(_client, UA_NODEID_NUMERIC(1, node), outBrowseName);
     if(retval != UA_STATUSCODE_GOOD){
       UA_QualifiedName_delete(outBrowseName);
+      std::cerr << "Reconnect during adding catalogue entries. Error is " << std::hex << retval <<  std::endl;
       reconnect();
       return;
     }
