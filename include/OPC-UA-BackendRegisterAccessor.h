@@ -135,6 +135,7 @@ template<typename UserType>
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval != UA_STATUSCODE_GOOD){
+      UA_Variant_delete(val);
       throw ChimeraTK::runtime_error(std::string("Failed to read data from variable: ") + _node_id);
     }
     if(val->type == &UA_TYPES[UA_TYPES_INT32]) {
@@ -144,10 +145,11 @@ template<typename UserType>
         NDRegisterAccessor<int32_t>::buffer_2D[0][i] = value;
 //        printf("the value is: %i\n", value);
       }
+      UA_Variant_delete(val);
     } else {
+      UA_Variant_delete(val);
       throw ChimeraTK::runtime_error(std::string("Type mismatch when reading variable: ") + _node_id);
     }
-    UA_Variant_delete(val);
   }
 
   template<>
@@ -191,6 +193,7 @@ template<typename UserType>
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval != UA_STATUSCODE_GOOD){
+      UA_Variant_delete(val);
       throw ChimeraTK::runtime_error(std::string("Failed to read data from variable: ") + _node_id);
     }
     if(val->type == &UA_TYPES[UA_TYPES_UINT32]) {
@@ -200,10 +203,11 @@ template<typename UserType>
         NDRegisterAccessor<uint>::buffer_2D[0][i] = value;
 //        printf("the value is: %i\n", value);
       }
+      UA_Variant_delete(val);
     } else {
+      UA_Variant_delete(val);
       throw ChimeraTK::runtime_error(std::string("Type mismatch when reading variable: ") + _node_id);
     }
-    UA_Variant_delete(val);
   }
 
   template<>
@@ -299,6 +303,7 @@ template<typename UserType>
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval != UA_STATUSCODE_GOOD){
+      UA_Variant_delete(val);
       throw ChimeraTK::runtime_error(std::string("Failed to read data from variable: ") + _node_id);
     }
     if(val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
@@ -308,10 +313,11 @@ template<typename UserType>
         NDRegisterAccessor<double>::buffer_2D[0][i] = value;
 //        printf("the value is: %f\n", value);
       }
+      UA_Variant_delete(val);
     } else {
+      UA_Variant_delete(val);
       throw ChimeraTK::runtime_error(std::string("Type mismatch when reading variable: ") + _node_id);
     }
-    UA_Variant_delete(val);
   }
 
   template<>
@@ -354,6 +360,7 @@ template<typename UserType>
     UA_Variant *val = UA_Variant_new();
     UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
     if(retval != UA_STATUSCODE_GOOD){
+      UA_Variant_delete(val);
       throw ChimeraTK::runtime_error(std::string("Failed to read data from variable: ") + _node_id);
     }
     if(val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
@@ -363,10 +370,11 @@ template<typename UserType>
         NDRegisterAccessor<float>::buffer_2D[0][i] = value;
 //        printf("the value is: %f\n", value);
       }
+      UA_Variant_delete(val);
     } else {
+      UA_Variant_delete(val);
       throw ChimeraTK::runtime_error(std::string("Type mismatch when reading variable: ") + _node_id);
     }
-    UA_Variant_delete(val);
   }
 
   template<>
