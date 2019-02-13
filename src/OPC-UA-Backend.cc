@@ -328,12 +328,12 @@ namespace ChimeraTK{
       }
     }
     NDRegisterAccessor<UserType> *p;
-    p = new OpcUABackendRegisterAccessor<UserType>(path, _client, registerPathName, info->_isReadonly, this);
+    p = new OpcUABackendRegisterAccessor<UserType>(path, _client, registerPathName, info->_isReadonly);
     return boost::shared_ptr< NDRegisterAccessor<UserType> > ( p );
   }
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
-    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "nodeID", "isReadOnly", "backend"});
+    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "nodeID", "isReadOnly"});
     std::cout << "opcua::BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
