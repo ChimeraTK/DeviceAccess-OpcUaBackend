@@ -25,6 +25,10 @@ namespace ChimeraTK {
   class OpcUABackend : public DeviceBackendImpl {
   public:
     virtual ~OpcUABackend(){}
+    /**
+     * Reconnect the client in case the connection is lost.
+     */
+    void reconnect();
   protected:
     OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "");
 
@@ -97,11 +101,6 @@ namespace ChimeraTK {
      * Used to iteratively loop over all device files
      */
     void addCatalogueEntry(const UA_UInt32 &node);
-
-    /**
-     * Reconnect the client in case the connection is lost.
-     */
-    void reconnect();
 
     /**
      * Browse all references of the given node and return a list of nodes from namespace 1 that are numeric nodes.

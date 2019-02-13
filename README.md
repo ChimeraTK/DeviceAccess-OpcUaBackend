@@ -1,6 +1,6 @@
 # DeviceAccess-OPC-UA-Backend
 
-This backend uses the opcua client from open62541 version 0.3.
+This backend uses the opcua client from open62541. The version of open62541 is the same as the one used in the ConstrolsystemAdapter-OPC-UA.
 
 **REMARK:**
 Use the same version as used in the ConstrolsystemAdapter-OPC-UA, because a chimeraTK server should be able to use the backend. With different open62541 versions 
@@ -17,4 +17,8 @@ Things to consider:
 - A second stage test could be against a ControlsystemAdapter-OPC-UA server -> this should be optional and not needed in the first place
 - The backend should only depend on DeviceAccess and not on other ChimeraTK packages
 - Test the backend also against other Server (in case of problems don't solve problems that are based on the open62541 stack)
- 
+
+
+## Supported data types
+
+So far only `float`, `double`, `int32` and `uint` are handled by the backend. Other types are to be added on request. Casting of e.g. `double` to `float`  is not done and instead an exception is thrown. On the other hand, conversion from `float` to `double` or `uint` to `int32` is done without notification.

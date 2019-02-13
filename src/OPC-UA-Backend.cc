@@ -29,7 +29,7 @@ namespace ChimeraTK{
 
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password):
       _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _client(nullptr), _config(UA_ClientConfig_standard){
-    _config.timeout = 10;
+//    _config.timeout = 10;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
   }
 
@@ -214,13 +214,18 @@ namespace ChimeraTK{
           UA_Byte_delete(outUserAccessLevel);
           UA_Variant *val = UA_Variant_new();
           retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(nodeName.c_str())), val);
-          if(retval == UA_STATUSCODE_GOOD)
+          if(retval == UA_STATUSCODE_GOOD){
             if(UA_Variant_isScalar(val)) {
               entry->_arrayLength = val->arrayLength;
             } else {
               entry->_arrayLength = 1;
             }
             UA_Variant_delete(val);
+          } else {
+            UA_Variant_delete(val);
+            throw ChimeraTK::runtime_error(std::string("Failed to determine arrray length for node: ") + nodeName);
+          }
+
         }
       }
     }
@@ -285,6 +290,7 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::reconnect(){
+//    std::lock_guard<std::mutex> lock(opcua_mutex);
     /** Test connection **/
     if(UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED){
       _opened = false;
@@ -314,20 +320,20 @@ namespace ChimeraTK{
       const RegisterPath &registerPathName) {
     std::string path = _serverAddress+registerPathName;
 
-//    OpcUABackendRegisterInfo* info;
-//    for(auto it = _catalogue_mutable.begin(), ite = _catalogue_mutable.end(); it != ite; it++){
-//      if(it->getRegisterName() == registerPathName){
-//        info = dynamic_cast<OpcUABackendRegisterInfo*>(&(*it));
-//        break;
-//      }
-//    }
+    OpcUABackendRegisterInfo* info;
+    for(auto it = _catalogue_mutable.begin(), ite = _catalogue_mutable.end(); it != ite; it++){
+      if(it->getRegisterName() == registerPathName){
+        info = dynamic_cast<OpcUABackendRegisterInfo*>(&(*it));
+        break;
+      }
+    }
     NDRegisterAccessor<UserType> *p;
-    p = new OpcUABackendRegisterAccessor<UserType>(path, _client, registerPathName);
+    p = new OpcUABackendRegisterAccessor<UserType>(path, _client, registerPathName, info->_isReadonly, this);
     return boost::shared_ptr< NDRegisterAccessor<UserType> > ( p );
   }
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
-    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "nodeID"});
+    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "nodeID", "isReadOnly", "backend"});
     std::cout << "opcua::BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
