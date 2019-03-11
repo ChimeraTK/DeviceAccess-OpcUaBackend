@@ -57,6 +57,12 @@ namespace ChimeraTK{
 
       const RegisterInfo::DataDescriptor& getDataDescriptor() const override { return dataDescriptor; }
 
+      bool isReadable() const override {return true;}
+
+      bool isWriteable() const override {return !_isReadonly;}
+
+      AccessModeFlags getSupportedAccessModes() const override {return AccessModeFlags(_accessModes);}
+
       RegisterPath path;
       std::string _serverAddress;
       std::string _node_id;
@@ -66,6 +72,7 @@ namespace ChimeraTK{
       RegisterInfo::DataDescriptor dataDescriptor;
       bool _isReadonly;
       size_t _arrayLength;
+      std::set<AccessMode> _accessModes;
 
   };
 

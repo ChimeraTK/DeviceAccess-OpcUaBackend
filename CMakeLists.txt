@@ -20,7 +20,7 @@ option(WithCSA-OPCUA "Test against ControlsystemAdapter-OPC-UA")
 
 
 include(cmake/add_dependency.cmake)
-add_dependency(ChimeraTK-DeviceAccess 00.29 REQUIRED)
+add_dependency(ChimeraTK-DeviceAccess 01.01 REQUIRED)
 
 if(WithCSA-OPCUA)
   add_dependency(ChimeraTK-ControlSystemAdapter-OPCUAAdapter 01.05 REQUIRED)

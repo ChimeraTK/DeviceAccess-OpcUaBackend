@@ -37,6 +37,8 @@ template<typename UserType>
 
    virtual void doReadTransfer() ;
 
+   void doPostRead() override { _currentVersion = {}; }
+
    bool doReadTransferNonBlocking() override;
 
    bool doReadTransferLatest() override;
@@ -45,6 +47,10 @@ template<typename UserType>
 
    AccessModeFlags getAccessModeFlags() const override {
      return {};
+   }
+
+   VersionNumber getVersionNumber() const override {
+     return _currentVersion;
    }
 
   protected:
@@ -80,6 +86,7 @@ template<typename UserType>
    bool _isReadOnly;
    size_t _arraySize;
    bool _isScalar;
+   ChimeraTK::VersionNumber _currentVersion;
 
   private:
 
@@ -206,7 +213,7 @@ template<typename UserType>
 
 
   template<>
-  bool OpcUABackendRegisterAccessor<int32_t>::doWriteTransfer(ChimeraTK::VersionNumber){
+  bool OpcUABackendRegisterAccessor<int32_t>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     if(_isScalar){
@@ -215,6 +222,7 @@ template<typename UserType>
       UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<int32_t>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_INT32]);
     }
     UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
+    _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
@@ -264,7 +272,7 @@ template<typename UserType>
   }
 
   template<>
-  bool OpcUABackendRegisterAccessor<uint>::doWriteTransfer(ChimeraTK::VersionNumber){
+  bool OpcUABackendRegisterAccessor<uint>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     if(_isScalar){
@@ -273,6 +281,7 @@ template<typename UserType>
       UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<uint>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_UINT32]);
     }
     UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
+    _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
@@ -344,7 +353,7 @@ template<typename UserType>
   }
 
   template<>
-  bool OpcUABackendRegisterAccessor<std::string>::doWriteTransfer(ChimeraTK::VersionNumber){
+  bool OpcUABackendRegisterAccessor<std::string>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     if(_isScalar){
@@ -353,6 +362,7 @@ template<typename UserType>
       UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<std::string>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_STRING]);
     }
     UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
+    _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
@@ -413,7 +423,7 @@ template<typename UserType>
   }
 
   template<>
-  bool OpcUABackendRegisterAccessor<double>::doWriteTransfer(ChimeraTK::VersionNumber){
+  bool OpcUABackendRegisterAccessor<double>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     if(_isScalar){
@@ -422,6 +432,7 @@ template<typename UserType>
       UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<double>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_DOUBLE]);
     }
     UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
+    _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
@@ -479,7 +490,7 @@ template<typename UserType>
   }
 
   template<>
-  bool OpcUABackendRegisterAccessor<float>::doWriteTransfer(ChimeraTK::VersionNumber){
+  bool OpcUABackendRegisterAccessor<float>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     if(_isScalar){
@@ -488,6 +499,7 @@ template<typename UserType>
       UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<float>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_FLOAT]);
     }
     UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
+    _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
