@@ -22,6 +22,50 @@ namespace ChimeraTK {
    * One could also use a client per process varibale...
    */
   extern std::mutex opcua_mutex;
+
+  /**
+   *  RegisterInfo-derived class to be put into the RegisterCatalogue
+   */
+  class OpcUABackendRegisterInfo : public RegisterInfo {
+    //\ToDo: Adopt for OPC UA
+    public:
+      OpcUABackendRegisterInfo(const std::string &serverAddress, const std::string &node_id):
+      _serverAddress(serverAddress), _node_id(node_id){
+        path = RegisterPath(serverAddress)/RegisterPath(node_id);
+      }
+      virtual ~OpcUABackendRegisterInfo() {}
+
+      RegisterPath getRegisterName() const override { return RegisterPath(_node_id); }
+
+      std::string getRegisterPath() const { return path; }
+
+      unsigned int getNumberOfElements() const override { return _arrayLength; }
+
+      unsigned int getNumberOfChannels() const override { return 1; }
+
+      unsigned int getNumberOfDimensions() const override { return _arrayLength > 1 ? 1 : 0; }
+
+      const RegisterInfo::DataDescriptor& getDataDescriptor() const override { return dataDescriptor; }
+
+      bool isReadable() const override {return true;}
+
+      bool isWriteable() const override {return !_isReadonly;}
+
+      AccessModeFlags getSupportedAccessModes() const override {return AccessModeFlags(_accessModes);}
+
+      RegisterPath path;
+      std::string _serverAddress;
+      std::string _node_id;
+      std::string _description;
+      std::string _unit;
+      std::string _dataType;
+      RegisterInfo::DataDescriptor dataDescriptor;
+      bool _isReadonly;
+      size_t _arrayLength;
+      std::set<AccessMode> _accessModes;
+
+  };
+
   class OpcUABackend : public DeviceBackendImpl {
   public:
     virtual ~OpcUABackend(){}

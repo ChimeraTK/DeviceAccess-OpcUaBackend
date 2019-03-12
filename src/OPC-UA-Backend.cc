@@ -33,49 +33,6 @@ namespace ChimeraTK{
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
   }
 
-  /**
-   *  RegisterInfo-derived class to be put into the RegisterCatalogue
-   */
-  class OpcUABackendRegisterInfo : public RegisterInfo {
-    //\ToDo: Adopt for OPC UA
-    public:
-      OpcUABackendRegisterInfo(const std::string &serverAddress, const std::string &node_id):
-      _serverAddress(serverAddress), _node_id(node_id){
-        path = RegisterPath(serverAddress)/RegisterPath(node_id);
-      }
-      virtual ~OpcUABackendRegisterInfo() {}
-
-      RegisterPath getRegisterName() const override { return RegisterPath(_node_id); }
-
-      std::string getRegisterPath() const { return path; }
-
-      unsigned int getNumberOfElements() const override { return _arrayLength; }
-
-      unsigned int getNumberOfChannels() const override { return 1; }
-
-      unsigned int getNumberOfDimensions() const override { return _arrayLength > 1 ? 1 : 0; }
-
-      const RegisterInfo::DataDescriptor& getDataDescriptor() const override { return dataDescriptor; }
-
-      bool isReadable() const override {return true;}
-
-      bool isWriteable() const override {return !_isReadonly;}
-
-      AccessModeFlags getSupportedAccessModes() const override {return AccessModeFlags(_accessModes);}
-
-      RegisterPath path;
-      std::string _serverAddress;
-      std::string _node_id;
-      std::string _description;
-      std::string _unit;
-      std::string _dataType;
-      RegisterInfo::DataDescriptor dataDescriptor;
-      bool _isReadonly;
-      size_t _arrayLength;
-      std::set<AccessMode> _accessModes;
-
-  };
-
   std::set<UA_UInt32> OpcUABackend::browse(UA_UInt32 node, UA_UInt16 ns) const{
     std::set<UA_UInt32> nodes;
     /* Browse some objects */
@@ -335,7 +292,7 @@ namespace ChimeraTK{
       }
     }
     NDRegisterAccessor<UserType> *p;
-    p = new OpcUABackendRegisterAccessor<UserType>(path, _client, registerPathName, info->_isReadonly);
+    p = new OpcUABackendRegisterAccessor<UserType>(path, _client, registerPathName, info);
     return boost::shared_ptr< NDRegisterAccessor<UserType> > ( p );
   }
 

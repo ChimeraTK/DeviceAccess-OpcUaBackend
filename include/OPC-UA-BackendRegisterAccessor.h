@@ -12,6 +12,8 @@
 #include <ChimeraTK/RegisterPath.h>
 #include <ChimeraTK/AccessMode.h>
 
+#include <ChimeraTK/ControlSystemAdapter/TypeChangingDecorator.h>
+
 #include <sstream>
 
 namespace ChimeraTK {
@@ -55,10 +57,10 @@ template<typename UserType>
 
   protected:
 
-   OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client,const std::string &node_id, const bool &isReadOnly);
+   OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo);
 
    bool isReadOnly() const override {
-     return _isReadOnly;
+     return _info->_isReadonly;
    }
 
    bool isReadable() const override {
@@ -66,7 +68,7 @@ template<typename UserType>
    }
 
    bool isWriteable() const override {
-     return !_isReadOnly;
+     return !_info->_isReadonly;
    }
 
    std::vector< boost::shared_ptr<TransferElement> > getHardwareAccessingElements() override {
@@ -83,10 +85,10 @@ template<typename UserType>
 
    UA_Client *_client;
    std::string _node_id;
-   bool _isReadOnly;
    size_t _arraySize;
    bool _isScalar;
    ChimeraTK::VersionNumber _currentVersion;
+   OpcUABackendRegisterInfo* _info;
 
   private:
 
@@ -94,8 +96,8 @@ template<typename UserType>
   };
 
   template<typename UserType>
-  OpcUABackendRegisterAccessor<UserType>::OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client, const std::string &node_id, const bool &isReadOnly)
-  : SyncNDRegisterAccessor<UserType>(path), _client(client), _node_id(node_id), _isReadOnly(isReadOnly)
+  OpcUABackendRegisterAccessor<UserType>::OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo)
+  : SyncNDRegisterAccessor<UserType>(path), _client(client), _node_id(node_id), _info(registerInfo)
   {
     std::lock_guard<std::mutex> lock(opcua_mutex);
     //\ToDo: Check if variable is array
@@ -426,11 +428,57 @@ template<typename UserType>
   bool OpcUABackendRegisterAccessor<double>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    if(_isScalar){
-      UA_Variant_setScalarCopy(val->var, &NDRegisterAccessor<double>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_DOUBLE]);
+    UA_DataType t;
+    if(_info->_dataType.compare("uint32_t") == 0){
+      t = UA_TYPES[UA_TYPES_UINT32];
+      auto converted = getDecorator<uint32_t>(this->makeCopyRegisterDecorator());
+      if(_isScalar){
+        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
+      } else {
+        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
+      }
+    } else if (_info->_dataType.compare("uint16_t") == 0){
+      t = UA_TYPES[UA_TYPES_UINT16];
+      auto converted = getDecorator<uint16_t>(this->makeCopyRegisterDecorator());
+      if(_isScalar){
+        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
+      } else {
+        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
+      }
+    } else if (_info->_dataType.compare("int32_t") == 0){
+      t = UA_TYPES[UA_TYPES_INT16];
+      auto converted = getDecorator<int32_t>(this->makeCopyRegisterDecorator());
+      if(_isScalar){
+        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
+      } else {
+        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
+      }
+    } else if (_info->_dataType.compare("int16_t") == 0){
+      t = UA_TYPES[UA_TYPES_INT32];
+      auto converted = getDecorator<int16_t>(this->makeCopyRegisterDecorator());
+      if(_isScalar){
+        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
+      } else {
+        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
+      }
+    } else if (_info->_dataType.compare("float") == 0){
+      t = UA_TYPES[UA_TYPES_FLOAT];
+      auto converted = getDecorator<float>(this->makeCopyRegisterDecorator());
+      if(_isScalar){
+        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
+      } else {
+        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
+      }
+    } else if (_info->_dataType.compare("double") == 0){
+      if(_isScalar){
+        UA_Variant_setScalarCopy(val->var, &NDRegisterAccessor<double>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_DOUBLE]);
+      } else {
+        UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<double>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_DOUBLE]);
+      }
     } else {
-      UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<double>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_DOUBLE]);
+      throw ChimeraTK::runtime_error(std::string("Unsupported data type: ")  + _info->_dataType);
     }
+
     UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
     _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
