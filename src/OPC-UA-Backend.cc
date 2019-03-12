@@ -14,14 +14,17 @@
 
 #include <string>
 
-// You have to define an "extern C" function with this signature. It has to return
-// CHIMERATK_DEVICEACCESS_VERSION for version checking when the library is loaded
-// at run time. This function is used to determine that this is a valid DeviceAcces
-// backend library. Just copy this code, sorry for the boiler plate.
 extern "C"{
-  const char * deviceAccessVersionUsedToCompile(){
-    return CHIMERATK_DEVICEACCESS_VERSION;
-  }
+    boost::shared_ptr<ChimeraTK::DeviceBackend> ChimeraTK_DeviceAccess_createBackend(
+        std::string address, std::map<std::string, std::string> parameters) {
+      return ChimeraTK::OpcUABackend::createInstance(address, parameters);
+    }
+
+    std::vector<std::string> ChimeraTK_DeviceAccess_sdmParameterNames{"port", "username", "password"};
+
+    std::string ChimeraTK_DeviceAccess_version{CHIMERATK_DEVICEACCESS_VERSION};
+
+    std::string backend_name = "opcua";
 }
 
 namespace ChimeraTK{
@@ -297,7 +300,7 @@ namespace ChimeraTK{
   }
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
-    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "nodeID", "isReadOnly"});
+    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port"});
     std::cout << "opcua::BackendRegisterer: registered backend type opcua" << std::endl;
   }
 

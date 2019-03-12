@@ -316,25 +316,21 @@ template<typename UserType>
     } else if (val->var->type == &UA_TYPES[UA_TYPES_UINT32]){
       UA_UInt32* tmp = (UA_UInt32*)val->var->data;
       for(size_t i = 0; i < _arraySize; i++){
-        UA_UInt32 value = tmp[i];
         NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::to_string(tmp[i]);
       }
     } else if (val->var->type == &UA_TYPES[UA_TYPES_INT32]){
       UA_Int32* tmp = (UA_Int32*)val->var->data;
       for(size_t i = 0; i < _arraySize; i++){
-        UA_Int32 value = tmp[i];
         NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::to_string(tmp[i]);
       }
     } else if (val->var->type == &UA_TYPES[UA_TYPES_FLOAT]){
       UA_Float* tmp = (UA_Float*)val->var->data;
       for(size_t i = 0; i < _arraySize; i++){
-        UA_Float value = tmp[i];
         NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::to_string(tmp[i]);
       }
     } else if (val->var->type == &UA_TYPES[UA_TYPES_DOUBLE]){
       UA_Double* tmp = (UA_Double*)val->var->data;
       for(size_t i = 0; i < _arraySize; i++){
-        UA_Double value = tmp[i];
         NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::to_string(tmp[i]);
       }
     } else {

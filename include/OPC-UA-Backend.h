@@ -73,6 +73,7 @@ namespace ChimeraTK {
      * Reconnect the client in case the connection is lost.
      */
     void reconnect();
+    static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
   protected:
     OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "");
 
@@ -95,8 +96,6 @@ namespace ChimeraTK {
       ss << "OPC-UA Server: ";
       return ss.str();
     }
-
-    static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
 
     template<typename UserType>
     boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(
