@@ -55,8 +55,6 @@ template<typename UserType>
      return _currentVersion;
    }
 
-  protected:
-
    OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo);
 
    bool isReadOnly() const override {
@@ -442,7 +440,7 @@ template<typename UserType>
         UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
       }
     } else if (_info->_dataType.compare("int32_t") == 0){
-      t = UA_TYPES[UA_TYPES_INT16];
+      t = UA_TYPES[UA_TYPES_INT32];
       auto converted = getDecorator<int32_t>(this->makeCopyRegisterDecorator());
       if(_isScalar){
         UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
@@ -450,7 +448,7 @@ template<typename UserType>
         UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
       }
     } else if (_info->_dataType.compare("int16_t") == 0){
-      t = UA_TYPES[UA_TYPES_INT32];
+      t = UA_TYPES[UA_TYPES_INT16];
       auto converted = getDecorator<int16_t>(this->makeCopyRegisterDecorator());
       if(_isScalar){
         UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);

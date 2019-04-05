@@ -93,7 +93,7 @@ namespace ChimeraTK {
 
     std::string readDeviceInfo() override {
       std::stringstream ss;
-      ss << "OPC-UA Server: ";
+      ss << "OPC-UA Server: " << _serverAddress << ":" << _port;
       return ss.str();
     }
 
