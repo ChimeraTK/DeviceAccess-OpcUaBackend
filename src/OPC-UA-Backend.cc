@@ -295,8 +295,8 @@ namespace ChimeraTK{
       }
     }
     if(info->_dataType.compare("uint32_t")){
-      auto p = boost::make_shared<OpcUABackendRegisterAccessor<uint32_t>>(path, _client, registerPathName, info);
-      return boost::make_shared<TypeChangingRangeCheckingDecorator<UserType,uint32_t>>(p);
+      auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_Int32, UserType>>(path, _client, registerPathName, info);
+      return p;
     }
 
 //    return p;

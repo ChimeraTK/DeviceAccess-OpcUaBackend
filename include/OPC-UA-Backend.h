@@ -113,7 +113,7 @@ namespace ChimeraTK {
     static BackendRegisterer backendRegisterer;
 
 
-    template<typename UserType>
+    template<typename UAType, typename CTKType>
     friend class OpcUABackendRegisterAccessor;
 
   private:
