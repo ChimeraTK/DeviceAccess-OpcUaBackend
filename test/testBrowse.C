@@ -15,6 +15,8 @@
 #endif
 
 #include <stdio.h>
+#include "OPC-UA-Backend.h"
+
 
 static void
 handler_TheAnswerChanged(UA_UInt32 monId, UA_DataValue *value, void *context) {
@@ -72,46 +74,47 @@ void getType(UA_String node, UA_Client *_client){
 
 }
 
-std::set< UA_UInt32> browse(UA_Client *client, UA_UInt16 ns, UA_UInt32 node){
-    std::set<UA_UInt32> nodes;
-    /* Browse some objects */
-    printf("Browsing nodes in objects folder:\n");
-    UA_BrowseRequest bReq;
-    UA_BrowseRequest_init(&bReq);
-    bReq.requestedMaxReferencesPerNode = 0;
-    bReq.nodesToBrowse = UA_BrowseDescription_new();
-    bReq.nodesToBrowseSize = 1;
-    bReq.nodesToBrowse[0].nodeId = UA_NODEID_NUMERIC(ns, node); /* browse objects folder */
-    bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
-    UA_BrowseResponse bResp = UA_Client_Service_browse(client, bReq);
-    printf("%-9s %-16s %-16s %-16s\n", "NAMESPACE", "NODEID", "BROWSE NAME", "DISPLAY NAME");
-    for (size_t i = 0; i < bResp.resultsSize; ++i) {
-        for (size_t j = 0; j < bResp.results[i].referencesSize; ++j) {
-            UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
+ChimeraTK::UASet browse(UA_Client *client, UA_NodeId node){
+  ChimeraTK::UASet nodes;
+  /* Browse some objects */
+  printf("Browsing nodes in objects folder:\n");
+  UA_BrowseRequest bReq;
+  UA_BrowseRequest_init(&bReq);
+  bReq.requestedMaxReferencesPerNode = 0;
+  bReq.nodesToBrowse = UA_BrowseDescription_new();
+  bReq.nodesToBrowseSize = 1;
+  bReq.nodesToBrowse[0].nodeId = node; /* browse objects folder */
+  bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
+  UA_BrowseResponse bResp = UA_Client_Service_browse(client, bReq);
+  printf("%-9s %-16s %-16s %-16s\n", "NAMESPACE", "NODEID", "BROWSE NAME", "DISPLAY NAME");
+  for (size_t i = 0; i < bResp.resultsSize; ++i) {
+      for (size_t j = 0; j < bResp.results[i].referencesSize; ++j) {
+          UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
+          if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
+              printf("%-9d %-16d %-16.*s %-16.*s\n", ref->nodeId.nodeId.namespaceIndex,
+                     ref->nodeId.nodeId.identifier.numeric, (int)ref->browseName.name.length,
+                     ref->browseName.name.data, (int)ref->displayName.text.length,
+                     ref->displayName.text.data);
+          } else if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_STRING) {
+              printf("%-9d %-16.*s %-16.*s  \n", ref->nodeId.nodeId.namespaceIndex,
+                     (int)ref->nodeId.nodeId.identifier.string.length,
+                     ref->nodeId.nodeId.identifier.string.data,
+                     (int)ref->browseName.name.length, ref->browseName.name.data,
+                     (int)ref->displayName.text.length, ref->displayName.text.data);
+          }
+          if(ref->nodeId.nodeId.namespaceIndex == 1){
             if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
-                printf("%-9d %-16d %-16.*s %-16.*s\n", ref->nodeId.nodeId.namespaceIndex,
-                       ref->nodeId.nodeId.identifier.numeric, (int)ref->browseName.name.length,
-                       ref->browseName.name.data, (int)ref->displayName.text.length,
-                       ref->displayName.text.data);
-            } else if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_STRING) {
-                printf("%-9d %-16.*s %-16.*s  \n", ref->nodeId.nodeId.namespaceIndex,
-                       (int)ref->nodeId.nodeId.identifier.string.length,
-                       ref->nodeId.nodeId.identifier.string.data,
-                       (int)ref->browseName.name.length, ref->browseName.name.data,
-                       (int)ref->displayName.text.length, ref->displayName.text.data);
+              nodes.insert(ref->nodeId.nodeId);
             }
-            if(ref->nodeId.nodeId.namespaceIndex == 1){
-              if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
-                nodes.insert(ref->nodeId.nodeId.identifier.numeric);
-              }
-              readValue(ref->displayName.text,client);
-              getType(ref->displayName.text,client);
-            }
-            /* TODO: distinguish further types */
-        }
-    }
-    UA_BrowseRequest_deleteMembers(&bReq);
-    UA_BrowseResponse_deleteMembers(&bResp);
+            readValue(ref->displayName.text,client);
+            getType(ref->displayName.text,client);
+          }
+          /* TODO: distinguish further types */
+      }
+  }
+  UA_BrowseRequest_deleteMembers(&bReq);
+  UA_BrowseResponse_deleteMembers(&bResp);
+  return nodes;
 }
 
 int main(int argc, char *argv[]) {
@@ -143,11 +146,11 @@ int main(int argc, char *argv[]) {
         return (int)retval;
     }
 
-    std::set<UA_UInt32> l1 = browse(client, 0,UA_NS0ID_OBJECTSFOLDER);
-    for(std::set<UA_UInt32>::iterator it = l1.begin(); it != l1.end();it++){
-      std::set<UA_UInt32> l2 = browse(client, 1,*it);
-      for(std::set<UA_UInt32>::iterator it = l2.begin(); it != l2.end();it++){
-        std::set<UA_UInt32> l3 = browse(client, 1,*it);
+    ChimeraTK::UASet l1 = browse(client, UA_NODEID_NUMERIC(0,UA_NS0ID_OBJECTSFOLDER));
+    for(ChimeraTK::UASet::iterator it = l1.begin(); it != l1.end();it++){
+      ChimeraTK::UASet l2 = browse(client, *it);
+      for(ChimeraTK::UASet::iterator it1 = l2.begin(); it1 != l2.end();it1++){
+        ChimeraTK::UASet l3 = browse(client, *it1);
       }
     }
 

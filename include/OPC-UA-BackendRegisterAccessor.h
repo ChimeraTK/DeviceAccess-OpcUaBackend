@@ -36,13 +36,17 @@ namespace ChimeraTK {
 
   typedef fusion::map<
       fusion::pair<UA_Int32, UA_DataType>
+    , fusion::pair<UA_UInt32, UA_DataType>
     , fusion::pair<UA_Double, UA_DataType>
-    , fusion::pair<UA_Float, UA_DataType> > myMap;
+    , fusion::pair<UA_Float, UA_DataType>
+    , fusion::pair<UA_String, UA_DataType> > myMap;
 
   myMap m(
       fusion::make_pair<UA_Int32>(UA_TYPES[UA_TYPES_INT32]),
+      fusion::make_pair<UA_UInt32>(UA_TYPES[UA_TYPES_UINT32]),
       fusion::make_pair<UA_Double>(UA_TYPES[UA_TYPES_DOUBLE]),
-      fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]));
+      fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]),
+      fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]));
 
 template<typename UAType, typename CTKType>
   class OpcUABackendRegisterAccessor : public SyncNDRegisterAccessor<CTKType> {
@@ -115,7 +119,7 @@ template<typename UAType, typename CTKType>
     //\ToDo: Check if variable is array
     try {
       UA_Variant *val = UA_Variant_new();
-      UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val);
+      UA_StatusCode retval = UA_Client_readValueAttribute(_client, _info->_id, val);
 
       if(retval != UA_STATUSCODE_GOOD){
         UA_Variant_delete(val);
@@ -157,7 +161,7 @@ template<typename UAType, typename CTKType>
   void OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransfer() {
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
+    UA_StatusCode retval = UA_Client_readValueAttribute(_client, _info->_id, val->var);
 
     if(retval != UA_STATUSCODE_GOOD){
       handleError(retval);

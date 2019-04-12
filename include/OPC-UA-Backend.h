@@ -13,6 +13,7 @@
 #include "open62541.h"
 #include <sstream>
 #include <mutex>
+#include <unordered_set>
 
 namespace ChimeraTK {
   /**
@@ -23,19 +24,41 @@ namespace ChimeraTK {
    */
   extern std::mutex opcua_mutex;
 
+  struct NodeComp{
+  public:
+    bool operator()(const UA_NodeId &lh, const UA_NodeId &rh) const{
+      return UA_NodeId_equal(&lh,&rh);
+    }
+  };
+
+  struct NodeHash{
+  public:
+    size_t operator()(const UA_NodeId& id) const{
+      return UA_NodeId_hash(&id);
+    }
+  };
+
+  typedef std::unordered_set<UA_NodeId, NodeHash, NodeComp> UASet;
+
   /**
    *  RegisterInfo-derived class to be put into the RegisterCatalogue
    */
   class OpcUABackendRegisterInfo : public RegisterInfo {
     //\ToDo: Adopt for OPC UA
     public:
-      OpcUABackendRegisterInfo(const std::string &serverAddress, const std::string &node_id):
-      _serverAddress(serverAddress), _node_id(node_id){
-        path = RegisterPath(serverAddress)/RegisterPath(node_id);
+      OpcUABackendRegisterInfo(const std::string &serverAddress, const std::string &node_browseName, const UA_NodeId &id):
+      _serverAddress(serverAddress), _nodeBrowseName(node_browseName), _id(id){
+        path = RegisterPath(serverAddress)/RegisterPath(node_browseName);
       }
+
+      OpcUABackendRegisterInfo(const std::string &serverAddress, const std::string &node_browseName):
+      _serverAddress(serverAddress), _nodeBrowseName(node_browseName){
+        path = RegisterPath(serverAddress)/RegisterPath(node_browseName);
+      }
+
       virtual ~OpcUABackendRegisterInfo() {}
 
-      RegisterPath getRegisterName() const override { return RegisterPath(_node_id); }
+      RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
 
       std::string getRegisterPath() const { return path; }
 
@@ -55,7 +78,7 @@ namespace ChimeraTK {
 
       RegisterPath path;
       std::string _serverAddress;
-      std::string _node_id;
+      std::string _nodeBrowseName;
       std::string _description;
       std::string _unit;
       std::string _dataType;
@@ -63,6 +86,7 @@ namespace ChimeraTK {
       bool _isReadonly;
       size_t _arrayLength;
       std::set<AccessMode> _accessModes;
+      UA_NodeId _id;
 
   };
 
@@ -75,9 +99,11 @@ namespace ChimeraTK {
     void reconnect();
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
   protected:
-    OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "");
+    OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "", const std::string &mapfile = "");
 
     void fillCatalogue();
+
+    UASet getNodesFromMapfile();
 
     /**
      * Return the catalogue and if not filled yet fill it.
@@ -130,6 +156,7 @@ namespace ChimeraTK {
 
     std::string _username;
     std::string _password;
+    std::string _mapfile;
 
     UA_Client *_client;
     UA_ClientConfig _config;
@@ -143,16 +170,16 @@ namespace ChimeraTK {
     /**
      * Used to iteratively loop over all device files
      */
-    void addCatalogueEntry(const UA_UInt32 &node);
+    void addCatalogueEntry(const UA_NodeId &node);
 
     /**
      * Browse all references of the given node and return a list of nodes from namespace 1 that are numeric nodes.
      */
-    std::set<UA_UInt32> browse(UA_UInt32 node, UA_UInt16 ns = 1) const;
+    UASet browse(const UA_NodeId &node) const;
     /**
      * Get all nodes that include a "/" in the browse name.
      */
-    std::set<UA_UInt32> findServerNodes(UA_UInt32 node) const;
+    UASet findServerNodes(UA_NodeId node) const;
 
   };
 }

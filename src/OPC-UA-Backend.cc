@@ -20,7 +20,7 @@ extern "C"{
       return ChimeraTK::OpcUABackend::createInstance(address, parameters);
     }
 
-    std::vector<std::string> ChimeraTK_DeviceAccess_sdmParameterNames{"port", "username", "password"};
+    std::vector<std::string> ChimeraTK_DeviceAccess_sdmParameterNames{"port", "username", "password","mapfile"};
 
     std::string ChimeraTK_DeviceAccess_version{CHIMERATK_DEVICEACCESS_VERSION};
 
@@ -30,21 +30,21 @@ extern "C"{
 namespace ChimeraTK{
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
 
-  OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password):
-      _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _client(nullptr), _config(UA_ClientConfig_standard){
+  OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile):
+      _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _client(nullptr), _config(UA_ClientConfig_standard), _mapfile(mapfile){
 //    _config.timeout = 10;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
   }
 
-  std::set<UA_UInt32> OpcUABackend::browse(UA_UInt32 node, UA_UInt16 ns) const{
-    std::set<UA_UInt32> nodes;
+  UASet OpcUABackend::browse(const UA_NodeId &node) const{
+    UASet nodes;
     /* Browse some objects */
     UA_BrowseRequest bReq;
     UA_BrowseRequest_init(&bReq);
     bReq.requestedMaxReferencesPerNode = 0;
     bReq.nodesToBrowse = UA_BrowseDescription_new();
     bReq.nodesToBrowseSize = 1;
-    bReq.nodesToBrowse[0].nodeId = UA_NODEID_NUMERIC(ns, node); /* browse objects folder */
+    bReq.nodesToBrowse[0].nodeId = node; /* browse objects folder */
     bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
     UA_BrowseResponse bResp = UA_Client_Service_browse(_client, bReq);
     for (size_t i = 0; i < bResp.resultsSize; ++i) {
@@ -52,7 +52,7 @@ namespace ChimeraTK{
         UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
         if(ref->nodeId.nodeId.namespaceIndex == 1){
           if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
-            nodes.insert(ref->nodeId.nodeId.identifier.numeric);
+            nodes.insert(ref->nodeId.nodeId);
           }
         }
       }
@@ -62,14 +62,14 @@ namespace ChimeraTK{
     return nodes;
   }
 
-  std::set<UA_UInt32> OpcUABackend::findServerNodes(UA_UInt32 node) const{
-    std::set<UA_UInt32> serverNodes;
+  UASet OpcUABackend::findServerNodes(UA_NodeId node) const{
+    UASet serverNodes;
     UA_BrowseRequest bReq;
     UA_BrowseRequest_init(&bReq);
     bReq.requestedMaxReferencesPerNode = 0;
     bReq.nodesToBrowse = UA_BrowseDescription_new();
     bReq.nodesToBrowseSize = 1;
-    bReq.nodesToBrowse[0].nodeId = UA_NODEID_NUMERIC(1, node); /* browse objects folder */
+    bReq.nodesToBrowse[0].nodeId = node; /* browse objects folder */
     bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
     UA_BrowseResponse bResp = UA_Client_Service_browse(_client, bReq);
     for (size_t i = 0; i < bResp.resultsSize; ++i) {
@@ -77,7 +77,7 @@ namespace ChimeraTK{
         UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
         std::string test((char*)ref->browseName.name.data);
         if(test.find("/") != std::string::npos){
-          serverNodes.insert(ref->nodeId.nodeId.identifier.numeric);
+          serverNodes.insert(ref->nodeId.nodeId);
         }
 
       }
@@ -87,30 +87,48 @@ namespace ChimeraTK{
     return serverNodes;
   }
 
+  UASet OpcUABackend::getNodesFromMapfile(){
+    UASet nodes;
+//    nodes.insert(UA_NODEID_NUMERIC(0, 2258)); //DateTime
+//    nodes.insert(UA_NODEID_NUMERIC(0, 2992)); //Uint32
+//    UA_NodeId test = UA_NODEID_STRING(1,"/filesystem/0/config/logTailLength");
+//    nodes.insert(test);
+    nodes.insert(UA_NODEID_NUMERIC(1, 144)); //Uint32
+    return nodes;
+  }
+
   void OpcUABackend::fillCatalogue() {
     std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::set<UA_UInt32> nodes = browse(UA_NS0ID_OBJECTSFOLDER, 0);
-//    std::set<UA_UInt32> nodes;// = browse(_client, 0,UA_NS0ID_OBJECTSFOLDER);
-    if(nodes.size() != 1){
-      throw ChimeraTK::runtime_error("Found more than one NS 1 folder...this is not expected!");
-    }
-    UA_UInt32 test = *nodes.begin();
-    while(true){
-      nodes = findServerNodes(test);
-      if(nodes.size() != 0)
-        break;
-      nodes = browse(test);
-      test = *nodes.begin();
-    }
+    UASet nodes;
+    if(_mapfile.empty()){
+      std::cout << "Setting up OPC-UA catalog by browsing the server..." << std::endl;
+      nodes = browse(UA_NODEID_NUMERIC(0,UA_NS0ID_OBJECTSFOLDER));
+  //    std::set<UA_UInt32> nodes;// = browse(_client, 0,UA_NS0ID_OBJECTSFOLDER);
+      if(nodes.size() != 1){
+        throw ChimeraTK::runtime_error("Found more than one NS 1 folder...this is not expected!");
+      }
+      UA_NodeId test = *nodes.begin();
+      while(true){
+        nodes = findServerNodes(test);
+        if(nodes.size() != 0)
+          break;
+        nodes = browse(test);
+        test = *nodes.begin();
+      }
 
+    } else {
+      std::cout << "Setting up OPC-UA catalog by reading the map file: " << _mapfile.c_str() << std::endl;
+      nodes = getNodesFromMapfile();
+
+    }
     for(auto it = nodes.begin(), ite = nodes.end(); it != ite; it++){
       addCatalogueEntry(*it);
     }
   }
 
-  void OpcUABackend::addCatalogueEntry(const UA_UInt32 &node) {
+  void OpcUABackend::addCatalogueEntry(const UA_NodeId &node) {
     UA_QualifiedName *outBrowseName = UA_QualifiedName_new();
-    UA_StatusCode retval = UA_Client_readBrowseNameAttribute(_client, UA_NODEID_NUMERIC(1, node), outBrowseName);
+    UA_StatusCode retval = UA_Client_readBrowseNameAttribute(_client, node, outBrowseName);
     if(retval != UA_STATUSCODE_GOOD){
       UA_QualifiedName_delete(outBrowseName);
       std::cerr << "Reconnect during adding catalogue entries. Error is " << std::hex << retval <<  std::endl;
@@ -123,13 +141,13 @@ namespace ChimeraTK{
     if(nodeName.empty())
       return;
 
-    boost::shared_ptr<OpcUABackendRegisterInfo> entry(new OpcUABackendRegisterInfo(_serverAddress, nodeName.substr(1,nodeName.size()-1)));
+    boost::shared_ptr<OpcUABackendRegisterInfo> entry = boost::make_shared<OpcUABackendRegisterInfo>(_serverAddress, nodeName.substr(1,nodeName.size()-1));
     UA_BrowseRequest bReq;
     UA_BrowseRequest_init(&bReq);
     bReq.requestedMaxReferencesPerNode = 0;
     bReq.nodesToBrowse = UA_BrowseDescription_new();
     bReq.nodesToBrowseSize = 1;
-    bReq.nodesToBrowse[0].nodeId = UA_NODEID_NUMERIC(1, node); /* browse objects folder */
+    bReq.nodesToBrowse[0].nodeId = node; /* browse objects folder */
     bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
     UA_BrowseResponse bResp = UA_Client_Service_browse(_client, bReq);
     for (size_t i = 0; i < bResp.resultsSize; ++i) {
@@ -139,7 +157,7 @@ namespace ChimeraTK{
         if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
           UA_Variant *val = UA_Variant_new();
           UA_String str_val;
-          UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_NUMERIC(1, ref->nodeId.nodeId.identifier.numeric), val);
+          UA_StatusCode retval = UA_Client_readValueAttribute(_client, ref->nodeId.nodeId, val);
           if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
                   val->type == &UA_TYPES[UA_TYPES_STRING]) {
             std::string tmp((char*)ref->browseName.name.data);
@@ -167,8 +185,9 @@ namespace ChimeraTK{
           UA_Variant_delete(val);
 
         } else if (ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_STRING){
+          // this is the value node!
           UA_Byte *outUserAccessLevel = UA_Byte_new();
-          retval = UA_Client_readUserAccessLevelAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(nodeName.c_str())),outUserAccessLevel);
+          retval = UA_Client_readUserAccessLevelAttribute(_client, ref->nodeId.nodeId,outUserAccessLevel);
           if(retval == UA_STATUSCODE_GOOD && (*outUserAccessLevel == (UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE) )){
             entry->_isReadonly = false;
           } else if (retval == UA_STATUSCODE_GOOD && (*outUserAccessLevel == UA_ACCESSLEVELMASK_READ)){
@@ -180,7 +199,7 @@ namespace ChimeraTK{
           }
           UA_Byte_delete(outUserAccessLevel);
           UA_Variant *val = UA_Variant_new();
-          retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(nodeName.c_str())), val);
+          retval = UA_Client_readValueAttribute(_client, ref->nodeId.nodeId, val);
           if(retval == UA_STATUSCODE_GOOD){
             if(UA_Variant_isScalar(val)) {
               entry->_arrayLength = val->arrayLength;
@@ -192,7 +211,7 @@ namespace ChimeraTK{
             UA_Variant_delete(val);
             throw ChimeraTK::runtime_error(std::string("Failed to determine arrray length for node: ") + nodeName);
           }
-
+          UA_NodeId_copy(&ref->nodeId.nodeId,&entry->_id);
         }
       }
     }
@@ -294,16 +313,28 @@ namespace ChimeraTK{
         break;
       }
     }
-    if(info->_dataType.compare("uint32_t")){
+    if(info->_dataType.compare("int32_t") == 0){
       auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_Int32, UserType>>(path, _client, registerPathName, info);
       return p;
-    }
+    } else if (info->_dataType.compare("uint32_t") == 0){
+      auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, _client, registerPathName, info);
+      return p;
+    } else if (info->_dataType.compare("double") == 0){
+      auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_Double, UserType>>(path, _client, registerPathName, info);
+      return p;
+    } else if (info->_dataType.compare("float") == 0){
+      auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_Float, UserType>>(path, _client, registerPathName, info);
+      return p;
+    } /*else if (info->_dataType.compare("string") == 0){
+      auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_String, UserType>>(path, _client, registerPathName, info);
+      return p;
+    }*/
 
 //    return p;
   }
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
-    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password"});
+    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password", "mapfile"});
     std::cout << "opcua::BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -318,6 +349,6 @@ namespace ChimeraTK{
 
     unsigned long port = std::stoul(parameters["port"]);
     std::string serverAddress = std::string("opc.tcp://") + address + ":" + std::to_string(port);
-    return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"]));
+    return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["mapfile"]));
   }
 }
