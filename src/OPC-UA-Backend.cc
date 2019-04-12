@@ -52,7 +52,9 @@ namespace ChimeraTK{
         UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
         if(ref->nodeId.nodeId.namespaceIndex == 1){
           if(ref->nodeId.nodeId.identifierType == UA_NODEIDTYPE_NUMERIC) {
-            nodes.insert(ref->nodeId.nodeId);
+            if(ref->nodeId.nodeId.identifier.numeric == 125){
+              nodes.insert(ref->nodeId.nodeId);
+            }
           }
         }
       }
@@ -102,25 +104,14 @@ namespace ChimeraTK{
     UASet nodes;
     if(_mapfile.empty()){
       std::cout << "Setting up OPC-UA catalog by browsing the server..." << std::endl;
-      nodes = browse(UA_NODEID_NUMERIC(0,UA_NS0ID_OBJECTSFOLDER));
-  //    std::set<UA_UInt32> nodes;// = browse(_client, 0,UA_NS0ID_OBJECTSFOLDER);
-      if(nodes.size() != 1){
-        throw ChimeraTK::runtime_error("Found more than one NS 1 folder...this is not expected!");
-      }
-      UA_NodeId test = *nodes.begin();
-      while(true){
-        nodes = findServerNodes(test);
-        if(nodes.size() != 0)
-          break;
-        nodes = browse(test);
-        test = *nodes.begin();
-      }
-
+      UA_NodeId variables = UA_NODEID_NUMERIC(1,125);
+      nodes = findServerNodes(variables);
     } else {
       std::cout << "Setting up OPC-UA catalog by reading the map file: " << _mapfile.c_str() << std::endl;
       nodes = getNodesFromMapfile();
 
     }
+
     for(auto it = nodes.begin(), ite = nodes.end(); it != ite; it++){
       addCatalogueEntry(*it);
     }
