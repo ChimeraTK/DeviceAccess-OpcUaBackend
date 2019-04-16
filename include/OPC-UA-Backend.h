@@ -103,7 +103,7 @@ namespace ChimeraTK {
 
     void fillCatalogue();
 
-    UASet getNodesFromMapfile();
+    void getNodesFromMapfile();
 
     /**
      * Return the catalogue and if not filled yet fill it.

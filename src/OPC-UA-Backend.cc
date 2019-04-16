@@ -13,6 +13,10 @@
 #include <ChimeraTK/DeviceAccessVersion.h>
 
 #include <string>
+#include <fstream>
+
+#include <boost/tokenizer.hpp>
+typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
 
 extern "C"{
     boost::shared_ptr<ChimeraTK::DeviceBackend> ChimeraTK_DeviceAccess_createBackend(
@@ -89,53 +93,47 @@ namespace ChimeraTK{
     return serverNodes;
   }
 
-  UASet OpcUABackend::getNodesFromMapfile(){
+  void OpcUABackend::getNodesFromMapfile(){
     UASet nodes;
     std::vector<std::pair<std::string,std::string> > nodeList;
-//    nodes.insert(UA_NODEID_NUMERIC(0, 2258)); //DateTime
-//    nodes.insert(UA_NODEID_NUMERIC(0, 2992)); //Uint32
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB01.MESSWERT","int32_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_IN1_MB01.MESSWERT","int32_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB02.MESSWERT","int32_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_IN1_MB02.MESSWERT","int32_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA1_RC01.MESSWERT","float"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.IDB_PHASESHIFT_LA2.ISTWERT_PHASE","float"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA1_RC01.MESSWERT","float"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA1_RC11.MESSWERT","float"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA1_RC11.MESSWERT","float"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA2_RC01.MESSWERT","float"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA2_RC01.MESSWERT","float"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA2_RC11.MESSWERT","float"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA2_RC11.MESSWERT","float"));
 
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WERT_IN1_GATE.MESSW_PH_GUN","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB01.MESSW_PH_1_3_GHz","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB01.MESSW_PH_SYSTEM","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_IN1_MB01.MESSWERT_GROB","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB02.MESSW_PH_SYSTEM","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_IN1_MB02.MESSWERT_GROB","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA1_RC01.MESSW_PH_SYSTEM","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA1_RC01.MESSWERT_GROB","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA1_RC11.MESSW_PH_SYSTEM","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA1_RC11.MESSWERT_GROB","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA2_RC01.MESSW_PH_SYSTEM","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA2_RC01.MESSWERT_GROB","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA2_RC11.MESSW_PH_SYSTEM","int16_t"));
-    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA2_RC11.MESSWERT_GROB","int16_t"));
+    boost::char_separator<char> sep{"\t ", "", boost::drop_empty_tokens};
+    std::string line;
+    std::ifstream mapfile (_mapfile);
+    if (mapfile.is_open()) {
+      while (std::getline(mapfile,line)) {
+        tokenizer tok{line, sep};
+        size_t nTokens = std::distance(tok.begin(), tok.end());
+        if (nTokens != 2){
+          ChimeraTK::runtime_error(std::string("Wrong number (" + std::to_string(nTokens)+ ") of tokens in opcua mapfile line: ") + line);
+        }
+        size_t token = 0;
+        std::pair<std::string, std::string> p;
+        for (const auto &t : tok){
+          if(token == 0){
+            std::cout << "Adding device variable: " << t << std::endl;
+            p.first = t;
+          } else {
+            std::cout << "\t data type: " << t << std::endl;
+            p.second = t;
+          }
+          token++;
+        }
+        nodeList.push_back(p);
+      }
+      mapfile.close();
+    } else {
+      ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
+    }
 
-//    nodes.insert(UA_NODEID_STRING(4,"opcuagw1.ST1.PHASE_IN1_MB01.MESSWERT"));
-//    nodes.insert(UA_NODEID_STRING(4,"opcuagw1.ST1.PHASE_LA1_RC01.MESSWERT"));
-//    nodes.insert(test);
-//    nodes.insert(UA_NODEID_NUMERIC(1, 144)); //Uint32
     for(auto it = nodeList.begin(); it != nodeList.end(); it++){
       UA_NodeId node = UA_NODEID_STRING(4,(char*)it->first.c_str());
       UA_QualifiedName *outBrowseName = UA_QualifiedName_new();
       UA_StatusCode retval = UA_Client_readBrowseNameAttribute(_client, node, outBrowseName);
       if(retval != UA_STATUSCODE_GOOD){
         UA_QualifiedName_delete(outBrowseName);
-        std::cerr << "Reconnect during adding catalogue entries. Error is " << std::hex << retval <<  std::endl;
-        reconnect();
-        return nodes;
+        std::cerr << "Failed reading node: " << it->first.c_str() << ". It will not be added to the catalog." <<  std::endl;
+        continue;
       }
       UA_QualifiedName_delete(outBrowseName);
       boost::shared_ptr<OpcUABackendRegisterInfo> entry = boost::make_shared<OpcUABackendRegisterInfo>(_serverAddress, it->first);
@@ -149,13 +147,9 @@ namespace ChimeraTK{
       }
       entry->_isReadonly = true;
       entry->_arrayLength = 1;
-      entry->_rawDataType =  DataType<int32_t>();
       UA_NodeId_copy(&(node),&entry->_id);
       _catalogue_mutable.addRegister(entry);
     }
-
-
-    return nodes;
   }
 
   void OpcUABackend::fillCatalogue() {
@@ -170,7 +164,7 @@ namespace ChimeraTK{
       }
     } else {
       std::cout << "Setting up OPC-UA catalog by reading the map file: " << _mapfile.c_str() << std::endl;
-      nodes = getNodesFromMapfile();
+      getNodesFromMapfile();
     }
   }
 
