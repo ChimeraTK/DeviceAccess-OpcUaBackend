@@ -91,11 +91,70 @@ namespace ChimeraTK{
 
   UASet OpcUABackend::getNodesFromMapfile(){
     UASet nodes;
+    std::vector<std::pair<std::string,std::string> > nodeList;
 //    nodes.insert(UA_NODEID_NUMERIC(0, 2258)); //DateTime
 //    nodes.insert(UA_NODEID_NUMERIC(0, 2992)); //Uint32
-//    UA_NodeId test = UA_NODEID_STRING(1,"/filesystem/0/config/logTailLength");
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB01.MESSWERT","int32_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_IN1_MB01.MESSWERT","int32_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB02.MESSWERT","int32_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_IN1_MB02.MESSWERT","int32_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA1_RC01.MESSWERT","float"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.IDB_PHASESHIFT_LA2.ISTWERT_PHASE","float"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA1_RC01.MESSWERT","float"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA1_RC11.MESSWERT","float"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA1_RC11.MESSWERT","float"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA2_RC01.MESSWERT","float"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA2_RC01.MESSWERT","float"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA2_RC11.MESSWERT","float"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA2_RC11.MESSWERT","float"));
+
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WERT_IN1_GATE.MESSW_PH_GUN","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB01.MESSW_PH_1_3_GHz","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB01.MESSW_PH_SYSTEM","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_IN1_MB01.MESSWERT_GROB","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_IN1_MB02.MESSW_PH_SYSTEM","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_IN1_MB02.MESSWERT_GROB","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA1_RC01.MESSW_PH_SYSTEM","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA1_RC01.MESSWERT_GROB","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA1_RC11.MESSW_PH_SYSTEM","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA1_RC11.MESSWERT_GROB","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA2_RC01.MESSW_PH_SYSTEM","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA2_RC01.MESSWERT_GROB","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.PHASE_LA2_RC11.MESSW_PH_SYSTEM","int16_t"));
+    nodeList.push_back(std::make_pair("opcuagw1.ST1.WP_PHASE_LA2_RC11.MESSWERT_GROB","int16_t"));
+
+//    nodes.insert(UA_NODEID_STRING(4,"opcuagw1.ST1.PHASE_IN1_MB01.MESSWERT"));
+//    nodes.insert(UA_NODEID_STRING(4,"opcuagw1.ST1.PHASE_LA1_RC01.MESSWERT"));
 //    nodes.insert(test);
-    nodes.insert(UA_NODEID_NUMERIC(1, 144)); //Uint32
+//    nodes.insert(UA_NODEID_NUMERIC(1, 144)); //Uint32
+    for(auto it = nodeList.begin(); it != nodeList.end(); it++){
+      UA_NodeId node = UA_NODEID_STRING(4,(char*)it->first.c_str());
+      UA_QualifiedName *outBrowseName = UA_QualifiedName_new();
+      UA_StatusCode retval = UA_Client_readBrowseNameAttribute(_client, node, outBrowseName);
+      if(retval != UA_STATUSCODE_GOOD){
+        UA_QualifiedName_delete(outBrowseName);
+        std::cerr << "Reconnect during adding catalogue entries. Error is " << std::hex << retval <<  std::endl;
+        reconnect();
+        return nodes;
+      }
+      UA_QualifiedName_delete(outBrowseName);
+      boost::shared_ptr<OpcUABackendRegisterInfo> entry = boost::make_shared<OpcUABackendRegisterInfo>(_serverAddress, it->first);
+      entry->_dataType = it->second;
+      if(it->second.compare("float") == 0){
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                          false, true, 320, 300 );
+      } else {
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                          true, true, 320, 300 );
+      }
+      entry->_isReadonly = true;
+      entry->_arrayLength = 1;
+      entry->_rawDataType =  DataType<int32_t>();
+      UA_NodeId_copy(&(node),&entry->_id);
+      _catalogue_mutable.addRegister(entry);
+    }
+
+
     return nodes;
   }
 
@@ -106,14 +165,12 @@ namespace ChimeraTK{
       std::cout << "Setting up OPC-UA catalog by browsing the server..." << std::endl;
       UA_NodeId variables = UA_NODEID_NUMERIC(1,125);
       nodes = findServerNodes(variables);
+      for(auto it = nodes.begin(), ite = nodes.end(); it != ite; it++){
+        addCatalogueEntry(*it);
+      }
     } else {
       std::cout << "Setting up OPC-UA catalog by reading the map file: " << _mapfile.c_str() << std::endl;
       nodes = getNodesFromMapfile();
-
-    }
-
-    for(auto it = nodes.begin(), ite = nodes.end(); it != ite; it++){
-      addCatalogueEntry(*it);
     }
   }
 
@@ -309,6 +366,12 @@ namespace ChimeraTK{
       return p;
     } else if (info->_dataType.compare("uint32_t") == 0){
       auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, _client, registerPathName, info);
+      return p;
+    } else if(info->_dataType.compare("int16_t") == 0){
+      auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_Int16, UserType>>(path, _client, registerPathName, info);
+      return p;
+    } else if (info->_dataType.compare("uint16_t") == 0){
+      auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt16, UserType>>(path, _client, registerPathName, info);
       return p;
     } else if (info->_dataType.compare("double") == 0){
       auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_Double, UserType>>(path, _client, registerPathName, info);

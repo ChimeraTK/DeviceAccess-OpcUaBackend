@@ -35,13 +35,17 @@ namespace ChimeraTK {
   };
 
   typedef fusion::map<
-      fusion::pair<UA_Int32, UA_DataType>
+      fusion::pair<UA_Int16, UA_DataType>
+    , fusion::pair<UA_UInt16, UA_DataType>
+    , fusion::pair<UA_Int32, UA_DataType>
     , fusion::pair<UA_UInt32, UA_DataType>
     , fusion::pair<UA_Double, UA_DataType>
     , fusion::pair<UA_Float, UA_DataType>
     , fusion::pair<UA_String, UA_DataType> > myMap;
 
   myMap m(
+      fusion::make_pair<UA_Int16>(UA_TYPES[UA_TYPES_INT16]),
+      fusion::make_pair<UA_UInt16>(UA_TYPES[UA_TYPES_UINT16]),
       fusion::make_pair<UA_Int32>(UA_TYPES[UA_TYPES_INT32]),
       fusion::make_pair<UA_UInt32>(UA_TYPES[UA_TYPES_UINT32]),
       fusion::make_pair<UA_Double>(UA_TYPES[UA_TYPES_DOUBLE]),
