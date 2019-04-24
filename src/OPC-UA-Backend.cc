@@ -35,7 +35,7 @@ namespace ChimeraTK{
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
 
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile):
-      _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _client(nullptr), _config(UA_ClientConfig_standard), _mapfile(mapfile){
+      _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _client(nullptr), _config(UA_ClientConfig_standard){
 //    _config.timeout = 10;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
   }
@@ -373,12 +373,12 @@ namespace ChimeraTK{
     } else if (info->_dataType.compare("float") == 0){
       auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_Float, UserType>>(path, _client, registerPathName, info);
       return p;
-    } /*else if (info->_dataType.compare("string") == 0){
+    } else if (info->_dataType.compare("string") == 0){
       auto p = boost::make_shared<OpcUABackendRegisterAccessor<UA_String, UserType>>(path, _client, registerPathName, info);
       return p;
-    }*/
+    }
+    throw ChimeraTK::runtime_error(std::string("Type") + info->_dataType + " not implemented.");
 
-//    return p;
   }
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {

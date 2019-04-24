@@ -17,6 +17,8 @@
 #include <sstream>
 
 #include <boost/fusion/container/map.hpp>
+#include <boost/numeric/conversion/cast.hpp>
+#include <boost/shared_ptr.hpp>
 
 namespace fusion = boost::fusion;
 
@@ -51,6 +53,85 @@ namespace ChimeraTK {
       fusion::make_pair<UA_Double>(UA_TYPES[UA_TYPES_DOUBLE]),
       fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]),
       fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]));
+
+
+  template <typename DestType, typename SourceType>
+  class RangeChackingDataConverter{
+    /** define round type for the boost::numeric::converter */
+    template<class S>
+    struct Round {
+      static S nearbyint(S s) { return round(s); }
+
+      typedef boost::mpl::integral_c<std::float_round_style, std::round_to_nearest> round_style;
+    };
+    typedef boost::numeric::converter<DestType, SourceType, boost::numeric::conversion_traits<DestType, SourceType>,
+        boost::numeric::def_overflow_handler, Round<SourceType>>
+        converter;
+  public:
+    DestType convert(SourceType& x){
+      try{
+        return converter::convert(x);
+      } catch (boost::numeric::positive_overflow&) {
+        return std::numeric_limits<DestType>::max();
+      } catch (boost::numeric::negative_overflow&) {
+        return std::numeric_limits<DestType>::min();
+      }
+    }
+  };
+
+  //partial specialisation of conversion to string
+  template <typename SourceType>
+  class RangeChackingDataConverter<UA_String,SourceType>{
+  public:
+    UA_String convert(SourceType& x){
+      return UA_STRING((char*)std::to_string(x).c_str());
+    }
+  };
+
+  template <typename SourceType>
+  class RangeChackingDataConverter<std::string,SourceType>{
+  public:
+    std::string convert(SourceType& x){
+      return std::to_string(x);
+    }
+  };
+
+
+  //partial specialisation of conversion to string
+  template <>
+  class RangeChackingDataConverter<UA_String,std::string>{
+  public:
+    UA_String convert(std::string& x){
+      return UA_STRING((char*)x.c_str());
+    }
+  };
+
+
+  //partial specialisation of conversion from string
+  template <typename DestType>
+  class RangeChackingDataConverter<DestType, UA_String>{
+  public:
+    DestType convert(UA_String&){
+      throw std::runtime_error("Conversion from string is not allowed.");
+
+    }
+  };
+  template <typename DestType>
+  class RangeChackingDataConverter<DestType, std::string>{
+  public:
+    DestType convert(std::string&){
+      throw std::runtime_error("Conversion from string is not allowed.");
+
+    }
+  };
+
+  template <>
+  class RangeChackingDataConverter<std::string,UA_String>{
+  public:
+    std::string convert(UA_String& x){
+      return std::string((char*)x.data, x.length);
+    }
+  };
 
 template<typename UAType, typename CTKType>
   class OpcUABackendRegisterAccessor : public SyncNDRegisterAccessor<CTKType> {
@@ -109,6 +190,8 @@ template<typename UAType, typename CTKType>
    bool _isScalar;
    ChimeraTK::VersionNumber _currentVersion;
    OpcUABackendRegisterInfo* _info;
+   RangeChackingDataConverter<UAType, CTKType> toOpcUA;
+   RangeChackingDataConverter<CTKType, UAType> toCTK;
 
   private:
 
@@ -175,7 +258,7 @@ template<typename UAType, typename CTKType>
     for(size_t i = 0; i < _arraySize; i++){
       UAType value = tmp[i];
       // \ToDo: do proper conversion here!!
-      NDRegisterAccessor<CTKType>::buffer_2D[0][i] = value;
+      NDRegisterAccessor<CTKType>::buffer_2D[0][i] = toCTK.convert(value);
     }
   }
 
@@ -195,10 +278,14 @@ template<typename UAType, typename CTKType>
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
+    std::vector<UAType> v(NDRegisterAccessor<CTKType>::buffer_2D[0].size());
+    for(size_t i = 0; i < NDRegisterAccessor<CTKType>::buffer_2D[0].size(); i++){
+      v[i] = toOpcUA.convert(NDRegisterAccessor<CTKType>::buffer_2D[0][i]);
+    }
     if(_isScalar){
-      UA_Variant_setScalarCopy(val->var, &NDRegisterAccessor<CTKType>::buffer_2D[0][0], &fusion::at_key<UAType>(m));
+      UA_Variant_setScalarCopy(val->var, &v[0], &fusion::at_key<UAType>(m));
     } else {
-      UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<CTKType>::buffer_2D[0][0], _arraySize,  &fusion::at_key<UAType>(m));
+      UA_Variant_setArrayCopy(val->var, &v[0], _arraySize,  &fusion::at_key<UAType>(m));
     }
     UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
     _currentVersion = versionNumber;
@@ -218,391 +305,6 @@ template<typename UAType, typename CTKType>
     out << "OPC-UA-Backend::Failed to access variable: " << _node_id << " with reason: " << std::hex << retval;
     throw ChimeraTK::runtime_error(out.str());
   }
-/*
-  template<typename UAType>
-  void OpcUABackendRegisterAccessor<UAType, int32_t>::doReadTransfer() {
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-
-    if(retval != UA_STATUSCODE_GOOD){
-      handleError(retval);
-    }
-
-    if(val->var->type == &UA_TYPES[UA_TYPES_INT32]) {
-      UA_Int32* tmp = (UA_Int32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_Int32 value = tmp[i];
-        NDRegisterAccessor<int32_t>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_UINT32]) {
-      UA_UInt32* tmp = (UA_UInt32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_UInt32 value = tmp[i];
-        NDRegisterAccessor<int32_t>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_FLOAT] ||
-               val->var->type == &UA_TYPES[UA_TYPES_DOUBLE]){
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::The variable: ") + _node_id + " is not of an integer like type. "
-          "It will not be casted! Consider using the correct accessor.");
-    } else {
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::The variable: ") + _node_id + " has an unsupported data type: " + val->var->type->typeName);
-    }
-  }
-
-  template<typename UAType>
-  bool OpcUABackendRegisterAccessor<UAType, int32_t>::doReadTransferLatest() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<typename UAType>
-  bool OpcUABackendRegisterAccessor<UAType, int32_t>::doReadTransferNonBlocking() {
-    doReadTransfer();
-    return true;
-  }
-
-
-  template<>
-  bool OpcUABackendRegisterAccessor<int32_t>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    if(_isScalar){
-      UA_Variant_setScalarCopy(val->var, &NDRegisterAccessor<int32_t>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_INT32]);
-    } else {
-      UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<int32_t>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_INT32]);
-    }
-    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-    _currentVersion = versionNumber;
-    if(retval == UA_STATUSCODE_GOOD){
-      return true;
-    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
-    } else {
-      handleError(retval);
-      return false;
-    }
-  }
-
-  template<>
-  void OpcUABackendRegisterAccessor<uint>::doReadTransfer() {
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-
-    if(retval != UA_STATUSCODE_GOOD){
-      handleError(retval);
-    }
-
-    if(val->var->type == &UA_TYPES[UA_TYPES_UINT32]) {
-      UA_UInt32* tmp = (UA_UInt32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_UInt32 value = tmp[i];
-        NDRegisterAccessor<uint>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_INT32] ||
-               val->var->type == &UA_TYPES[UA_TYPES_FLOAT] ||
-               val->var->type == &UA_TYPES[UA_TYPES_DOUBLE]){
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::The variable: ") + _node_id + " is not of an unsigned integer like type. "
-          "It will not be casted! Consider using the correct accessor.");
-    } else {
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::The variable: ") + _node_id + " has an unsupported data type: " + val->var->type->typeName);
-    }
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<uint>::doReadTransferLatest() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<uint>::doReadTransferNonBlocking() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<uint>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    if(_isScalar){
-      UA_Variant_setScalarCopy(val->var, &NDRegisterAccessor<uint>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_UINT32]);
-    } else {
-      UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<uint>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_UINT32]);
-    }
-    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-    _currentVersion = versionNumber;
-    if(retval == UA_STATUSCODE_GOOD){
-      return true;
-    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
-    } else {
-      handleError(retval);
-      return false;
-    }
-  }
-
-  template<>
-  void OpcUABackendRegisterAccessor<std::string>::doReadTransfer() {
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-
-    if(retval != UA_STATUSCODE_GOOD){
-      handleError(retval);
-    }
-
-    if(val->var->type == &UA_TYPES[UA_TYPES_STRING]) {
-      UA_String* tmp = (UA_String*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_String value = tmp[i];
-        if(value.length != 0)
-          NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::string((char*)value.data, value.length);
-        else
-          NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::string("");
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_UINT32]){
-      UA_UInt32* tmp = (UA_UInt32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::to_string(tmp[i]);
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_INT32]){
-      UA_Int32* tmp = (UA_Int32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::to_string(tmp[i]);
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_FLOAT]){
-      UA_Float* tmp = (UA_Float*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::to_string(tmp[i]);
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_DOUBLE]){
-      UA_Double* tmp = (UA_Double*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        NDRegisterAccessor<std::string>::buffer_2D[0][i] = std::to_string(tmp[i]);
-      }
-    } else {
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::The variable: ") + _node_id + " has an unsupported data type: " + val->var->type->typeName);
-    }
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<std::string>::doReadTransferLatest() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<std::string>::doReadTransferNonBlocking() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<std::string>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    if(_isScalar){
-      UA_Variant_setScalarCopy(val->var, &NDRegisterAccessor<std::string>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_STRING]);
-    } else {
-      UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<std::string>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_STRING]);
-    }
-    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-    _currentVersion = versionNumber;
-    if(retval == UA_STATUSCODE_GOOD){
-      return true;
-    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
-    } else {
-      handleError(retval);
-      return false;
-    }
-  }
-
-  template<>
-  void OpcUABackendRegisterAccessor<double>::doReadTransfer() {
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-    if(retval != UA_STATUSCODE_GOOD){
-      handleError(retval);
-    }
-    if(val->var->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
-      UA_Double* tmp = (UA_Double*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_Double value = tmp[i];
-        NDRegisterAccessor<double>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_UINT32]){
-      UA_UInt32* tmp = (UA_UInt32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_UInt32 value = tmp[i];
-        NDRegisterAccessor<double>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_INT32]){
-      UA_Int32* tmp = (UA_Int32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_Int32 value = tmp[i];
-        NDRegisterAccessor<double>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_FLOAT]){
-      UA_Float* tmp = (UA_Float*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_Float value = tmp[i];
-        NDRegisterAccessor<double>::buffer_2D[0][i] = value;
-      }
-    } else {
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::The variable: ") + _node_id + " has an unsupported data type: " + val->var->type->typeName);
-    }
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<double>::doReadTransferLatest() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<double>::doReadTransferNonBlocking() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<double>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_DataType t;
-    if(_info->_dataType.compare("uint32_t") == 0){
-      t = UA_TYPES[UA_TYPES_UINT32];
-      auto converted = getDecorator<uint32_t>(this->makeCopyRegisterDecorator());
-      if(_isScalar){
-        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
-      } else {
-        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
-      }
-    } else if (_info->_dataType.compare("uint16_t") == 0){
-      t = UA_TYPES[UA_TYPES_UINT16];
-      auto converted = getDecorator<uint16_t>(this->makeCopyRegisterDecorator());
-      if(_isScalar){
-        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
-      } else {
-        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
-      }
-    } else if (_info->_dataType.compare("int32_t") == 0){
-      t = UA_TYPES[UA_TYPES_INT32];
-      auto converted = getDecorator<int32_t>(this->makeCopyRegisterDecorator());
-      if(_isScalar){
-        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
-      } else {
-        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
-      }
-    } else if (_info->_dataType.compare("int16_t") == 0){
-      t = UA_TYPES[UA_TYPES_INT16];
-      auto converted = getDecorator<int16_t>(this->makeCopyRegisterDecorator());
-      if(_isScalar){
-        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
-      } else {
-        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
-      }
-    } else if (_info->_dataType.compare("float") == 0){
-      t = UA_TYPES[UA_TYPES_FLOAT];
-      auto converted = getDecorator<float>(this->makeCopyRegisterDecorator());
-      if(_isScalar){
-        UA_Variant_setScalarCopy(val->var, &converted->accessData(0,0), &t);
-      } else {
-        UA_Variant_setArrayCopy(val->var, &converted->accessData(0,0), _arraySize,  &t);
-      }
-    } else if (_info->_dataType.compare("double") == 0){
-      if(_isScalar){
-        UA_Variant_setScalarCopy(val->var, &NDRegisterAccessor<double>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_DOUBLE]);
-      } else {
-        UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<double>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_DOUBLE]);
-      }
-    } else {
-      throw ChimeraTK::runtime_error(std::string("Unsupported data type: ")  + _info->_dataType);
-    }
-
-    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-    _currentVersion = versionNumber;
-    if(retval == UA_STATUSCODE_GOOD){
-      return true;
-    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
-    } else {
-      handleError(retval);
-      return false;
-    }
-  }
-
-  template<>
-  void OpcUABackendRegisterAccessor<float>::doReadTransfer() {
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_StatusCode retval = UA_Client_readValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-    if(retval != UA_STATUSCODE_GOOD){
-      handleError(retval);
-    }
-    if(val->var->type == &UA_TYPES[UA_TYPES_FLOAT]) {
-      UA_Float* tmp = (UA_Float*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_Float value = tmp[i];
-        NDRegisterAccessor<float>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_UINT32]){
-      UA_UInt32* tmp = (UA_UInt32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_UInt32 value = tmp[i];
-        NDRegisterAccessor<float>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_INT32]){
-      UA_Int32* tmp = (UA_Int32*)val->var->data;
-      for(size_t i = 0; i < _arraySize; i++){
-        UA_Int32 value = tmp[i];
-        NDRegisterAccessor<float>::buffer_2D[0][i] = value;
-      }
-    } else if (val->var->type == &UA_TYPES[UA_TYPES_DOUBLE]){
-        throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::The variable: ") + _node_id + " is of type double. "
-       "It will not be casted to float! Consider using the correct accessor.");
-    } else {
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::The variable: ") + _node_id + " has an unsupported data type: " + val->var->type->typeName);
-    }
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<float>::doReadTransferLatest() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<float>::doReadTransferNonBlocking() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<>
-  bool OpcUABackendRegisterAccessor<float>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    if(_isScalar){
-      UA_Variant_setScalarCopy(val->var, &NDRegisterAccessor<float>::buffer_2D[0][0], &UA_TYPES[UA_TYPES_FLOAT]);
-    } else {
-      UA_Variant_setArrayCopy(val->var, &NDRegisterAccessor<float>::buffer_2D[0][0], _arraySize,  &UA_TYPES[UA_TYPES_FLOAT]);
-    }
-    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
-    _currentVersion = versionNumber;
-    if(retval == UA_STATUSCODE_GOOD){
-      return true;
-    } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
-    } else {
-      handleError(retval);
-      return false;
-    }
-  }
-*/
 }
 
 
