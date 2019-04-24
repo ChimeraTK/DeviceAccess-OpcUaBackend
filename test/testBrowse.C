@@ -117,6 +117,37 @@ ChimeraTK::UASet browse(UA_Client *client, UA_NodeId node){
   return nodes;
 }
 
+static void
+browseRecursive(UA_Client *client, UA_NodeId startingNode, UA_UInt32 nodeClassMask, UA_ReferenceDescription **resultSet, UA_UInt32 *resultSize) {
+    UA_BrowseDescription *bd = UA_BrowseDescription_new();
+    UA_BrowseDescription_init(bd);
+    bd->nodeId = startingNode;
+    bd->browseDirection = UA_BROWSEDIRECTION_FORWARD;
+    bd->resultMask = UA_BROWSERESULTMASK_ALL;
+//    bd->nodeClassMask = UA_NODECLASS_VARIABLE; //search only variable nodes
+
+    UA_BrowseRequest browseRequest;
+    UA_BrowseRequest_init(&browseRequest);
+    browseRequest.nodesToBrowse = bd;
+    browseRequest.nodesToBrowseSize = 1;
+
+    UA_BrowseResponse brp = UA_Client_Service_browse(client, browseRequest);
+    if(brp.resultsSize > 0){
+        for(size_t i = 0; i < brp.results[0].referencesSize; i++){
+            if(brp.results[0].references[i].nodeClass == UA_NODECLASS_OBJECT){
+                browseRecursive(client, brp.results[0].references[i].nodeId.nodeId, nodeClassMask, resultSet, resultSize);
+            }
+            if(brp.results[0].references[i].nodeClass == nodeClassMask){
+                *resultSet = (UA_ReferenceDescription *) UA_realloc(*resultSet, ((*resultSize)+1) * sizeof(UA_ReferenceDescription));
+                UA_ReferenceDescription_copy(&brp.results[0].references[i], &((*resultSet)[*resultSize]));
+                (*resultSize)++;
+            }
+        }
+    }
+    UA_BrowseRequest_deleteMembers(&browseRequest);
+    UA_BrowseResponse_deleteMembers(&brp);
+}
+
 int main(int argc, char *argv[]) {
     UA_Client *client = UA_Client_new(UA_ClientConfig_standard);
 
@@ -154,6 +185,43 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    /*** Andreas Begin***/
+    UA_UInt32 *resultCounter = UA_UInt32_new();
+    UA_ReferenceDescription *referenceDescription = UA_ReferenceDescription_new();
+//    browseRecursive(client, UA_NODEID_NUMERIC(1, 166), UA_NODECLASS_VARIABLE, &referenceDescription, resultCounter);
+    browseRecursive(client, UA_NODEID_NUMERIC(0,UA_NS0ID_OBJECTSFOLDER), UA_NODECLASS_VARIABLE, &referenceDescription, resultCounter);
+    printf("Result size %u\n", *resultCounter);
+    for(size_t i = 0; i < *resultCounter; i++){
+        printf("%s\n", referenceDescription[i].browseName.name.data);
+        if(referenceDescription[i].nodeId.nodeId.identifierType == UA_NODEIDTYPE_STRING) {
+          printf("NS-Index: %-9d NodeID: %-16.*s Browsename: %-16.*s Displayname: %-16.*s \n", referenceDescription[i].nodeId.nodeId.namespaceIndex,
+                               (int)referenceDescription[i].nodeId.nodeId.identifier.string.length,
+                               referenceDescription[i].nodeId.nodeId.identifier.string.data,
+                               (int)referenceDescription[i].browseName.name.length, referenceDescription[i].browseName.name.data,
+                               (int)referenceDescription[i].displayName.text.length, referenceDescription[i].displayName.text.data);
+
+          printf("ServerIndex %d Namespace: %-9d Type: %d\n", referenceDescription[i].typeDefinition.serverIndex,referenceDescription[i].typeDefinition.nodeId.namespaceIndex,
+              referenceDescription[i].typeDefinition.nodeId.identifier.numeric);
+
+
+
+          UA_ExpandedNodeId id;
+          UA_NodeId* idd = UA_NodeId_new();
+          UA_Client_readDataTypeAttribute(client,referenceDescription[i].nodeId.nodeId,idd);
+
+          UA_LocalizedText* text = UA_LocalizedText_new();
+          UA_Client_readDescriptionAttribute(client,referenceDescription[i].nodeId.nodeId,text);
+          std::string srttext = std::string((char*)text->text.data, text->text.length);
+          std::cout << idd->identifier.numeric << "\t" << idd->identifierType << " descr.: " << srttext << std::endl;
+          UA_LocalizedText_deleteMembers(text);
+
+//          idd.identifier
+        }
+        UA_ReferenceDescription_deleteMembers(&referenceDescription[i]);
+    }
+    UA_UInt32_delete(resultCounter);
+    UA_free(referenceDescription);
+    /*** Andreas End***/
 
     UA_Client_disconnect(client);
     UA_Client_delete(client);
