@@ -24,6 +24,8 @@ namespace ChimeraTK {
    */
   extern std::mutex opcua_mutex;
 
+  /* -> Use UASet to make sure there are no duplicate nodes when adding nodes from the mapping file.
+   * When browsing the server this should be avoided automatically.
   struct NodeComp{
   public:
     bool operator()(const UA_NodeId &lh, const UA_NodeId &rh) const{
@@ -39,6 +41,7 @@ namespace ChimeraTK {
   };
 
   typedef std::unordered_set<UA_NodeId, NodeHash, NodeComp> UASet;
+  */
 
   /**
    *  RegisterInfo-derived class to be put into the RegisterCatalogue
@@ -81,7 +84,7 @@ namespace ChimeraTK {
       std::string _nodeBrowseName;
       std::string _description;
       std::string _unit;
-      std::string _dataType;
+      UA_UInt32 _dataType;
       RegisterInfo::DataDescriptor dataDescriptor;
       bool _isReadonly;
       size_t _arrayLength;
@@ -102,8 +105,6 @@ namespace ChimeraTK {
     OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "", const std::string &mapfile = "");
 
     void fillCatalogue();
-
-    void getNodesFromMapfile();
 
     /**
      * Return the catalogue and if not filled yet fill it.
@@ -168,18 +169,39 @@ namespace ChimeraTK {
     void deleteClient();
 
     /**
-     * Used to iteratively loop over all device files
+     * Read the following node information:
+     * - description
+     * - data type
+     *
+     * Create a OpcUABackendRegisterInfo an set the dataDescriptor according to the data type.
+     * Add the OpcUABackendRegisterInfo to the _catalogue_mutable.
+     *
+     * \param node The node to be added
+     * \param nodeName An alternative node name. If not set the nodeName is set to the
+     *        name of the node in case of a string node id and to "node_ID", where ID is
+     *        the node id, in case of numeric node id.
      */
-    void addCatalogueEntry(const UA_NodeId &node);
+    void addCatalogueEntry(const UA_NodeId &node, std::shared_ptr<std::string> nodeName = nullptr);
 
     /**
-     * Browse all references of the given node and return a list of nodes from namespace 1 that are numeric nodes.
+     * Browse for nodes of type Variable.
+     * If type Object is found move into the object and recall browseRecursive.
      */
-    UASet browse(const UA_NodeId &node) const;
+    void browseRecursive(UA_Client *client, UA_NodeId startingNode = UA_NODEID_NUMERIC(0,UA_NS0ID_OBJECTSFOLDER));
+
     /**
-     * Get all nodes that include a "/" in the browse name.
+     * Read nodes from the file supplied as mapping file.
+     * Expected file syntax:
+     *  #Sting node id       Namespace id
+     *  /dir/var1            1
+     *  #Numeric node id     Namespace id
+     *  123                  1
+     *  #New Name   Sting node id      Namespace id
+     *  myname1     /dir/var1          1
+     *  #New name   Numeric node id    Namespace id
+     *  myname2     123                1
      */
-    UASet findServerNodes(UA_NodeId node) const;
+    void getNodesFromMapfile();
 
   };
 }

@@ -41,18 +41,26 @@ namespace ChimeraTK {
     , fusion::pair<UA_UInt16, UA_DataType>
     , fusion::pair<UA_Int32, UA_DataType>
     , fusion::pair<UA_UInt32, UA_DataType>
+    , fusion::pair<UA_Int64, UA_DataType>
+    , fusion::pair<UA_UInt64, UA_DataType>
     , fusion::pair<UA_Double, UA_DataType>
     , fusion::pair<UA_Float, UA_DataType>
-    , fusion::pair<UA_String, UA_DataType> > myMap;
+    , fusion::pair<UA_String, UA_DataType>
+    , fusion::pair<UA_SByte, UA_DataType>
+    , fusion::pair<UA_Byte, UA_DataType>> myMap;
 
   myMap m(
       fusion::make_pair<UA_Int16>(UA_TYPES[UA_TYPES_INT16]),
       fusion::make_pair<UA_UInt16>(UA_TYPES[UA_TYPES_UINT16]),
       fusion::make_pair<UA_Int32>(UA_TYPES[UA_TYPES_INT32]),
       fusion::make_pair<UA_UInt32>(UA_TYPES[UA_TYPES_UINT32]),
+      fusion::make_pair<UA_Int64>(UA_TYPES[UA_TYPES_INT64]),
+      fusion::make_pair<UA_UInt64>(UA_TYPES[UA_TYPES_UINT64]),
       fusion::make_pair<UA_Double>(UA_TYPES[UA_TYPES_DOUBLE]),
       fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]),
-      fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]));
+      fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]),
+      fusion::make_pair<UA_SByte>(UA_TYPES[UA_TYPES_SBYTE]),
+      fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE]));
 
 
   template <typename DestType, typename SourceType>
@@ -186,8 +194,6 @@ template<typename UAType, typename CTKType>
 
    UA_Client *_client;
    std::string _node_id;
-   size_t _arraySize;
-   bool _isScalar;
    ChimeraTK::VersionNumber _currentVersion;
    OpcUABackendRegisterInfo* _info;
    RangeChackingDataConverter<UAType, CTKType> toOpcUA;
@@ -202,45 +208,8 @@ template<typename UAType, typename CTKType>
   OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo)
   : SyncNDRegisterAccessor<CTKType>(path), _client(client), _node_id(node_id), _info(registerInfo)
   {
-    std::lock_guard<std::mutex> lock(opcua_mutex);
-    //\ToDo: Check if variable is array
-    try {
-      UA_Variant *val = UA_Variant_new();
-      UA_StatusCode retval = UA_Client_readValueAttribute(_client, _info->_id, val);
-
-      if(retval != UA_STATUSCODE_GOOD){
-        UA_Variant_delete(val);
-        std::stringstream out;
-        out << "OPC-UA-Backend::Failed to read data from variable: " << _node_id << " with reason: " << std::hex << retval;
-        throw ChimeraTK::runtime_error(out.str());
-      }
-      // allocate buffers
-      if(UA_Variant_isScalar(val)){
-        NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
-        NDRegisterAccessor<CTKType>::buffer_2D[0].resize(1);
-        _arraySize = 1;
-        _isScalar = true;
-      } else {
-        _isScalar = false;
-        NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
-        if(val->arrayLength == 0){
-          throw ChimeraTK::runtime_error("Array length is 0!");
-        } else {
-          NDRegisterAccessor<CTKType>::buffer_2D[0].resize(val->arrayLength);
-          _arraySize = val->arrayLength;
-        }
-      }
-
-    }
-    catch(ChimeraTK::runtime_error &e){
-      std::cerr << e.what() << std::endl;
-      this->shutdown();
-      throw ChimeraTK::runtime_error("OPC-UA-Backend::Failed to setup the accessor.");;
-    } catch(...) {
-      std::cerr << "OPC-UA-Backend::Shuting down..." << std::endl;
-      this->shutdown();
-      throw ChimeraTK::runtime_error("OPC-UA-Backend::Failed to setup the accessor.");;
-    }
+    NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
+    NDRegisterAccessor<CTKType>::buffer_2D[0].resize(_info->_arrayLength);
   }
 
 
@@ -255,7 +224,7 @@ template<typename UAType, typename CTKType>
     }
 
     UAType* tmp = (UAType*)val->var->data;
-    for(size_t i = 0; i < _arraySize; i++){
+    for(size_t i = 0; i < _info->_arrayLength; i++){
       UAType value = tmp[i];
       // \ToDo: do proper conversion here!!
       NDRegisterAccessor<CTKType>::buffer_2D[0][i] = toCTK.convert(value);
@@ -282,12 +251,12 @@ template<typename UAType, typename CTKType>
     for(size_t i = 0; i < NDRegisterAccessor<CTKType>::buffer_2D[0].size(); i++){
       v[i] = toOpcUA.convert(NDRegisterAccessor<CTKType>::buffer_2D[0][i]);
     }
-    if(_isScalar){
+    if(_info->_arrayLength == 1){
       UA_Variant_setScalarCopy(val->var, &v[0], &fusion::at_key<UAType>(m));
     } else {
-      UA_Variant_setArrayCopy(val->var, &v[0], _arraySize,  &fusion::at_key<UAType>(m));
+      UA_Variant_setArrayCopy(val->var, &v[0], _info->_arrayLength,  &fusion::at_key<UAType>(m));
     }
-    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, UA_NODEID_STRING(1, const_cast<char*>(_node_id.c_str())), val->var);
+    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, _info->_id, val->var);
     _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;
