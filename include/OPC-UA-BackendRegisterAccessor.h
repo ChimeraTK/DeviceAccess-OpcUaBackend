@@ -208,8 +208,9 @@ template<typename UAType, typename CTKType>
   OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo)
   : SyncNDRegisterAccessor<CTKType>(path), _client(client), _node_id(node_id), _info(registerInfo)
   {
+
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
-    NDRegisterAccessor<CTKType>::buffer_2D[0].resize(_info->_arrayLength);
+    this->accessChannel(0).resize(_info->_arrayLength);
   }
 
 
@@ -226,8 +227,7 @@ template<typename UAType, typename CTKType>
     UAType* tmp = (UAType*)val->var->data;
     for(size_t i = 0; i < _info->_arrayLength; i++){
       UAType value = tmp[i];
-      // \ToDo: do proper conversion here!!
-      NDRegisterAccessor<CTKType>::buffer_2D[0][i] = toCTK.convert(value);
+      this->accessData(i) = toCTK.convert(value);
     }
   }
 
@@ -247,9 +247,9 @@ template<typename UAType, typename CTKType>
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    std::vector<UAType> v(NDRegisterAccessor<CTKType>::buffer_2D[0].size());
-    for(size_t i = 0; i < NDRegisterAccessor<CTKType>::buffer_2D[0].size(); i++){
-      v[i] = toOpcUA.convert(NDRegisterAccessor<CTKType>::buffer_2D[0][i]);
+    std::vector<UAType> v(this->getNumberOfSamples());
+    for(size_t i = 0; i < this->getNumberOfSamples(); i++){
+      v[i] = toOpcUA.convert(this->accessData(i));
     }
     if(_info->_arrayLength == 1){
       UA_Variant_setScalarCopy(val->var, &v[0], &fusion::at_key<UAType>(m));
