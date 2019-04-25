@@ -12,8 +12,6 @@
 #include <ChimeraTK/RegisterPath.h>
 #include <ChimeraTK/AccessMode.h>
 
-#include <ChimeraTK/ControlSystemAdapter/TypeChangingDecorator.h>
-
 #include <sstream>
 
 #include <boost/fusion/container/map.hpp>
