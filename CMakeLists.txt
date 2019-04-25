@@ -2,8 +2,8 @@ project(ChimeraTK-DeviceAccess-OPC-UA-Backend)
 cmake_minimum_required(VERSION 2.8)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 00)
-set(${PROJECT_NAME}_MINOR_VERSION 00)
-set(${PROJECT_NAME}_PATCH_VERSION 02)
+set(${PROJECT_NAME}_MINOR_VERSION 01)
+set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
 #Moderate version of the compiler flags
@@ -68,6 +68,9 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   add_executable(testBrowse ${CMAKE_SOURCE_DIR}/test/testBrowse.C )
   target_link_libraries( testBrowse ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   add_test(testBrowse testBrowse)
+  
+  add_executable(testSubscription ${CMAKE_SOURCE_DIR}/test/testSubscription.C )
+  target_link_libraries( testSubscription ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   
 #  add_executable(simpleRead ${CMAKE_SOURCE_DIR}/test/simpleRead.C )
 #  target_link_libraries( simpleRead ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
