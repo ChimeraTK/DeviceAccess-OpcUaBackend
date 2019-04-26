@@ -76,13 +76,16 @@ namespace ChimeraTK{
     std::ifstream mapfile (_mapfile);
     if (mapfile.is_open()) {
       while (std::getline(mapfile,line)) {
+        if(line.empty())
+          continue;
         tokenizer tok{line, sep};
         size_t nTokens = std::distance(tok.begin(), tok.end());
-        if (nTokens != 2 || nTokens != 3){
-          ChimeraTK::runtime_error(std::string("Wrong number (" + std::to_string(nTokens)+ ") of tokens in opcua mapfile line: ") + line);
+        if (!(nTokens == 2 || nTokens == 3)){
+          std::cerr << "Wrong number of tokens (" + std::to_string(nTokens)+ ") in opcua mapfile line: \n" << line
+              << " -> line is ignored." << std::endl;
+          continue;
         }
         auto it = tok.begin();
-        std::cout << "Adding device variable: " << *it << std::endl;
         std::shared_ptr<std::string> nodeName = nullptr;
         try{
           if(nTokens == 3){
