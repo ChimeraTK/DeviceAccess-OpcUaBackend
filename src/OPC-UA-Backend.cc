@@ -286,15 +286,22 @@ namespace ChimeraTK{
 
   template<typename UserType>
   boost::shared_ptr< NDRegisterAccessor<UserType> > OpcUABackend::getRegisterAccessor_impl(
-      const RegisterPath &registerPathName) {
+      const RegisterPath &registerPathName, size_t /*numberOfWords*/, size_t /*wordOffsetInRegister*/, AccessModeFlags /*flags*/) {
     std::string path = _serverAddress+registerPathName;
 
-    OpcUABackendRegisterInfo* info;
+    if(_catalogue_mutable.getNumberOfRegisters() == 0){
+      throw ChimeraTK::runtime_error("No registers found in the catalog.");
+    }
+
+    OpcUABackendRegisterInfo* info = nullptr;
     for(auto it = _catalogue_mutable.begin(), ite = _catalogue_mutable.end(); it != ite; it++){
       if(it->getRegisterName() == registerPathName){
         info = dynamic_cast<OpcUABackendRegisterInfo*>(&(*it));
         break;
       }
+    }
+    if(info == nullptr){
+      throw ChimeraTK::runtime_error(std::string("Requested register (") + registerPathName + ") was not found in the catalog.");
     }
 
     switch(info->_dataType){

@@ -95,7 +95,7 @@ namespace ChimeraTK {
 
   class OpcUABackend : public DeviceBackendImpl {
   public:
-    virtual ~OpcUABackend(){}
+    ~OpcUABackend(){}
     /**
      * Reconnect the client in case the connection is lost.
      */
@@ -124,10 +124,14 @@ namespace ChimeraTK {
       return ss.str();
     }
 
+    //\ToDo: Why this does not work any more??
+//    template<typename UserType>
+//    boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(const RegisterPath &registerPathName);
+
     template<typename UserType>
-    boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(
-        const RegisterPath &registerPathName);
-    DEFINE_VIRTUAL_FUNCTION_TEMPLATE_VTABLE_FILLER( OpcUABackend, getRegisterAccessor_impl, 1);
+    boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(const RegisterPath &registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags);
+
+    DEFINE_VIRTUAL_FUNCTION_TEMPLATE_VTABLE_FILLER( OpcUABackend, getRegisterAccessor_impl, 4);
 
     /** We need to make the catalogue mutable, since we fill it within getRegisterCatalogue() */
     mutable RegisterCatalogue _catalogue_mutable;
