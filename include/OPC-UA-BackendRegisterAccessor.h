@@ -85,7 +85,7 @@ namespace ChimeraTK {
     }
   };
 
-  //partial specialisation of conversion to string
+  //partial specialization of conversion to string
   template <typename SourceType>
   class RangeChackingDataConverter<UA_String,SourceType>{
   public:
@@ -103,7 +103,7 @@ namespace ChimeraTK {
   };
 
 
-  //partial specialisation of conversion to string
+  //partial specialization of conversion to string
   template <>
   class RangeChackingDataConverter<UA_String,std::string>{
   public:
@@ -113,7 +113,7 @@ namespace ChimeraTK {
   };
 
 
-  //partial specialisation of conversion from string
+  //partial specialization of conversion from string
   template <typename DestType>
   class RangeChackingDataConverter<DestType, UA_String>{
   public:

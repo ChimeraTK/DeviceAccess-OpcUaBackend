@@ -36,8 +36,10 @@ namespace ChimeraTK{
 
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile):
       _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _client(nullptr), _config(UA_ClientConfig_standard){
-//    _config.timeout = 10;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
+    connect();
+    fillCatalogue();
+    _catalogue_filled = true;
   }
 
   void OpcUABackend::browseRecursive(UA_Client *client, UA_NodeId startingNode) {
@@ -226,24 +228,8 @@ namespace ChimeraTK{
     _client = nullptr;
   }
   void OpcUABackend::open() {
-    _client = UA_Client_new(_config);
-    UA_StatusCode retval;
-
-    /** Connect **/
-    if(UA_Client_getState(_client) != UA_CLIENTSTATE_READY){
-      deleteClient();
-      throw ChimeraTK::runtime_error("Failed to set up opc client.");
-    }
-    if(_username.empty() || _password.empty()){
-      retval = UA_Client_connect(_client, _serverAddress.c_str());
-    } else {
-      retval = UA_Client_connect_username(_client, _serverAddress.c_str(), _username.c_str(), _password.c_str());
-    }
-    if(retval != UA_STATUSCODE_GOOD) {
-      deleteClient();
-      throw ChimeraTK::runtime_error(std::string("Failed to connect to opc server: ") + _serverAddress.c_str());
-    }
-
+    // Normally client is already connected in the constructor
+    connect();
     if(!_catalogue_filled){
       fillCatalogue();
       _catalogue_filled = true;
@@ -258,18 +244,24 @@ namespace ChimeraTK{
     _opened = false;
   }
 
-  void OpcUABackend::reconnect(){
+  void OpcUABackend::connect(){
 //    std::lock_guard<std::mutex> lock(opcua_mutex);
     /** Test connection **/
-    if(UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED){
-      _opened = false;
+    if(_client != nullptr && UA_Client_getState(_client) != UA_CLIENTSTATE_READY){
       deleteClient();
+      throw ChimeraTK::runtime_error("Failed to set up OPC-UA client.");
+    }
+    if((_client != nullptr && UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED) ||
+        _client == nullptr){
+      if(_client != nullptr)
+        deleteClient();
+      //\ToDo: Is it really neccessary to create a new config?
       _client = UA_Client_new(_config);
       UA_StatusCode retval;
       /** Connect **/
       if(UA_Client_getState(_client) != UA_CLIENTSTATE_READY){
         deleteClient();
-        throw ChimeraTK::runtime_error("Failed to set up opc client.");
+        throw ChimeraTK::runtime_error("Failed to set up OPC-UA client.");
       }
       if(_username.empty() || _password.empty()){
         retval = UA_Client_connect(_client, _serverAddress.c_str());
@@ -280,7 +272,6 @@ namespace ChimeraTK{
         deleteClient();
         throw ChimeraTK::runtime_error(std::string("Failed to connect to opc server: ") + _serverAddress.c_str());
       }
-      _opened = true;
     }
   }
 

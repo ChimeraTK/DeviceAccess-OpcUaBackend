@@ -96,10 +96,6 @@ namespace ChimeraTK {
   class OpcUABackend : public DeviceBackendImpl {
   public:
     ~OpcUABackend(){}
-    /**
-     * Reconnect the client in case the connection is lost.
-     */
-    void reconnect();
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
   protected:
     OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "", const std::string &mapfile = "");
@@ -123,10 +119,6 @@ namespace ChimeraTK {
       ss << "OPC-UA Server: " << _serverAddress << ":" << _port;
       return ss.str();
     }
-
-    //\ToDo: Why this does not work any more??
-//    template<typename UserType>
-//    boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(const RegisterPath &registerPathName);
 
     template<typename UserType>
     boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(const RegisterPath &registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags);
@@ -165,6 +157,12 @@ namespace ChimeraTK {
 
     UA_Client *_client;
     UA_ClientConfig _config;
+
+    /**
+     * Connect the client. If called after client is connected the connection is checked
+     * and if it is ok no new connection is established.
+     */
+    void connect();
 
     /**
      * Delete the client connection and set the client pointer
