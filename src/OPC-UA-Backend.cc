@@ -24,7 +24,7 @@ extern "C"{
       return ChimeraTK::OpcUABackend::createInstance(address, parameters);
     }
 
-    std::vector<std::string> ChimeraTK_DeviceAccess_sdmParameterNames{"port", "username", "password","mapfile"};
+    std::vector<std::string> ChimeraTK_DeviceAccess_sdmParameterNames{"port", "username", "password","map"};
 
     std::string ChimeraTK_DeviceAccess_version{CHIMERATK_DEVICEACCESS_VERSION};
 
@@ -331,7 +331,7 @@ namespace ChimeraTK{
   }
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
-    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password", "mapfile"});
+    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map"});
     std::cout << "opcua::BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -346,6 +346,6 @@ namespace ChimeraTK{
 
     unsigned long port = std::stoul(parameters["port"]);
     std::string serverAddress = std::string("opc.tcp://") + address + ":" + std::to_string(port);
-    return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["mapfile"]));
+    return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["map"]));
   }
 }
