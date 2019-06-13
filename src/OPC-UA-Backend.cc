@@ -246,11 +246,6 @@ namespace ChimeraTK{
 
   void OpcUABackend::connect(){
 //    std::lock_guard<std::mutex> lock(opcua_mutex);
-    /** Test connection **/
-    if(_client != nullptr && UA_Client_getState(_client) != UA_CLIENTSTATE_READY){
-      deleteClient();
-      throw ChimeraTK::runtime_error("Failed to set up OPC-UA client.");
-    }
     if((_client != nullptr && UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED) ||
         _client == nullptr){
       if(_client != nullptr)
