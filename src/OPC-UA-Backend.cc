@@ -219,6 +219,8 @@ namespace ChimeraTK{
       std::cerr << "Failed to determine data type for node: " << entry->_nodeBrowseName << " -> entry is not added to the catalogue." << std::endl;
       return;
     }
+    //\ToDo: Test this here!!
+    entry->_isReadonly = false;
     _catalogue_mutable.addRegister(entry);
 
   }
