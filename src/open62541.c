@@ -4799,7 +4799,8 @@ UA_findDataType(const UA_NodeId *typeId) {
 /* Random Number Generator */
 /***************************/
 
-static UA_THREAD_LOCAL pcg32_random_t UA_rng = PCG32_INITIALIZER;
+//static UA_THREAD_LOCAL pcg32_random_t UA_rng = PCG32_INITIALIZER;
+static pcg32_random_t UA_rng = PCG32_INITIALIZER;
 
 void
 UA_random_seed(UA_UInt64 seed) {
@@ -15343,6 +15344,9 @@ UA_SecureChannel_sendChunk(UA_ChunkInfo *ci, UA_ByteString *dst, size_t offset) 
 UA_StatusCode
 UA_SecureChannel_sendBinaryMessage(UA_SecureChannel *channel, UA_UInt32 requestId,
                                    const void *content, const UA_DataType *contentType) {
+    if(!channel)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
     UA_Connection *connection = channel->connection;
     if(!connection)
         return UA_STATUSCODE_BADINTERNALERROR;
@@ -27076,8 +27080,8 @@ ServerNetworkLayerTCP_start(UA_ServerNetworkLayer *nl, UA_Logger logger) {
                                         "opc.tcp://%s:%d", hostname, layer->port);
 #endif
         du.data = (UA_Byte*)discoveryUrl;
+        UA_String_copy(&du, &nl->discoveryUrl);
     }
-    UA_String_copy(&du, &nl->discoveryUrl);
 
     /* Create the server socket */
     SOCKET newsock = socket(PF_INET, SOCK_STREAM, 0);
