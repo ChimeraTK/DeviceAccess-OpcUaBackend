@@ -252,7 +252,7 @@ namespace ChimeraTK{
         _client == nullptr){
       if(_client != nullptr)
         deleteClient();
-      //\ToDo: Is it really neccessary to create a new config?
+      //\ToDo: Is it really necessary to create a new config?
       _client = UA_Client_new(_config);
       UA_StatusCode retval;
       /** Connect **/

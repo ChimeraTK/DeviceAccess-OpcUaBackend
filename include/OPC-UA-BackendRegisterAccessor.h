@@ -118,7 +118,7 @@ namespace ChimeraTK {
   class RangeChackingDataConverter<DestType, UA_String>{
   public:
     DestType convert(UA_String&){
-      throw std::runtime_error("Conversion from string is not allowed.");
+      throw std::logic_error("Conversion from string is not allowed.");
 
     }
   };
@@ -126,7 +126,7 @@ namespace ChimeraTK {
   class RangeChackingDataConverter<DestType, std::string>{
   public:
     DestType convert(std::string&){
-      throw std::runtime_error("Conversion from string is not allowed.");
+      throw std::logic_error("Conversion from string is not allowed.");
 
     }
   };
@@ -259,7 +259,7 @@ template<typename UAType, typename CTKType>
     if(retval == UA_STATUSCODE_GOOD){
       return true;
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
-      throw ChimeraTK::runtime_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
+      throw ChimeraTK::logic_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
     } else {
       handleError(retval);
       return false;
