@@ -248,8 +248,7 @@ namespace ChimeraTK{
 
   void OpcUABackend::connect(){
 //    std::lock_guard<std::mutex> lock(opcua_mutex);
-    if((_client != nullptr && UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED) ||
-        _client == nullptr){
+    if(_client == nullptr || UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
       if(_client != nullptr)
         deleteClient();
       //\ToDo: Is it really necessary to create a new config?
@@ -269,6 +268,19 @@ namespace ChimeraTK{
         deleteClient();
         throw ChimeraTK::runtime_error(std::string("Failed to connect to opc server: ") + _serverAddress.c_str());
       }
+    }
+  }
+
+  bool OpcUABackend::isFunctional() const {
+    //\ToDo: Check why connection is not accessable here and why UA_Client_getState(_client) is not working...
+//    if(_client->connection->state != UA_CONNECTION_ESTABLISHED)
+//      return false;
+//    else
+//      return true;
+    if (UA_Client_getConnectionState(_client) != UA_CONNECTION_ESTABLISHED){
+      return false;
+    } else {
+      return true;
     }
   }
 
@@ -294,37 +306,37 @@ namespace ChimeraTK{
 
     switch(info->_dataType){
       case 2:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_SByte, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_SByte, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 3:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Byte, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Byte,  UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 4:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int16, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int16, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 5:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt16, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt16, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 6:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int32, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int32, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 7:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 8:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int64, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int64, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 9:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 10:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Float, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Float, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 11:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Double, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Double, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       case 12:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_String, UserType>>(path, _client, registerPathName, info);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_String, UserType>>(path, shared_from_this(), registerPathName, info);
         break;
       default:
         throw ChimeraTK::runtime_error(std::string("Type ") + std::to_string(info->_dataType) + " not implemented.");

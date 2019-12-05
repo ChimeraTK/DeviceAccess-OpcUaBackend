@@ -164,7 +164,7 @@ template<typename UAType, typename CTKType>
      return _currentVersion;
    }
 
-   OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo);
+   OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo);
 
    bool isReadOnly() const override {
      return _info->_isReadonly;
@@ -190,7 +190,7 @@ template<typename UAType, typename CTKType>
 
    friend class OpcUABackend;
 
-   UA_Client *_client;
+   boost::shared_ptr<OpcUABackend> _backend;
    std::string _node_id;
    ChimeraTK::VersionNumber _currentVersion;
    OpcUABackendRegisterInfo* _info;
@@ -203,8 +203,8 @@ template<typename UAType, typename CTKType>
   };
 
   template<typename UAType, typename CTKType>
-  OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, UA_Client *client, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo)
-  : SyncNDRegisterAccessor<CTKType>(path), _client(client), _node_id(node_id), _info(registerInfo)
+  OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo)
+  : SyncNDRegisterAccessor<CTKType>(path), _backend(boost::dynamic_pointer_cast<OpcUABackend>(backend)), _node_id(node_id), _info(registerInfo)
   {
 
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
@@ -216,7 +216,7 @@ template<typename UAType, typename CTKType>
   void OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransfer() {
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_StatusCode retval = UA_Client_readValueAttribute(_client, _info->_id, val->var);
+    UA_StatusCode retval = UA_Client_readValueAttribute(_backend->_client, _info->_id, val->var);
 
     if(retval != UA_STATUSCODE_GOOD){
       handleError(retval);
@@ -254,7 +254,7 @@ template<typename UAType, typename CTKType>
     } else {
       UA_Variant_setArrayCopy(val->var, &v[0], _info->_arrayLength,  &fusion::at_key<UAType>(m));
     }
-    UA_StatusCode retval = UA_Client_writeValueAttribute(_client, _info->_id, val->var);
+    UA_StatusCode retval = UA_Client_writeValueAttribute(_backend->_client, _info->_id, val->var);
     _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;

@@ -10,6 +10,8 @@
 
 #include <ChimeraTK/DeviceBackendImpl.h>
 
+#include <boost/enable_shared_from_this.hpp>
+
 #include "open62541.h"
 #include <sstream>
 #include <mutex>
@@ -93,7 +95,7 @@ namespace ChimeraTK {
 
   };
 
-  class OpcUABackend : public DeviceBackendImpl {
+  class OpcUABackend : public DeviceBackendImpl{
   public:
     ~OpcUABackend(){}
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
@@ -120,6 +122,8 @@ namespace ChimeraTK {
       return ss.str();
     }
 
+    bool isFunctional() const override;
+
     template<typename UserType>
     boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(const RegisterPath &registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags);
 
@@ -138,6 +142,9 @@ namespace ChimeraTK {
 
     template<typename UAType, typename CTKType>
     friend class OpcUABackendRegisterAccessor;
+		
+		// This needs to be public because it is accessed by the RegisterAccessor.
+    UA_Client *_client;
 
   private:
     /**
@@ -155,7 +162,6 @@ namespace ChimeraTK {
     std::string _password;
     std::string _mapfile;
 
-    UA_Client *_client;
     UA_ClientConfig _config;
 
     /**
