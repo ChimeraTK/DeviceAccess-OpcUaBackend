@@ -62,7 +62,7 @@ namespace ChimeraTK {
 
 
   template <typename DestType, typename SourceType>
-  class RangeChackingDataConverter{
+  class RangeCheckingDataConverter{
     /** define round type for the boost::numeric::converter */
     template<class S>
     struct Round {
@@ -87,7 +87,7 @@ namespace ChimeraTK {
 
   //partial specialization of conversion to string
   template <typename SourceType>
-  class RangeChackingDataConverter<UA_String,SourceType>{
+  class RangeCheckingDataConverter<UA_String,SourceType>{
   public:
     UA_String convert(SourceType& x){
       return UA_STRING((char*)std::to_string(x).c_str());
@@ -95,7 +95,7 @@ namespace ChimeraTK {
   };
 
   template <typename SourceType>
-  class RangeChackingDataConverter<std::string,SourceType>{
+  class RangeCheckingDataConverter<std::string,SourceType>{
   public:
     std::string convert(SourceType& x){
       return std::to_string(x);
@@ -105,7 +105,7 @@ namespace ChimeraTK {
 
   //partial specialization of conversion to string
   template <>
-  class RangeChackingDataConverter<UA_String,std::string>{
+  class RangeCheckingDataConverter<UA_String,std::string>{
   public:
     UA_String convert(std::string& x){
       return UA_STRING((char*)x.c_str());
@@ -115,7 +115,7 @@ namespace ChimeraTK {
 
   //partial specialization of conversion from string
   template <typename DestType>
-  class RangeChackingDataConverter<DestType, UA_String>{
+  class RangeCheckingDataConverter<DestType, UA_String>{
   public:
     DestType convert(UA_String&){
       throw std::logic_error("Conversion from string is not allowed.");
@@ -123,7 +123,7 @@ namespace ChimeraTK {
     }
   };
   template <typename DestType>
-  class RangeChackingDataConverter<DestType, std::string>{
+  class RangeCheckingDataConverter<DestType, std::string>{
   public:
     DestType convert(std::string&){
       throw std::logic_error("Conversion from string is not allowed.");
@@ -132,7 +132,7 @@ namespace ChimeraTK {
   };
 
   template <>
-  class RangeChackingDataConverter<std::string,UA_String>{
+  class RangeCheckingDataConverter<std::string,UA_String>{
   public:
     std::string convert(UA_String& x){
       return std::string((char*)x.data, x.length);
@@ -194,8 +194,8 @@ template<typename UAType, typename CTKType>
    std::string _node_id;
    ChimeraTK::VersionNumber _currentVersion;
    OpcUABackendRegisterInfo* _info;
-   RangeChackingDataConverter<UAType, CTKType> toOpcUA;
-   RangeChackingDataConverter<CTKType, UAType> toCTK;
+   RangeCheckingDataConverter<UAType, CTKType> toOpcUA;
+   RangeCheckingDataConverter<CTKType, UAType> toCTK;
 
   private:
 
