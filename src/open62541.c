@@ -24737,6 +24737,14 @@ UA_ClientState UA_Client_getState(UA_Client *client) {
     return client->state;
 }
 
+UA_ConnectionState UA_Client_getConnectionState(UA_Client *client) {
+    if(!client)
+        return UA_CONNECTION_CLOSED;
+    UA_Connection* conn = &client->connection;
+    return conn->state;
+}
+
+
 /*************************/
 /* Manage the Connection */
 /*************************/
