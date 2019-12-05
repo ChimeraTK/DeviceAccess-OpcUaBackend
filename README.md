@@ -31,7 +31,19 @@ The map file syntax is as following:
 
 In case a numeric id is used and no new name is given it will appear with the register path: /numeric/id.
 
+
 ## Technical details
+
+### Behaviour after server restart
+
+During the development, the reconnection after a connection error was tested. This was done by killing the server the backend was connected to. After, the server was restarted. On the backend side the client read server data very fast for 5 times and the result was always 0.
+The 5 subsequent reads happen, because there is a full que of read triggers. The que was filled during the server was down by the PeriodicTrigger module that was used in the test. After the client recovered from the error state this que was emptied first. After, peridic triggers from the PeriodicTrigger module followed as expected and correct values were read from the server. 
+
+The read value of 0 did not result e.g. from the client connection being not fully set up. But this is the initial register value after starting a ChimeraTK server. Thus, the opc server was opened but the application did not reach 
+the first mainLoop during the first backend reads. So value of 0 read from the server via the backend is correct. 
+
+
+### Choice of the open62541 version  
 
 **REMARK:**
 Use the same version as used in the ConstrolsystemAdapter-OPC-UA, because a chimeraTK server should be able to use the backend. With different open62541 versions 
@@ -40,8 +52,7 @@ This results in unpredictable behaviour and Segfaults that are hard to find.
 
 It was already seen when using a DOOCS version for the DOOCS backend that is independent of the DOOCS version used in the ControlSystem adapter. That failed due to the reasons mentioned above. The only difference here is, that in case of DOOCS C++ is used and the open62541 stack is written in C. 
 
-
-Things to consider:
+### Considerations for testing the backend
 
 - Write test against a server that is implemented using the same stack version
 - The whole test should be a server that can change it's PV and also check if the backend changed some PV

@@ -37,6 +37,10 @@ namespace ChimeraTK{
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile):
       _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _client(nullptr), _config(UA_ClientConfig_standard){
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
+    /* Registers are added before open() is called in ApplicationCore.
+     * Since in the registration the catalog is needed we connect already
+     * here and create the catalog.
+     */
     connect();
     fillCatalogue();
     _catalogue_filled = true;
@@ -230,7 +234,11 @@ namespace ChimeraTK{
     _client = nullptr;
   }
   void OpcUABackend::open() {
-    // Normally client is already connected in the constructor
+    /* Normally client is already connected in the constructor.
+     * But open() is also called by ApplicationCore in case an error
+     * was detected by the Backend (i.e. an exception was thrown
+     * by one of the RegisterAccessors).
+     */
     connect();
     if(!_catalogue_filled){
       fillCatalogue();
@@ -251,7 +259,6 @@ namespace ChimeraTK{
     if(_client == nullptr || UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
       if(_client != nullptr)
         deleteClient();
-      //\ToDo: Is it really necessary to create a new config?
       _client = UA_Client_new(_config);
       UA_StatusCode retval;
       /** Connect **/

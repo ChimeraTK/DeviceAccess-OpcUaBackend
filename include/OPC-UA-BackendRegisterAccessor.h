@@ -225,6 +225,7 @@ template<typename UAType, typename CTKType>
     UAType* tmp = (UAType*)val->var->data;
     for(size_t i = 0; i < _info->_arrayLength; i++){
       UAType value = tmp[i];
+      // Fill the NDRegisterAccessor buffer
       this->accessData(i) = toCTK.convert(value);
     }
   }
