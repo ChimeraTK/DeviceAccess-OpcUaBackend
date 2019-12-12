@@ -270,7 +270,9 @@ template<typename UAType, typename CTKType>
   template<typename UAType, typename CTKType>
   void OpcUABackendRegisterAccessor<UAType, CTKType>::handleError(const UA_StatusCode &retval){
     std::stringstream out;
-    out << "OPC-UA-Backend::Failed to access variable: " << _node_id << " with reason: " << std::hex << retval;
+    out << "OPC-UA-Backend::Failed to access variable: " << _node_id << " with reason: " <<
+        UA_StatusCode_name(retval) << " --> " <<
+        std::hex << retval;
     throw ChimeraTK::runtime_error(out.str());
   }
 }
