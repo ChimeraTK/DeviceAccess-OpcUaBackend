@@ -99,6 +99,7 @@ browseRecursive(UA_Client *client, UA_NodeId startingNode, UA_UInt32 nodeClassMa
             }
         }
     }
+    bd->nodeId = UA_NODEID_NULL;
     UA_BrowseRequest_deleteMembers(&browseRequest);
     UA_BrowseResponse_deleteMembers(&brp);
 }

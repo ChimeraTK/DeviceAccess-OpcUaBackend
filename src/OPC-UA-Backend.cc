@@ -72,6 +72,7 @@ namespace ChimeraTK{
             }
         }
     }
+    bd->nodeId = UA_NODEID_NULL;
     UA_BrowseRequest_deleteMembers(&browseRequest);
     UA_BrowseResponse_deleteMembers(&brp);
   }
