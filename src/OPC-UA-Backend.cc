@@ -163,7 +163,7 @@ namespace ChimeraTK{
     UA_StatusCode retval = UA_Client_readDataTypeAttribute(_client,node,id);
     if(retval != UA_STATUSCODE_GOOD){
       UA_NodeId_delete(id);
-      std::cerr << "OPC-UA-Backend::Failed to read data type from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval;
+      std::cerr << "OPC-UA-Backend::Failed to read data type from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval << std::endl;
       std::cout << "Variable is not added to the catalog." << std::endl;
       return;
     }
@@ -174,7 +174,7 @@ namespace ChimeraTK{
     retval = UA_Client_readDescriptionAttribute(_client,node,text);
     if(retval != UA_STATUSCODE_GOOD){
       UA_LocalizedText_deleteMembers(text);
-      std::cerr << "OPC-UA-Backend::Failed to read data description from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval;
+      std::cerr << "OPC-UA-Backend::Failed to read data description from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval << std::endl;
       std::cout << "Variable is not added to the catalog." << std::endl;
       return;
     }
@@ -185,7 +185,7 @@ namespace ChimeraTK{
     retval = UA_Client_readValueAttribute(_client, node, val);
     if(retval != UA_STATUSCODE_GOOD){
       UA_Variant_delete(val);
-      std::cerr << "OPC-UA-Backend::Failed to read data from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval;
+      std::cerr << "OPC-UA-Backend::Failed to read data from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval << std::endl;
       std::cout << "Variable is not added to the catalog." << std::endl;
       return;
     }
