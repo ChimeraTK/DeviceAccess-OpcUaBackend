@@ -41,6 +41,8 @@ namespace ChimeraTK{
      * Since in the registration the catalog is needed we connect already
      * here and create the catalog.
      */
+    //\ToDo: When using open62541 v1.1 set up callback function hare to receive callback on state change.
+//    _config->stateCallback = ...
     connect();
     fillCatalogue();
     _catalogue_filled = true;
@@ -265,7 +267,9 @@ namespace ChimeraTK{
       /** Connect **/
       if(UA_Client_getState(_client) != UA_CLIENTSTATE_READY){
         deleteClient();
-        throw ChimeraTK::runtime_error("Failed to set up OPC-UA client.");
+        std::stringstream ss;
+        ss << "Failed to set up OPC-UA client" << " with reason: " << std::hex << retval;
+        throw ChimeraTK::runtime_error(ss.str());
       }
       if(_username.empty() || _password.empty()){
         retval = UA_Client_connect(_client, _serverAddress.c_str());
@@ -274,13 +278,16 @@ namespace ChimeraTK{
       }
       if(retval != UA_STATUSCODE_GOOD) {
         deleteClient();
-        throw ChimeraTK::runtime_error(std::string("Failed to connect to opc server: ") + _serverAddress.c_str());
+        std::stringstream ss;
+        ss << "Failed to connect to opc server: " <<  _serverAddress << " with reason: " << std::hex << retval;
+        throw ChimeraTK::runtime_error(ss.str());
       }
     }
   }
 
   bool OpcUABackend::isFunctional() const {
     //\ToDo: Check why connection is not accessable here and why UA_Client_getState(_client) is not working...
+    // \ToDo: Use stateCallback with version 1.1
 //    if(_client->connection->state != UA_CONNECTION_ESTABLISHED)
 //      return false;
 //    else
