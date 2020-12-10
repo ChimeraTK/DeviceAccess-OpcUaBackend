@@ -8,7 +8,7 @@
 #ifndef OPC_UA_BACKENDREGISTERACCESSOR_H_
 #define OPC_UA_BACKENDREGISTERACCESSOR_H_
 
-#include <ChimeraTK/SyncNDRegisterAccessor.h>
+#include <ChimeraTK/NDRegisterAccessor.h>
 #include <ChimeraTK/RegisterPath.h>
 #include <ChimeraTK/AccessMode.h>
 
@@ -17,6 +17,8 @@
 #include <boost/fusion/container/map.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/shared_ptr.hpp>
+
+#include <mutex>
 
 namespace fusion = boost::fusion;
 
@@ -140,31 +142,28 @@ namespace ChimeraTK {
   };
 
 template<typename UAType, typename CTKType>
-  class OpcUABackendRegisterAccessor : public SyncNDRegisterAccessor<CTKType> {
+  class OpcUABackendRegisterAccessor : public NDRegisterAccessor<CTKType> {
 
   public:
 
-   virtual ~OpcUABackendRegisterAccessor(){this->shutdown();};
+//   virtual ~OpcUABackendRegisterAccessor(){this->shutdown();};
+   virtual ~OpcUABackendRegisterAccessor(){};
 
-   virtual void doReadTransfer() ;
+   void doReadTransferSynchronously() override;
 
-   void doPostRead() override { _currentVersion = {}; }
-
-   bool doReadTransferNonBlocking() override;
-
-   bool doReadTransferLatest() override;
-
-   virtual bool doWriteTransfer(ChimeraTK::VersionNumber /*versionNumber*/={}) override;
-
-   AccessModeFlags getAccessModeFlags() const override {
-     return {};
+   void doPreRead(TransferType) override {
+     if(!_backend->isOpen()) throw ChimeraTK::logic_error("Read operation not allowed while device is closed.");
    }
 
-   VersionNumber getVersionNumber() const override {
-     return _currentVersion;
+   void doPostRead(TransferType, bool /*hasNewData*/) override { _currentVersion = {}; }
+
+   void doPreWrite(TransferType, VersionNumber) override {
+     if(!_backend->isOpen()) throw ChimeraTK::logic_error("Write operation not allowed while device is closed.");
    }
 
-   OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo);
+   bool doWriteTransfer(VersionNumber /*versionNumber*/={}) override;
+
+   OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo, AccessModeFlags flags);
 
    bool isReadOnly() const override {
      return _info->_isReadonly;
@@ -203,17 +202,25 @@ template<typename UAType, typename CTKType>
   };
 
   template<typename UAType, typename CTKType>
-  OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo)
-  : SyncNDRegisterAccessor<CTKType>(path), _backend(boost::dynamic_pointer_cast<OpcUABackend>(backend)), _node_id(node_id), _info(registerInfo)
+  OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo,
+      AccessModeFlags flags)
+  : NDRegisterAccessor<CTKType>(path, flags), _backend(boost::dynamic_pointer_cast<OpcUABackend>(backend)), _node_id(node_id), _info(registerInfo)
   {
 
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
     this->accessChannel(0).resize(_info->_arrayLength);
+    if(flags.has(AccessMode::wait_for_new_data)){
+      //\ToDo: Implement subscription here!
+      std::cerr << "Subscriptions are not yet supported by the backend." << std::endl;
+    }
   }
 
 
   template<typename UAType, typename CTKType>
-  void OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransfer() {
+  void OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferSynchronously() {
+    if(!_backend->isFunctional()){
+      throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
+    }
     std::lock_guard<std::mutex> lock(opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     UA_StatusCode retval = UA_Client_readValueAttribute(_backend->_client, _info->_id, val->var);
@@ -228,18 +235,6 @@ template<typename UAType, typename CTKType>
       // Fill the NDRegisterAccessor buffer
       this->accessData(i) = toCTK.convert(value);
     }
-  }
-
-  template<typename UAType, typename CTKType>
-  bool OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferLatest() {
-    doReadTransfer();
-    return true;
-  }
-
-  template<typename UAType, typename CTKType>
-  bool OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferNonBlocking() {
-    doReadTransfer();
-    return true;
   }
 
   template<typename UAType, typename CTKType>

@@ -15,6 +15,7 @@
 #include "open62541.h"
 #include <sstream>
 #include <mutex>
+#include <memory>
 #include <unordered_set>
 
 namespace ChimeraTK {
@@ -108,6 +109,8 @@ namespace ChimeraTK {
      * Return the catalogue and if not filled yet fill it.
      */
     const RegisterCatalogue& getRegisterCatalogue() const override;
+
+    void setException() override;
 
     /**
      * Catalogue is filled here.
