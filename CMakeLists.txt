@@ -71,9 +71,9 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   add_executable(testSubscription ${CMAKE_SOURCE_DIR}/test/testSubscription.C )
   target_link_libraries( testSubscription ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   
-  add_executable(testUnifiedBackendTest ${CMAKE_SOURCE_DIR}/test/testUnifiedBackendTest.C)
+  add_executable(testUnifiedBackendTest ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testUnifiedBackendTest.C )
   target_link_libraries( testUnifiedBackendTest ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${ChimeraTK-DeviceAccess_LIBRARIES})
-  
+  target_include_directories(testUnifiedBackendTest PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)  
 #  add_executable(simpleRead ${CMAKE_SOURCE_DIR}/test/simpleRead.C )
 #  target_link_libraries( simpleRead ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 else()
