@@ -137,13 +137,19 @@ struct VariableAttacher{
 
 };
 
+OPCUAServer::OPCUAServer(): _config(UA_ServerConfig_standard), _server(nullptr){
+  std::random_device rd;
+  std::uniform_int_distribution<uint> dist(20000, 99999);
+  _port = dist(rd);
+}
+
 OPCUAServer::~OPCUAServer(){
   UA_Server_delete(_server);
   _nl.deleteMembers(&_nl);
 }
 
-void OPCUAServer::_start(uint port){
-  _nl = UA_ServerNetworkLayerTCP(UA_ConnectionConfig_standard, port);
+void OPCUAServer::start(){
+  _nl = UA_ServerNetworkLayerTCP(UA_ConnectionConfig_standard, _port);
   _config.networkLayers = &_nl;
   _config.networkLayersSize = 1;
   _server = UA_Server_new(_config);
@@ -151,17 +157,6 @@ void OPCUAServer::_start(uint port){
   addVariables();
 
   UA_Server_run(_server, &running);
-}
-
-void OPCUAServer::start(){
-//    _start(drawPort());
-  _start(4848);
-}
-
-uint OPCUAServer::drawPort(){
-  std::random_device rd;
-  std::uniform_int_distribution<uint> dist(20000, 99999);
-  return dist(rd);
 }
 
 void OPCUAServer::addFolder(std::string name, UA_NodeId parent){

@@ -32,20 +32,20 @@ extern TypeMapWithName dummyMap;
 
 struct OPCUAServer{
 
-  OPCUAServer(): _config(UA_ServerConfig_standard), _server(nullptr){
-  }
+  OPCUAServer();
 
   ~OPCUAServer();
 
   UA_ServerConfig _config;
   UA_Server *_server;
   UA_ServerNetworkLayer _nl;
+  uint _port;
 
   UA_Boolean running = true;
 
-  void _start(uint port);
-
   void start();
+
+  uint getPort(){return _port;}
 
   /*
    * Stop the server by setting running to false
@@ -55,8 +55,6 @@ struct OPCUAServer{
   void stop(){
     running = false;
   }
-
-  uint drawPort();
 
   void addFolder(std::string name, UA_NodeId parent);
 
@@ -78,12 +76,15 @@ void OPCUAServer::setValue(std::string nodeName, const UAType &t){
 }
 
 class ThreadedOPCUAServer {
-private:
+public:
   std::thread _serverThread;
 
-public:
-  ThreadedOPCUAServer(): _serverThread(&OPCUAServer::start, &_server){
+  ThreadedOPCUAServer(){
 
+  }
+
+  void start(){
+    _serverThread = std::thread{&OPCUAServer::start, &_server};
   }
 
   ~ThreadedOPCUAServer(){

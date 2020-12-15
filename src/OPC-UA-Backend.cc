@@ -43,6 +43,7 @@ namespace ChimeraTK{
      */
     //\ToDo: When using open62541 v1.1 set up callback function here to receive callback on state change.
 //    _config->stateCallback = ...
+    std::cout << "Backend constructor called with port id: " << _port << std::endl;
     connect();
     fillCatalogue();
     _catalogue_filled = true;
@@ -380,7 +381,7 @@ namespace ChimeraTK{
     }
 
     unsigned long port = std::stoul(parameters["port"]);
-    std::string serverAddress = std::string("opc.tcp://") + address + ":" + std::to_string(port);
+    std::string serverAddress = std::string("opc.tcp:") + address + ":" + std::to_string(port);
     return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["map"]));
   }
 }
