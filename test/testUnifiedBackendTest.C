@@ -29,21 +29,14 @@ public:
     path= "opcua://localhost";
     server = &_server;
     ThreadedOPCUAServer::start();
-    std::this_thread::sleep_for(std::chrono::seconds(5));
   }
 
-  static uint port;
-  static std::string path;
+  uint port;
+  std::string path;
   static OPCUAServer* server;
 };
 
-uint OPCUALauncher::port;
-std::string OPCUALauncher::path;
 OPCUAServer* OPCUALauncher::server;
-
-//static UA_Server *_server{nullptr};
-//
-BOOST_GLOBAL_FIXTURE(OPCUALauncher)
 
 struct AllRegisterDefaults{
   bool isWriteable() { return true; }
@@ -100,20 +93,24 @@ struct RegSomeInt : ScalarDefaults {
   }
 
   void setRemoteValue(){
-//    *data = UA_Int32{generateValue<int32_t>().at(0).at(0)};
     OPCUALauncher::server->setValue(path(),UA_Int32{generateValue<int32_t>().at(0).at(0)});
   }
 };
 
-
+// use test fixture suite to have access to the fixture class members
+BOOST_FIXTURE_TEST_SUITE(s, OPCUALauncher)
 BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   auto ubt = ChimeraTK::UnifiedBackendTest<>()
                  .addRegister<RegSomeInt>();
+  // wait for the server to come up
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
-  ss << "(" << OPCUALauncher::path << "?port=" << OPCUALauncher::port << ")";
+  ss << "(" << path << "?port=" << port << ")";
 
   ubt.runTests(ss.str());
 }
+
+BOOST_AUTO_TEST_SUITE_END()
 //int main(){
 //  ThreadedOPCUAServer srv;
 //  std::cout << "Server was started..." << std::endl;
