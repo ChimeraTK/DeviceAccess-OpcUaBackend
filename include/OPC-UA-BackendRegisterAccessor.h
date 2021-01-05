@@ -11,6 +11,8 @@
 #include <ChimeraTK/NDRegisterAccessor.h>
 #include <ChimeraTK/RegisterPath.h>
 #include <ChimeraTK/AccessMode.h>
+#include "OPC-UA-Backend.h"
+#include "SubscriptionManager.h"
 
 #include <sstream>
 
@@ -141,8 +143,22 @@ namespace ChimeraTK {
     }
   };
 
+  /**
+   * Untemplated base class used in connection with the subscription manager.
+   */
+  class OpcUABackendRegisterAccessorBase {
+  public:
+    OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend):_backend(backend), _data(nullptr){}
+    /// future_queue used to notify the TransferFuture about completed transfers
+    cppext::future_queue<UA_DataValue> _notifications;
+
+    boost::shared_ptr<OpcUABackend> _backend;
+
+    UA_DataValue* _data;
+  };
+
 template<typename UAType, typename CTKType>
-  class OpcUABackendRegisterAccessor : public NDRegisterAccessor<CTKType> {
+  class OpcUABackendRegisterAccessor : public OpcUABackendRegisterAccessorBase, public NDRegisterAccessor<CTKType> {
 
   public:
 
@@ -177,6 +193,11 @@ template<typename UAType, typename CTKType>
      return !_info->_isReadonly;
    }
 
+   void interrupt() override { this->interrupt_impl(this->_notifications);}
+
+   using TransferElement::_readQueue;
+
+
    std::vector< boost::shared_ptr<TransferElement> > getHardwareAccessingElements() override {
      return { boost::enable_shared_from_this<TransferElement>::shared_from_this() };
    }
@@ -189,7 +210,7 @@ template<typename UAType, typename CTKType>
 
    friend class OpcUABackend;
 
-   boost::shared_ptr<OpcUABackend> _backend;
+
    std::string _node_id;
    ChimeraTK::VersionNumber _currentVersion;
    OpcUABackendRegisterInfo* _info;
@@ -204,14 +225,20 @@ template<typename UAType, typename CTKType>
   template<typename UAType, typename CTKType>
   OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo,
       AccessModeFlags flags)
-  : NDRegisterAccessor<CTKType>(path, flags), _backend(boost::dynamic_pointer_cast<OpcUABackend>(backend)), _node_id(node_id), _info(registerInfo)
+  : OpcUABackendRegisterAccessorBase(boost::dynamic_pointer_cast<OpcUABackend>(backend)), NDRegisterAccessor<CTKType>(path, flags), _node_id(node_id), _info(registerInfo)
   {
 
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
     this->accessChannel(0).resize(_info->_arrayLength);
     if(flags.has(AccessMode::wait_for_new_data)){
       //\ToDo: Implement subscription here!
-      std::cerr << "Subscriptions are not yet supported by the backend." << std::endl;
+//      _backend->_manager->subscribe(UA_NODEID_STRING(1,&_node_id[0]),this);
+      std::cout << "Adding subscription for node: " << _info->_nodeBrowseName << std::endl;
+      OPCUASubscriptionManager::getInstance().subscribe(_info->_id, this);
+      // Create notification queue.
+      _notifications = cppext::future_queue<UA_DataValue>(3);
+      _readQueue = _notifications.then<void>([this](UA_DataValue& data) { this->_data = &data; }, std::launch::deferred);
+//      std::cerr << "Subscriptions are not yet supported by the backend." << std::endl;
     }
   }
 

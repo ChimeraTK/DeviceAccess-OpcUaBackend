@@ -8,6 +8,7 @@
 #include "open62541.h"
 #include <stdio.h>
 #include <unistd.h>
+#include <iostream>
 
 bool changed;
 
@@ -35,6 +36,17 @@ int main(){
       return (int)retval;
   }
 
+  /* Simple read */
+  UA_Variant* var = UA_Variant_new();
+  retval = UA_Client_readValueAttribute(client, UA_NODEID_STRING(1, "watchdog_server/system/status/uptimeSecValue"), var);
+
+  if(retval != UA_STATUSCODE_GOOD){
+    std::cout << "Failed reading simple." << std::endl;
+  } else {
+    UA_UInt32* tmp = (UA_UInt32*)var->data;
+    std::cout << "Data is: "<< tmp[0] << std::endl;
+  }
+
   /* Create a subscription */
   UA_UInt32 subId = 0;
   UA_Client_Subscriptions_new(client, UA_SubscriptionSettings_standard, &subId);
@@ -42,13 +54,13 @@ int main(){
       printf("Create subscription succeeded, id %u\n", subId);
   /* Add a MonitoredItem */
 //  UA_NodeId monitorThis = UA_NODEID_STRING(1, "/system/status/uptimeSec");
-  UA_NodeId monitorThis = UA_NODEID_STRING(1, "/processes/0/config/killSig");
+  UA_NodeId monitorThis = UA_NODEID_STRING(1, "watchdog_server/processes/0/config/killSigValue");
   UA_UInt32 monId = 0;
   UA_Client_Subscriptions_addMonitoredItem(client, subId, monitorThis, UA_ATTRIBUTEID_VALUE,
                                            &handler_TheAnswerChanged, NULL, &monId);
   if (monId)
-      printf("Monitoring 'the.answer', id %u\n", subId);
-  UA_NodeId monitorThis1 = UA_NODEID_STRING(1, "/system/status/uptimeSec");
+      printf("Monitoring '/processes/0/config/killSig', id %u\n", subId);
+  UA_NodeId monitorThis1 = UA_NODEID_STRING(1, "watchdog_server/system/status/uptimeSecValue");
   UA_Client_Subscriptions_addMonitoredItem(client, subId, monitorThis1, UA_ATTRIBUTEID_VALUE,
                                            &handler_TimeChanged, NULL, &monId);
   if (monId)
@@ -60,6 +72,7 @@ int main(){
   while(!changed){
     UA_Client_Subscriptions_manuallySendPublishRequest(client);
   }
-
+  UA_Client_disconnect(client);
+  UA_Client_delete(client);
 }
 

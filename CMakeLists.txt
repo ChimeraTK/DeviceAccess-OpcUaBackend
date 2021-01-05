@@ -1,5 +1,5 @@
 project(ChimeraTK-DeviceAccess-OPC-UA-Backend)
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.13)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 00)
 set(${PROJECT_NAME}_MINOR_VERSION 03)

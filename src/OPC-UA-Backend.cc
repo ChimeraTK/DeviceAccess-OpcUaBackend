@@ -7,7 +7,7 @@
 
 #include "OPC-UA-Backend.h"
 #include "OPC-UA-BackendRegisterAccessor.h"
-
+#include "SubscriptionManager.h"
 
 #include <ChimeraTK/BackendFactory.h>
 #include <ChimeraTK/DeviceAccessVersion.h>
@@ -35,7 +35,7 @@ namespace ChimeraTK{
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
 
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile):
-      _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _client(nullptr), _config(UA_ClientConfig_standard){
+      _client(nullptr), _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _config(UA_ClientConfig_standard){
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
     /* Registers are added before open() is called in ApplicationCore.
      * Since in the registration the catalog is needed we connect already
@@ -43,10 +43,10 @@ namespace ChimeraTK{
      */
     //\ToDo: When using open62541 v1.1 set up callback function here to receive callback on state change.
 //    _config->stateCallback = ...
-    std::cout << "Backend constructor called with port id: " << _port << std::endl;
     connect();
     fillCatalogue();
     _catalogue_filled = true;
+    OPCUASubscriptionManager::getInstance().activate(_client);
   }
 
   void OpcUABackend::browseRecursive(UA_Client *client, UA_NodeId startingNode) {
@@ -247,6 +247,9 @@ namespace ChimeraTK{
      */
     std::cout << "Opening the device...." << std::endl;
     connect();
+    std::cout << "Starting subscription thread..." << std::endl;
+    //ToDo: What to do with the subscription manager?
+    OPCUASubscriptionManager::getInstance().start();
     if(!_catalogue_filled){
       fillCatalogue();
       _catalogue_filled = true;
@@ -255,6 +258,7 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::close() {
+    //ToDo: What to do with the subscription manager?
     deleteClient();
     _catalogue_mutable = RegisterCatalogue();
     _catalogue_filled = false;
@@ -381,7 +385,11 @@ namespace ChimeraTK{
     }
 
     unsigned long port = std::stoul(parameters["port"]);
-    std::string serverAddress = std::string("opc.tcp:") + address + ":" + std::to_string(port);
+    std::string serverAddress = std::string("opc.tcp://") + address + ":" + std::to_string(port);
     return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["map"]));
+  }
+
+  OpcUABackend::~OpcUABackend(){
+    OPCUASubscriptionManager::getInstance().deactivate();
   }
 }
