@@ -247,7 +247,6 @@ namespace ChimeraTK{
      */
     std::cout << "Opening the device...." << std::endl;
     connect();
-    std::cout << "Starting subscription thread..." << std::endl;
     //ToDo: What to do with the subscription manager?
     OPCUASubscriptionManager::getInstance().start();
     if(!_catalogue_filled){

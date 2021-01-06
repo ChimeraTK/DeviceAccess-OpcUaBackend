@@ -14,9 +14,23 @@ namespace ChimeraTK{
 
 std::map<UA_UInt32, OpcUABackendRegisterAccessorBase*> OPCUASubscriptionManager::subscriptionMap;
 
+
+OPCUASubscriptionManager::~OPCUASubscriptionManager(){
+  deactivate();
+}
+
+
 void OPCUASubscriptionManager::start(){
-  _run = true;
-  _opcuaThread = std::thread{&OPCUASubscriptionManager::runClient,this};
+  if(subscriptionMap.size() != 0){
+    _run = true;
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                  "Starting subscription thread.");
+    _opcuaThread = std::thread{&OPCUASubscriptionManager::runClient,this};
+  } else {
+    _run = false;
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                  "No active subscriptions. No need to start the subscription manager.");
+  }
 }
 
 void OPCUASubscriptionManager::runClient(){
@@ -43,10 +57,13 @@ void OPCUASubscriptionManager::activate(UA_Client* client){
 }
 
 void OPCUASubscriptionManager::deactivate(){
-  _run = false;
-  unsubscribe(_subscriptionID);
-  if(_opcuaThread.joinable())
-    _opcuaThread.join();
+  // check if subscription thread was started at all. If yes _run was set true in OPCUASubscriptionManager::start()
+  if(_run == true){
+    _run = false;
+    unsubscribe(_subscriptionID);
+    if(_opcuaThread.joinable())
+      _opcuaThread.join();
+  }
 }
 
 
@@ -60,7 +77,9 @@ void OPCUASubscriptionManager::responseHandler(UA_UInt32 monId, UA_DataValue *va
   UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
   "Source time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u, ",
                  dts.day, dts.month, dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
-  OPCUASubscriptionManager::subscriptionMap[monId]->_notifications.push_overwrite(*value);
+  UA_DataValue data;
+  UA_DataValue_copy(value, &data);
+  OPCUASubscriptionManager::subscriptionMap[monId]->_notifications.push_overwrite(data);
 }
 
 void  OPCUASubscriptionManager::subscribe(const UA_NodeId& id, OpcUABackendRegisterAccessorBase* accessor){
@@ -77,8 +96,6 @@ void  OPCUASubscriptionManager::subscribe(const UA_NodeId& id, OpcUABackendRegis
         "Monitoring id %u", itemID);
       OPCUASubscriptionManager::subscriptionMap[itemID] = accessor;
   }
-  /* The first publish request should return the initial value of the variable */
-  UA_Client_Subscriptions_manuallySendPublishRequest(_client);
 }
 
 void OPCUASubscriptionManager::unsubscribe(const UA_UInt32& id){

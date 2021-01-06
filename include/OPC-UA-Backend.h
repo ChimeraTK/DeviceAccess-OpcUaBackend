@@ -19,13 +19,6 @@
 #include <unordered_set>
 
 namespace ChimeraTK {
-  /**
-   * This is used since async access is not supported by OPC-UA.
-   [12/26/2018 20:55:49.705] error/client	Reply answers the wrong requestId. Async services are not yet implemented.
-   [12/26/2018 20:55:49.705] info/client	Error receiving the response
-   * One could also use a client per process variable...
-   */
-  extern std::mutex opcua_mutex;
 
   /* -> Use UASet to make sure there are no duplicate nodes when adding nodes from the mapping file.
    * When browsing the server this should be avoided automatically.
@@ -98,6 +91,13 @@ namespace ChimeraTK {
 
   class OpcUABackend : public DeviceBackendImpl{
   public:
+    /**
+     * This is used since async access is not supported by OPC-UA.
+     [12/26/2018 20:55:49.705] error/client Reply answers the wrong requestId. Async services are not yet implemented.
+     [12/26/2018 20:55:49.705] info/client  Error receiving the response
+     * One could also use a client per process variable...
+     */
+    std::mutex opcua_mutex;
     ~OpcUABackend();
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
   protected:

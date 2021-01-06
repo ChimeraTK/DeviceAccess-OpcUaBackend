@@ -43,7 +43,7 @@ namespace ChimeraTK{
     static void responseHandler(UA_UInt32 monId, UA_DataValue *value, void *monContext);
 
   private:
-    OPCUASubscriptionManager();
+    OPCUASubscriptionManager(){};
     ~OPCUASubscriptionManager();
 
     bool _run;

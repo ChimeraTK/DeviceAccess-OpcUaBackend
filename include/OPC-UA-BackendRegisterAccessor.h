@@ -25,7 +25,6 @@
 namespace fusion = boost::fusion;
 
 namespace ChimeraTK {
-  std::mutex opcua_mutex;
 
   struct ManagedVariant{
     ManagedVariant(){
@@ -37,6 +36,7 @@ namespace ChimeraTK {
 
     UA_Variant* var;
   };
+
 
   typedef fusion::map<
       fusion::pair<UA_Int16, UA_DataType>
@@ -50,20 +50,6 @@ namespace ChimeraTK {
     , fusion::pair<UA_String, UA_DataType>
     , fusion::pair<UA_SByte, UA_DataType>
     , fusion::pair<UA_Byte, UA_DataType>> myMap;
-
-  myMap m(
-      fusion::make_pair<UA_Int16>(UA_TYPES[UA_TYPES_INT16]),
-      fusion::make_pair<UA_UInt16>(UA_TYPES[UA_TYPES_UINT16]),
-      fusion::make_pair<UA_Int32>(UA_TYPES[UA_TYPES_INT32]),
-      fusion::make_pair<UA_UInt32>(UA_TYPES[UA_TYPES_UINT32]),
-      fusion::make_pair<UA_Int64>(UA_TYPES[UA_TYPES_INT64]),
-      fusion::make_pair<UA_UInt64>(UA_TYPES[UA_TYPES_UINT64]),
-      fusion::make_pair<UA_Double>(UA_TYPES[UA_TYPES_DOUBLE]),
-      fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]),
-      fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]),
-      fusion::make_pair<UA_SByte>(UA_TYPES[UA_TYPES_SBYTE]),
-      fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE]));
-
 
   template <typename DestType, typename SourceType>
   class RangeCheckingDataConverter{
@@ -148,16 +134,29 @@ namespace ChimeraTK {
    */
   class OpcUABackendRegisterAccessorBase {
   public:
-    OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend):_backend(backend), _data(nullptr){}
+    OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend):_backend(backend){}
     /// future_queue used to notify the TransferFuture about completed transfers
     cppext::future_queue<UA_DataValue> _notifications;
 
     boost::shared_ptr<OpcUABackend> _backend;
 
-    UA_DataValue* _data;
+    UA_DataValue _data;
+
+    myMap m{
+        fusion::make_pair<UA_Int16>(UA_TYPES[UA_TYPES_INT16]),
+        fusion::make_pair<UA_UInt16>(UA_TYPES[UA_TYPES_UINT16]),
+        fusion::make_pair<UA_Int32>(UA_TYPES[UA_TYPES_INT32]),
+        fusion::make_pair<UA_UInt32>(UA_TYPES[UA_TYPES_UINT32]),
+        fusion::make_pair<UA_Int64>(UA_TYPES[UA_TYPES_INT64]),
+        fusion::make_pair<UA_UInt64>(UA_TYPES[UA_TYPES_UINT64]),
+        fusion::make_pair<UA_Double>(UA_TYPES[UA_TYPES_DOUBLE]),
+        fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]),
+        fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]),
+        fusion::make_pair<UA_SByte>(UA_TYPES[UA_TYPES_SBYTE]),
+        fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE])};
   };
 
-template<typename UAType, typename CTKType>
+  template<typename UAType, typename CTKType>
   class OpcUABackendRegisterAccessor : public OpcUABackendRegisterAccessorBase, public NDRegisterAccessor<CTKType> {
 
   public:
@@ -171,7 +170,7 @@ template<typename UAType, typename CTKType>
      if(!_backend->isOpen()) throw ChimeraTK::logic_error("Read operation not allowed while device is closed.");
    }
 
-   void doPostRead(TransferType, bool /*hasNewData*/) override { _currentVersion = {}; }
+   void doPostRead(TransferType, bool /*hasNewData*/) override;
 
    void doPreWrite(TransferType, VersionNumber) override {
      if(!_backend->isOpen()) throw ChimeraTK::logic_error("Write operation not allowed while device is closed.");
@@ -227,7 +226,6 @@ template<typename UAType, typename CTKType>
       AccessModeFlags flags)
   : OpcUABackendRegisterAccessorBase(boost::dynamic_pointer_cast<OpcUABackend>(backend)), NDRegisterAccessor<CTKType>(path, flags), _node_id(node_id), _info(registerInfo)
   {
-
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
     this->accessChannel(0).resize(_info->_arrayLength);
     if(flags.has(AccessMode::wait_for_new_data)){
@@ -237,7 +235,7 @@ template<typename UAType, typename CTKType>
       OPCUASubscriptionManager::getInstance().subscribe(_info->_id, this);
       // Create notification queue.
       _notifications = cppext::future_queue<UA_DataValue>(3);
-      _readQueue = _notifications.then<void>([this](UA_DataValue& data) { this->_data = &data; }, std::launch::deferred);
+      _readQueue = _notifications.then<void>([this](UA_DataValue& data) { this->_data = data; }, std::launch::deferred);
 //      std::cerr << "Subscriptions are not yet supported by the backend." << std::endl;
     }
   }
@@ -248,25 +246,31 @@ template<typename UAType, typename CTKType>
     if(!_backend->isFunctional()){
       throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
     }
-    std::lock_guard<std::mutex> lock(opcua_mutex);
+    std::lock_guard<std::mutex> lock(_backend->opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     UA_StatusCode retval = UA_Client_readValueAttribute(_backend->_client, _info->_id, val->var);
-
     if(retval != UA_STATUSCODE_GOOD){
       handleError(retval);
     }
 
-    UAType* tmp = (UAType*)val->var->data;
+    // Write data to  the internal data buffer
+    UA_Variant_copy(val->var, &_data.value);
+  }
+
+  template<typename UAType, typename CTKType>
+  void OpcUABackendRegisterAccessor<UAType, CTKType>::doPostRead(TransferType, bool hasNewData) {
+    UAType* tmp = (UAType*)(_data.value.data);
     for(size_t i = 0; i < _info->_arrayLength; i++){
       UAType value = tmp[i];
       // Fill the NDRegisterAccessor buffer
       this->accessData(i) = toCTK.convert(value);
     }
+
   }
 
   template<typename UAType, typename CTKType>
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
-    std::lock_guard<std::mutex> lock(opcua_mutex);
+    std::lock_guard<std::mutex> lock(_backend->opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     std::vector<UAType> v(this->getNumberOfSamples());
     for(size_t i = 0; i < this->getNumberOfSamples(); i++){
