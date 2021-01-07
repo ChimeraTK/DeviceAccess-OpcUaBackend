@@ -22,21 +22,22 @@ using namespace ChimeraTK;
 
 
 
-class OPCUALauncher : public ThreadedOPCUAServer{
+class OPCUALauncher {
 public:
   OPCUALauncher(){
-    port = _server.getPort();
-    path= "opcua://localhost";
-    server = &_server;
-    ThreadedOPCUAServer::start();
+    port = server._server.getPort();
+    path= "opcua:localhost";
+    threadedServer = &server;
+    server.start();
   }
 
   uint port;
   std::string path;
-  static OPCUAServer* server;
+  ThreadedOPCUAServer server;
+  static ThreadedOPCUAServer* threadedServer;
 };
 
-OPCUAServer* OPCUALauncher::server;
+ThreadedOPCUAServer* OPCUALauncher::threadedServer;
 
 struct AllRegisterDefaults{
   bool isWriteable() { return true; }
@@ -55,7 +56,9 @@ struct AllRegisterDefaults{
                                            .disableSwitchWriteOnly();
   void setForceRuntimeError(bool enable, size_t){
     if(enable)
-      OPCUALauncher::server->stop();
+      OPCUALauncher::threadedServer->_server.stop();
+    else
+      OPCUALauncher::threadedServer->start();
   }
 
 };
@@ -85,7 +88,7 @@ struct RegSomeInt : ScalarDefaults {
 
   template<typename UserType>
   std::vector<std::vector<UserType> > getRemoteValue(){
-    auto variant = OPCUALauncher::server->getValue(path());
+    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
     data = (UA_Int32*)variant->data;
     auto d = ChimeraTK::numericToUserType<UserType>(*data);
     UA_Variant_delete(variant);
@@ -93,7 +96,7 @@ struct RegSomeInt : ScalarDefaults {
   }
 
   void setRemoteValue(){
-    OPCUALauncher::server->setValue(path(),UA_Int32{generateValue<int32_t>().at(0).at(0)});
+    OPCUALauncher::threadedServer->_server.setValue(path(),UA_Int32{generateValue<int32_t>().at(0).at(0)});
   }
 };
 

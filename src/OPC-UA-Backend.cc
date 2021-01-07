@@ -238,6 +238,7 @@ namespace ChimeraTK{
       UA_Client_delete(_client); /* Disconnects the client internally */
       _client = nullptr;
     }
+    _isFunctional = false;
   }
   void OpcUABackend::open() {
     /* Normally client is already connected in the constructor.
@@ -254,14 +255,17 @@ namespace ChimeraTK{
       _catalogue_filled = true;
     }
     _opened = true;
+    _isFunctional = true;
   }
 
   void OpcUABackend::close() {
     //ToDo: What to do with the subscription manager?
     deleteClient();
-    _catalogue_mutable = RegisterCatalogue();
-    _catalogue_filled = false;
+    //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
+//    _catalogue_mutable = RegisterCatalogue();
+//    _catalogue_filled = false;
     _opened = false;
+    _isFunctional = false;
   }
 
   void OpcUABackend::connect(){
@@ -297,7 +301,7 @@ namespace ChimeraTK{
 //      return false;
 //    else
 //      return true;
-    if (_client == nullptr || UA_Client_getConnectionState(_client) != UA_CONNECTION_ESTABLISHED){
+    if (_client == nullptr || !_isFunctional){
       return false;
     } else {
       return true;

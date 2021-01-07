@@ -167,7 +167,10 @@ namespace ChimeraTK {
    void doReadTransferSynchronously() override;
 
    void doPreRead(TransferType) override {
-     if(!_backend->isOpen()) throw ChimeraTK::logic_error("Read operation not allowed while device is closed.");
+     if(!_backend->isOpen()) {
+       std::cout << "Throwing exception..." << std::endl;
+       throw ChimeraTK::logic_error("Read operation not allowed while device is closed.");
+     }
    }
 
    void doPostRead(TransferType, bool /*hasNewData*/) override;
@@ -259,6 +262,7 @@ namespace ChimeraTK {
 
   template<typename UAType, typename CTKType>
   void OpcUABackendRegisterAccessor<UAType, CTKType>::doPostRead(TransferType, bool hasNewData) {
+    if(!hasNewData) return;
     UAType* tmp = (UAType*)(_data.value.data);
     for(size_t i = 0; i < _info->_arrayLength; i++){
       UAType value = tmp[i];

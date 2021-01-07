@@ -157,6 +157,8 @@ namespace ChimeraTK {
      */
     bool _catalogue_filled;
 
+    bool _isFunctional{false};
+
     std::string _serverAddress;
 
     unsigned long _port;

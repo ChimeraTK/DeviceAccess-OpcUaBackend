@@ -140,7 +140,8 @@ struct VariableAttacher{
 OPCUAServer::OPCUAServer(): _config(UA_ServerConfig_standard), _server(nullptr){
   std::random_device rd;
   std::uniform_int_distribution<uint> dist(20000, 99999);
-  _port = dist(rd);
+//  _port = dist(rd);
+  _port = 4848;
 }
 
 OPCUAServer::~OPCUAServer(){
@@ -153,6 +154,7 @@ void OPCUAServer::start(){
   _config.networkLayers = &_nl;
   _config.networkLayersSize = 1;
   _server = UA_Server_new(_config);
+  running = true;
 
   addVariables();
 
@@ -187,10 +189,10 @@ void OPCUAServer::addVariables(){
                           UA_NODEID_NULL, oAttr, NULL, NULL);
 //
   addFolder("Dummy/scalar", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar"), _server, false, true));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar"), _server, false, false));
 //    addVariable("Dummy/scalar/int32", UA_NODEID_STRING(1,"Dummy/scalar"));
   addFolder("Dummy/array", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array"), _server, true, true));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array"), _server, true, false));
 //    addVariable("Dummy/array/int32", UA_NODEID_STRING(1,"Dummy/array"));
 }
 

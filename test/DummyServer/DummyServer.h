@@ -10,6 +10,8 @@
 #include "open62541.h"
 
 #include <thread>
+#include <chrono>
+#include <mutex>
 
 #include <boost/fusion/container/map.hpp>
 
@@ -41,9 +43,14 @@ struct OPCUAServer{
   UA_ServerNetworkLayer _nl;
   uint _port;
 
-  UA_Boolean running = true;
+  UA_Boolean running{true};
+
+  std::mutex _mux;
 
   void start();
+
+  void lock(){_mux.lock();}
+  void unlock(){_mux.unlock();}
 
   uint getPort(){return _port;}
 
@@ -54,6 +61,7 @@ struct OPCUAServer{
    */
   void stop(){
     running = false;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
   void addFolder(std::string name, UA_NodeId parent);
@@ -84,6 +92,8 @@ public:
   }
 
   void start(){
+    if(_serverThread.joinable())
+      _serverThread.join();
     _serverThread = std::thread{&OPCUAServer::start, &_server};
   }
 
