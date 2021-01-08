@@ -46,7 +46,6 @@ namespace ChimeraTK{
     connect();
     fillCatalogue();
     _catalogue_filled = true;
-    OPCUASubscriptionManager::getInstance().activate(_client);
   }
 
   void OpcUABackend::browseRecursive(UA_Client *client, UA_NodeId startingNode) {
@@ -249,6 +248,7 @@ namespace ChimeraTK{
     std::cout << "Opening the device...." << std::endl;
     connect();
     //ToDo: What to do with the subscription manager?
+    OPCUASubscriptionManager::getInstance().activate(_client);
     OPCUASubscriptionManager::getInstance().start();
     if(!_catalogue_filled){
       fillCatalogue();
@@ -266,6 +266,7 @@ namespace ChimeraTK{
 //    _catalogue_filled = false;
     _opened = false;
     _isFunctional = false;
+    OPCUASubscriptionManager::getInstance().deactivate();
   }
 
   void OpcUABackend::connect(){
@@ -315,11 +316,14 @@ namespace ChimeraTK{
 
   template<typename UserType>
   boost::shared_ptr< NDRegisterAccessor<UserType> > OpcUABackend::getRegisterAccessor_impl(
-      const RegisterPath &registerPathName, size_t /*numberOfWords*/, size_t /*wordOffsetInRegister*/, AccessModeFlags flags) {
+      const RegisterPath &registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags) {
+    if(wordOffsetInRegister > 0){
+      throw ChimeraTK::logic_error("2D Arrays are not yet supported by the backend.");
+    }
     std::string path = _serverAddress+registerPathName;
 
     if(_catalogue_mutable.getNumberOfRegisters() == 0){
-      throw ChimeraTK::runtime_error("No registers found in the catalog.");
+      throw ChimeraTK::logic_error("No registers found in the catalog.");
     }
 
     OpcUABackendRegisterInfo* info = nullptr;
@@ -330,42 +334,51 @@ namespace ChimeraTK{
       }
     }
     if(info == nullptr){
-      throw ChimeraTK::runtime_error(std::string("Requested register (") + registerPathName + ") was not found in the catalog.");
+      throw ChimeraTK::logic_error(std::string("Requested register (") + registerPathName + ") was not found in the catalog.");
     }
+
+    if(numberOfWords > info->_arrayLength){
+      std::stringstream ss;
+      ss << "Requested number of words/elements ( " << numberOfWords << ") exceeds the number of available words/elements: " << info->_arrayLength;
+      throw ChimeraTK::logic_error(ss.str());
+    }
+
+    if(numberOfWords == 0)
+      numberOfWords = info->_arrayLength;
 
     switch(info->_dataType){
       case 2:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_SByte, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_SByte, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 3:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Byte,  UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Byte,  UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 4:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int16, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int16, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 5:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt16, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt16, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 6:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int32, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 7:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 8:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int64, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int64, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 9:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 10:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Float, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Float, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 11:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Double, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Double, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       case 12:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_String, UserType>>(path, shared_from_this(), registerPathName, info, flags);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_String, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
         break;
       default:
         throw ChimeraTK::runtime_error(std::string("Type ") + std::to_string(info->_dataType) + " not implemented.");
@@ -394,5 +407,6 @@ namespace ChimeraTK{
 
   OpcUABackend::~OpcUABackend(){
     OPCUASubscriptionManager::getInstance().deactivate();
+    deleteClient();
   }
 }

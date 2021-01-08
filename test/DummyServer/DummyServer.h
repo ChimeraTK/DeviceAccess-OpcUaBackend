@@ -87,20 +87,12 @@ class ThreadedOPCUAServer {
 public:
   std::thread _serverThread;
 
-  ThreadedOPCUAServer(){
+  ThreadedOPCUAServer(){ }
+  ~ThreadedOPCUAServer();
 
-  }
+  void start();
 
-  void start(){
-    if(_serverThread.joinable())
-      _serverThread.join();
-    _serverThread = std::thread{&OPCUAServer::start, &_server};
-  }
-
-  ~ThreadedOPCUAServer(){
-    _server.stop();
-    _serverThread.join();
-  }
+  bool checkConnection();
 
   OPCUAServer _server;
 };

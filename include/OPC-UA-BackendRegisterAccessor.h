@@ -21,6 +21,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include <mutex>
+#include <chrono>
 
 namespace fusion = boost::fusion;
 
@@ -154,6 +155,21 @@ namespace ChimeraTK {
         fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]),
         fusion::make_pair<UA_SByte>(UA_TYPES[UA_TYPES_SBYTE]),
         fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE])};
+    /**
+     * Convert the actual UA_DataValue to a VersionNumber.
+     * The VersionNumeber is constructed from the source time stamp.
+     */
+    ChimeraTK::VersionNumber convertToTimePoint(){
+      /**
+      * UA_DateTime is encoded as a 64-bit signed integer
+      * which represents the number of 100 nanosecond intervals since January 1, 1601
+      * (UTC)
+      * */
+      int64_t sourceTimeStampUnixEpoch = (_data.sourceTimestamp - UA_DATETIME_UNIX_EPOCH);
+      std::chrono::duration<int64_t,std::nano> d(sourceTimeStampUnixEpoch*100);
+      std::chrono::time_point<std::chrono::system_clock,std::chrono::duration<int64_t,std::nano> > tp(d);
+      return ChimeraTK::VersionNumber(tp);
+    }
   };
 
   template<typename UAType, typename CTKType>
@@ -181,7 +197,7 @@ namespace ChimeraTK {
 
    bool doWriteTransfer(VersionNumber /*versionNumber*/={}) override;
 
-   OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo, AccessModeFlags flags);
+   OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo, AccessModeFlags flags, size_t numberOfWords);
 
    bool isReadOnly() const override {
      return _info->_isReadonly;
@@ -216,6 +232,7 @@ namespace ChimeraTK {
    std::string _node_id;
    ChimeraTK::VersionNumber _currentVersion;
    OpcUABackendRegisterInfo* _info;
+   size_t _numberOfWords; ///< Requested array length. Could be smaller than what is available on the server.
    RangeCheckingDataConverter<UAType, CTKType> toOpcUA;
    RangeCheckingDataConverter<CTKType, UAType> toCTK;
 
@@ -226,11 +243,16 @@ namespace ChimeraTK {
 
   template<typename UAType, typename CTKType>
   OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo,
-      AccessModeFlags flags)
-  : OpcUABackendRegisterAccessorBase(boost::dynamic_pointer_cast<OpcUABackend>(backend)), NDRegisterAccessor<CTKType>(path, flags), _node_id(node_id), _info(registerInfo)
+      AccessModeFlags flags, size_t numberOfWords)
+  : OpcUABackendRegisterAccessorBase(boost::dynamic_pointer_cast<OpcUABackend>(backend)), NDRegisterAccessor<CTKType>(path, flags), _node_id(node_id), _info(registerInfo), _numberOfWords(numberOfWords)
   {
+    if(flags.has(AccessMode::raw))
+      throw ChimeraTK::logic_error("Raw access mode is not supported.");
+    if(flags.has(AccessMode::wait_for_new_data))
+      throw ChimeraTK::logic_error("Async access mode is not supported.");
+
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
-    this->accessChannel(0).resize(_info->_arrayLength);
+    this->accessChannel(0).resize(numberOfWords);
     if(flags.has(AccessMode::wait_for_new_data)){
       //\ToDo: Implement subscription here!
 //      _backend->_manager->subscribe(UA_NODEID_STRING(1,&_node_id[0]),this);
@@ -264,26 +286,30 @@ namespace ChimeraTK {
   void OpcUABackendRegisterAccessor<UAType, CTKType>::doPostRead(TransferType, bool hasNewData) {
     if(!hasNewData) return;
     UAType* tmp = (UAType*)(_data.value.data);
-    for(size_t i = 0; i < _info->_arrayLength; i++){
+    for(size_t i = 0; i < _numberOfWords; i++){
       UAType value = tmp[i];
       // Fill the NDRegisterAccessor buffer
       this->accessData(i) = toCTK.convert(value);
     }
-
+    _currentVersion = convertToTimePoint();
+    TransferElement::_versionNumber = _currentVersion;
   }
 
   template<typename UAType, typename CTKType>
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber){
+    if(!_backend->isFunctional()) {
+      throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
+    }
     std::lock_guard<std::mutex> lock(_backend->opcua_mutex);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     std::vector<UAType> v(this->getNumberOfSamples());
     for(size_t i = 0; i < this->getNumberOfSamples(); i++){
       v[i] = toOpcUA.convert(this->accessData(i));
     }
-    if(_info->_arrayLength == 1){
+    if(_numberOfWords == 1){
       UA_Variant_setScalarCopy(val->var, &v[0], &fusion::at_key<UAType>(m));
     } else {
-      UA_Variant_setArrayCopy(val->var, &v[0], _info->_arrayLength,  &fusion::at_key<UAType>(m));
+      UA_Variant_setArrayCopy(val->var, &v[0], _numberOfWords,  &fusion::at_key<UAType>(m));
     }
     UA_StatusCode retval = UA_Client_writeValueAttribute(_backend->_client, _info->_id, val->var);
     _currentVersion = versionNumber;

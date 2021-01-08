@@ -202,3 +202,35 @@ UA_Variant* OPCUAServer::getValue(std::string nodeName){
   return data;
 }
 
+void ThreadedOPCUAServer::start(){
+  if(_serverThread.joinable())
+    _serverThread.join();
+  _serverThread = std::thread{&OPCUAServer::start, &_server};
+  if(!checkConnection())
+    throw std::runtime_error("Failed to connect to the test server!");
+  std::cout << "Test server is set up and running..." << std::endl;
+}
+
+ThreadedOPCUAServer::~ThreadedOPCUAServer(){
+  _server.stop();
+  _serverThread.join();
+}
+
+bool ThreadedOPCUAServer::checkConnection(){
+  UA_Client* client = UA_Client_new(UA_ClientConfig_standard);
+  /** Connect **/
+  UA_StatusCode retval;
+  std::string serverAddress("opc.tcp://localhost:"+std::to_string(_server._port));
+  uint time = 0;
+  while(retval != UA_STATUSCODE_GOOD){
+    retval = UA_Client_connect(client, serverAddress.c_str());
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    time++;
+    if(time == 200){
+      // break after 2s - server should be up now!
+      return false;
+    }
+  }
+  UA_Client_delete(client); /* Disconnects the client internally */
+  return true;
+}
