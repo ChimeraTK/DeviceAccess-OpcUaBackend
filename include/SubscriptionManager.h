@@ -9,6 +9,8 @@
 #define INCLUDE_SUBSCRIPTIONMANAGER_H_
 
 #include <map>
+#include <vector>
+#include <mutex>
 #include <thread>
 #include "open62541.h"
 #include <iostream>
@@ -16,6 +18,22 @@
 namespace ChimeraTK{
   class OpcUABackendRegisterAccessorBase;
 
+  /**
+   * Struct used to store all information about a backend subscription, which is a monitored item belonging to a OPC UA subscription in terms of OPC UA.
+   */
+  struct MonitorItem{
+    UA_NodeId node; ///< Node id of the process variable to be monitored
+    OpcUABackendRegisterAccessorBase* accessor; ///< Pointer to the accessor using this item
+    UA_UInt32 id; ///< ID of the monitored item that belongs to the subscription
+    bool active; ///< If active the data is updated by the callback function
+  };
+
+
+  /**
+   * Class handling the OPC UA subscriptions and monitored items.
+   *
+   * So far only one subscription is used and all ctk subscriptions of BackendAccessors are monitored items to this subscription.
+   */
   class OPCUASubscriptionManager{
   public:
     static OPCUASubscriptionManager& getInstance() {
@@ -23,13 +41,19 @@ namespace ChimeraTK{
       return manager;
     }
 
-    void activate(UA_Client* client);
+    void activate();
 
     void deactivate();
 
 //    template<typename UAType, typename CTKType>
 //    void subscribe(const UA_NodeId& id, OpcUABackendRegisterAccessor<UAType, CTKType>* accessor);
-    void subscribe(const UA_NodeId& id, OpcUABackendRegisterAccessorBase* accessor);
+
+    /**
+     * The subscription is done before the device is opened, when the Accessor is created.
+     * At this point the client is not yet set up and the registration of the monitored item can not yet be done.
+     * This will be done in addMonitoredItems() when the device is opened.
+     */
+    void subscribe(const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor);
 
     void unsubscribe(const UA_UInt32& id);
 
@@ -37,6 +61,12 @@ namespace ChimeraTK{
 
     void runClient();
 
+    void setClient(UA_Client* client, std::mutex* opcuaMutex);
+
+    /**
+     * Check if client is up and subscriptions are valid
+     */
+    bool isActive();
 
     /// callback function for the client
 //    template <typename UAType>
@@ -46,9 +76,19 @@ namespace ChimeraTK{
     OPCUASubscriptionManager(){};
     ~OPCUASubscriptionManager();
 
-    bool _run;
+    /**
+     * Here the items are registered to the server by the client.
+     * This is to be called after the client is set up.
+     * It is called by setClient()
+     */
+    void addMonitoredItems();
 
-    UA_Client* _client;
+
+    bool _run{false};
+    bool _subscriptionActive{false};
+
+    UA_Client* _client{nullptr};
+    std::mutex* _opcuaMutex{nullptr};
 
     UA_UInt32 _subscriptionID;
 
@@ -58,8 +98,14 @@ namespace ChimeraTK{
      */
     std::thread _opcuaThread;
 
-    /// map of subscriptions
-    static std::map<UA_UInt32, OpcUABackendRegisterAccessorBase*> subscriptionMap;
+    // List of subscriptions (not OPC UA subscriptions)
+    std::vector<MonitorItem> _items;
+
+    /// map of ctk subscriptions (not OPC UA subscriptions)
+    static std::map<UA_UInt32, MonitorItem*> subscriptionMap;
+
+    // Send exception to all accesors via the future queue
+    void handleException();
   };
 
   /**

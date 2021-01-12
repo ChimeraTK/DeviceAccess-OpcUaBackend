@@ -55,11 +55,22 @@ struct AllRegisterDefaults{
                                            .disableSwitchReadOnly()
                                            .disableSwitchWriteOnly();
   void setForceRuntimeError(bool enable, size_t){
-    if(enable)
+    if(enable){
       OPCUALauncher::threadedServer->_server.stop();
-    else
+      // check if the server is really off
+      if(!OPCUALauncher::threadedServer->checkConnection(ServerState::Off)){
+        throw std::runtime_error("Failed to force runtime error.");
+      }
+      std::cout << "Server is stopped." << std::endl;
+    }
+    else {
+      // check if server is running is done by the method itself.
       OPCUALauncher::threadedServer->start();
+    }
+
   }
+
+
 
 };
 
@@ -74,10 +85,13 @@ struct ArrayDefaults : AllRegisterDefaults{
 };
 
 struct RegSomeInt : ScalarDefaults {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
   std::string path() { return "Dummy/scalar/int32"; }
   typedef int32_t minimumUserType;
   int32_t increment{3};
   UA_Int32* data;
+
+  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   template<typename UserType>
   std::vector<std::vector<UserType> > generateValue(){
@@ -97,6 +111,10 @@ struct RegSomeInt : ScalarDefaults {
 
   void setRemoteValue(){
     OPCUALauncher::threadedServer->_server.setValue(path(),UA_Int32{generateValue<int32_t>().at(0).at(0)});
+  }
+
+  void forceAsyncReadInconsistency(){
+    setRemoteValue();
   }
 };
 

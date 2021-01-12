@@ -127,6 +127,8 @@ namespace ChimeraTK {
 
     bool isFunctional() const override;
 
+    void activateAsyncRead() noexcept override;
+
     template<typename UserType>
     boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(const RegisterPath &registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags);
 
@@ -149,6 +151,8 @@ namespace ChimeraTK {
 		// This needs to be public because it is accessed by the RegisterAccessor.
     UA_Client *_client;
 
+    bool isAsyncReadActive(){return _asyncReadActivated;}
+
   private:
     /**
      * Catalogue is filled when device is opened. When working with LogicalNameMapping the
@@ -158,6 +162,8 @@ namespace ChimeraTK {
     bool _catalogue_filled;
 
     bool _isFunctional{false};
+
+    bool _asyncReadActivated{false};
 
     std::string _serverAddress;
 
@@ -215,6 +221,8 @@ namespace ChimeraTK {
      *  myname2     123                1
      */
     void getNodesFromMapfile();
+
+    UA_ClientState getConnectionState();
 
   };
 }

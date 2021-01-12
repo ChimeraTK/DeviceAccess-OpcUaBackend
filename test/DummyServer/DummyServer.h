@@ -32,6 +32,8 @@ typedef fusion::map<
 
 extern TypeMapWithName dummyMap;
 
+enum ServerState{On, Off};
+
 struct OPCUAServer{
 
   OPCUAServer();
@@ -61,7 +63,6 @@ struct OPCUAServer{
    */
   void stop(){
     running = false;
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
   void addFolder(std::string name, UA_NodeId parent);
@@ -92,7 +93,10 @@ public:
 
   void start();
 
-  bool checkConnection();
+  /**
+   * Check if the server has expected state.
+   */
+  bool checkConnection(const ServerState &state = ServerState::On);
 
   OPCUAServer _server;
 };

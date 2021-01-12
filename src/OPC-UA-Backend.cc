@@ -248,7 +248,6 @@ namespace ChimeraTK{
     std::cout << "Opening the device...." << std::endl;
     connect();
     //ToDo: What to do with the subscription manager?
-    OPCUASubscriptionManager::getInstance().activate(_client);
     OPCUASubscriptionManager::getInstance().start();
     if(!_catalogue_filled){
       fillCatalogue();
@@ -260,30 +259,36 @@ namespace ChimeraTK{
 
   void OpcUABackend::close() {
     //ToDo: What to do with the subscription manager?
+    OPCUASubscriptionManager::getInstance().deactivate();
     deleteClient();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
 //    _catalogue_mutable = RegisterCatalogue();
 //    _catalogue_filled = false;
     _opened = false;
     _isFunctional = false;
-    OPCUASubscriptionManager::getInstance().deactivate();
+  }
+
+  UA_ClientState OpcUABackend::getConnectionState(){
+    std::lock_guard<std::mutex> lock(opcua_mutex);
+    return UA_Client_getState(_client);
   }
 
   void OpcUABackend::connect(){
-//    std::lock_guard<std::mutex> lock(opcua_mutex);
-    if(_client == nullptr || UA_Client_getState(_client) != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
+    if(_client == nullptr || getConnectionState() != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
       if(_client != nullptr)
         deleteClient();
       _client = UA_Client_new(_config);
       /** Connect **/
-      if(UA_Client_getState(_client) != UA_CLIENTSTATE_READY){
+      if(getConnectionState() != UA_CLIENTSTATE_READY){
         deleteClient();
         throw ChimeraTK::runtime_error("Failed to set up OPC-UA client");
       }
       UA_StatusCode retval;
       if(_username.empty() || _password.empty()){
+        std::lock_guard<std::mutex> lock(opcua_mutex);
         retval = UA_Client_connect(_client, _serverAddress.c_str());
       } else {
+        std::lock_guard<std::mutex> lock(opcua_mutex);
         retval = UA_Client_connect_username(_client, _serverAddress.c_str(), _username.c_str(), _password.c_str());
       }
       if(retval != UA_STATUSCODE_GOOD) {
@@ -292,6 +297,7 @@ namespace ChimeraTK{
         ss << "Failed to connect to opc server: " <<  _serverAddress << " with reason: " << std::hex << retval;
         throw ChimeraTK::runtime_error(ss.str());
       }
+      OPCUASubscriptionManager::getInstance().setClient(_client, &opcua_mutex);
     }
   }
 
@@ -307,6 +313,11 @@ namespace ChimeraTK{
     } else {
       return true;
     }
+  }
+
+  void OpcUABackend::activateAsyncRead()noexcept{
+    _asyncReadActivated = true;
+    OPCUASubscriptionManager::getInstance().activate();
   }
 
   void OpcUABackend::setException(){

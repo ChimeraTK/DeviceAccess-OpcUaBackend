@@ -135,13 +135,15 @@ namespace ChimeraTK {
    */
   class OpcUABackendRegisterAccessorBase {
   public:
-    OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend):_backend(backend){}
+    OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend, OpcUABackendRegisterInfo* info):_backend(backend), _info(info){}
     /// future_queue used to notify the TransferFuture about completed transfers
     cppext::future_queue<UA_DataValue> _notifications;
 
     boost::shared_ptr<OpcUABackend> _backend;
 
     UA_DataValue _data;
+
+    OpcUABackendRegisterInfo* _info;
 
     myMap m{
         fusion::make_pair<UA_Int16>(UA_TYPES[UA_TYPES_INT16]),
@@ -187,6 +189,10 @@ namespace ChimeraTK {
        std::cout << "Throwing exception..." << std::endl;
        throw ChimeraTK::logic_error("Read operation not allowed while device is closed.");
      }
+     // This will be done by the subscription manager how sends exception to the future queue and stops waiting.
+//     if(_backend->isAsyncReadActive() && !OPCUASubscriptionManager::getInstance().isActive()){
+//       throw ChimeraTK::runtime_error("SubscriptionManager error.");
+//     }
    }
 
    void doPostRead(TransferType, bool /*hasNewData*/) override;
@@ -231,7 +237,6 @@ namespace ChimeraTK {
 
    std::string _node_id;
    ChimeraTK::VersionNumber _currentVersion;
-   OpcUABackendRegisterInfo* _info;
    size_t _numberOfWords; ///< Requested array length. Could be smaller than what is available on the server.
    RangeCheckingDataConverter<UAType, CTKType> toOpcUA;
    RangeCheckingDataConverter<CTKType, UAType> toCTK;
@@ -244,18 +249,14 @@ namespace ChimeraTK {
   template<typename UAType, typename CTKType>
   OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo,
       AccessModeFlags flags, size_t numberOfWords)
-  : OpcUABackendRegisterAccessorBase(boost::dynamic_pointer_cast<OpcUABackend>(backend)), NDRegisterAccessor<CTKType>(path, flags), _node_id(node_id), _info(registerInfo), _numberOfWords(numberOfWords)
+  : OpcUABackendRegisterAccessorBase(boost::dynamic_pointer_cast<OpcUABackend>(backend), registerInfo), NDRegisterAccessor<CTKType>(path, flags), _node_id(node_id), _numberOfWords(numberOfWords)
   {
     if(flags.has(AccessMode::raw))
       throw ChimeraTK::logic_error("Raw access mode is not supported.");
-    if(flags.has(AccessMode::wait_for_new_data))
-      throw ChimeraTK::logic_error("Async access mode is not supported.");
 
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
     this->accessChannel(0).resize(numberOfWords);
     if(flags.has(AccessMode::wait_for_new_data)){
-      //\ToDo: Implement subscription here!
-//      _backend->_manager->subscribe(UA_NODEID_STRING(1,&_node_id[0]),this);
       std::cout << "Adding subscription for node: " << _info->_nodeBrowseName << std::endl;
       OPCUASubscriptionManager::getInstance().subscribe(_info->_id, this);
       // Create notification queue.
