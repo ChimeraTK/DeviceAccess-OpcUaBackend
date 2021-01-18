@@ -91,7 +91,8 @@ struct RegSomeInt : ScalarDefaults {
   int32_t increment{3};
   UA_Int32* data;
 
-  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+  // \ToDo: Is that needed for OPC UA?
+//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   template<typename UserType>
   std::vector<std::vector<UserType> > generateValue(){
@@ -110,12 +111,11 @@ struct RegSomeInt : ScalarDefaults {
   }
 
   void setRemoteValue(){
-    OPCUALauncher::threadedServer->_server.setValue(path(),UA_Int32{generateValue<int32_t>().at(0).at(0)});
+    UA_Int32 value = generateValue<int32_t>().at(0).at(0);
+    std::cout << "Setting value: " << value << std::endl;
+    OPCUALauncher::threadedServer->_server.setValue(path(),value);
   }
 
-  void forceAsyncReadInconsistency(){
-    setRemoteValue();
-  }
 };
 
 // use test fixture suite to have access to the fixture class members
@@ -126,7 +126,8 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
-  ss << "(" << path << "?port=" << port << ")";
+  // minimum publishing interval on the server is 100ms
+  ss << "(" << path << "?port=" << port << "&publishingInterval=100)";
 
   ubt.runTests(ss.str());
 }

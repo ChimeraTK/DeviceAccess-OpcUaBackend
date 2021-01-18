@@ -10,6 +10,10 @@ This backend uses the opcua client from open62541. The version of open62541 is t
 
 If authentification should be used when connecting to a server use optional device mapping parameters `username` and `password`.
 
+Furthermore, there is a parameter called `publishingInterval`, which is relevant for asynchronous reading. It defines the smallest update time of data to the backend.
+Changes that happen faster than the publishing interval will not be seen by the backend. The unit of the publishing interval is ms and in case no publishing interval is given 
+a publishing of 500ms is used. 
+
 The backend can be used in two different ways:
 
 - Automatic catalog creation via browsing the server (only works for ChimeraTK OPC-UA servers) &rarr; use `test (opcua:localhost?port=16664)` in the device mapping file

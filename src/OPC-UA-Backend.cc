@@ -34,8 +34,8 @@ extern "C"{
 namespace ChimeraTK{
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
 
-  OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile):
-      _client(nullptr), _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _config(UA_ClientConfig_standard){
+  OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile, const unsigned long &subscriptonPublishingInterval):
+      _client(nullptr), _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _config(UA_ClientConfig_standard), _publishingInterval(subscriptonPublishingInterval){
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
     /* Registers are added before open() is called in ApplicationCore.
      * Since in the registration the catalog is needed we connect already
@@ -259,6 +259,7 @@ namespace ChimeraTK{
 
   void OpcUABackend::close() {
     //ToDo: What to do with the subscription manager?
+    std::cout << "Closing the device...." << std::endl;
     OPCUASubscriptionManager::getInstance().deactivate();
     deleteClient();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
@@ -274,7 +275,7 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::connect(){
-    if(_client == nullptr || getConnectionState() != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
+//    if(_client == nullptr || getConnectionState() != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
       if(_client != nullptr)
         deleteClient();
       _client = UA_Client_new(_config);
@@ -297,8 +298,8 @@ namespace ChimeraTK{
         ss << "Failed to connect to opc server: " <<  _serverAddress << " with reason: " << std::hex << retval;
         throw ChimeraTK::runtime_error(ss.str());
       }
-      OPCUASubscriptionManager::getInstance().setClient(_client, &opcua_mutex);
-    }
+      OPCUASubscriptionManager::getInstance().setClient(_client, &opcua_mutex, _publishingInterval);
+//    }
   }
 
   bool OpcUABackend::isFunctional() const {
@@ -322,6 +323,8 @@ namespace ChimeraTK{
 
   void OpcUABackend::setException(){
     std::cout << "Exception caught..." << std::endl;
+    if(_asyncReadActivated)
+      OPCUASubscriptionManager::getInstance().deactivateAllAndPushException();
     deleteClient();
   }
 
@@ -398,7 +401,7 @@ namespace ChimeraTK{
   }
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
-    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map"});
+    BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map", "publishingInterval"});
     std::cout << "opcua::BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -413,7 +416,10 @@ namespace ChimeraTK{
 
     unsigned long port = std::stoul(parameters["port"]);
     std::string serverAddress = std::string("opc.tcp://") + address + ":" + std::to_string(port);
-    return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["map"]));
+    unsigned long publishingInterval = 500;
+    if(!parameters["publishingInterval"].empty())
+      publishingInterval = std::stoul(parameters["publishingInterval"]);
+    return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["map"], publishingInterval));
   }
 
   OpcUABackend::~OpcUABackend(){

@@ -101,7 +101,7 @@ namespace ChimeraTK {
     ~OpcUABackend();
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
   protected:
-    OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "", const std::string &mapfile = "");
+    OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "", const std::string &mapfile = "", const unsigned long &subscriptonPublishingInterval = 500);
 
     void fillCatalogue();
 
@@ -174,6 +174,8 @@ namespace ChimeraTK {
     std::string _mapfile;
 
     UA_ClientConfig _config;
+
+    uint32_t _publishingInterval;
 
     /**
      * Connect the client. If called after client is connected the connection is checked

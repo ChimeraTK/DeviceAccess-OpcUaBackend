@@ -13,6 +13,7 @@
 #include <ChimeraTK/AccessMode.h>
 #include "OPC-UA-Backend.h"
 #include "SubscriptionManager.h"
+#include "VersionMapper.h"
 
 #include <sstream>
 
@@ -170,6 +171,7 @@ namespace ChimeraTK {
       int64_t sourceTimeStampUnixEpoch = (_data.sourceTimestamp - UA_DATETIME_UNIX_EPOCH);
       std::chrono::duration<int64_t,std::nano> d(sourceTimeStampUnixEpoch*100);
       std::chrono::time_point<std::chrono::system_clock,std::chrono::duration<int64_t,std::nano> > tp(d);
+
       return ChimeraTK::VersionNumber(tp);
     }
   };
@@ -258,11 +260,12 @@ namespace ChimeraTK {
     this->accessChannel(0).resize(numberOfWords);
     if(flags.has(AccessMode::wait_for_new_data)){
       std::cout << "Adding subscription for node: " << _info->_nodeBrowseName << std::endl;
-      OPCUASubscriptionManager::getInstance().subscribe(_info->_id, this);
       // Create notification queue.
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) { this->_data = data; }, std::launch::deferred);
 //      std::cerr << "Subscriptions are not yet supported by the backend." << std::endl;
+      // needs to be called after the notifications queue is created!
+      OPCUASubscriptionManager::getInstance().subscribe(_info->_nodeBrowseName, _info->_id, this);
     }
   }
 
@@ -292,8 +295,9 @@ namespace ChimeraTK {
       // Fill the NDRegisterAccessor buffer
       this->accessData(i) = toCTK.convert(value);
     }
-    _currentVersion = convertToTimePoint();
+    _currentVersion = VersionMapper::getInstance().getVersion(_data.sourceTimestamp);
     TransferElement::_versionNumber = _currentVersion;
+    std::cout << "Version number is: " << (std::string)_currentVersion << std::endl;
   }
 
   template<typename UAType, typename CTKType>

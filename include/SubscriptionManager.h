@@ -12,6 +12,7 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <atomic>
 #include "open62541.h"
 #include <iostream>
 
@@ -22,10 +23,16 @@ namespace ChimeraTK{
    * Struct used to store all information about a backend subscription, which is a monitored item belonging to a OPC UA subscription in terms of OPC UA.
    */
   struct MonitorItem{
-    UA_NodeId node; ///< Node id of the process variable to be monitored
-    OpcUABackendRegisterAccessorBase* accessor; ///< Pointer to the accessor using this item
-    UA_UInt32 id; ///< ID of the monitored item that belongs to the subscription
-    bool active; ///< If active the data is updated by the callback function
+    UA_NodeId _node; ///< Node id of the process variable to be monitored
+    std::vector<OpcUABackendRegisterAccessorBase*> _accessors; ///< Pointer to the accessors using this item
+    UA_UInt32 _id{0}; ///< ID of the monitored item that belongs to the subscription
+    bool _active{false}; ///< If active the data is updated by the callback function
+    bool _isMonitored{false}; ///< If true it is already added to the subscription as monitored item
+    std::string _browseName; ///< browseName - used to compare monitored items -> \ToDo: use NodeStore?!
+
+    MonitorItem(const std::string &browseName, const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor): _node(node), _browseName(browseName){_accessors.push_back(accessor);};
+    friend bool operator==(const MonitorItem& lhs, const MonitorItem &rhs){return lhs._browseName == rhs._browseName;}
+    bool operator==(const std::string& other){return _browseName == other;}
   };
 
 
@@ -41,19 +48,35 @@ namespace ChimeraTK{
       return manager;
     }
 
+    /**
+     * Enable pushing values to the TransferElement future queue in the OPC UA callback function.
+     */
     void activate();
 
+    /**
+     * Disable pushing values to the TransferElement future queue in the OPC UA callback function.
+     * \ToDo: Should the following actions really be part of that method?
+     * Unsubscribe all PVs from the OPC UA subscription.
+     * Reset client pointer.
+     * To work again a setClient is required.
+     */
     void deactivate();
+
+    /**
+     * Push exception to the TransferElement future queue and call deactivate().
+     */
+    void deactivateAllAndPushException();
 
 //    template<typename UAType, typename CTKType>
 //    void subscribe(const UA_NodeId& id, OpcUABackendRegisterAccessor<UAType, CTKType>* accessor);
 
     /**
-     * The subscription is done before the device is opened, when the Accessor is created.
-     * At this point the client is not yet set up and the registration of the monitored item can not yet be done.
-     * This will be done in addMonitoredItems() when the device is opened.
+     * Store all accessors that are supposed to be used with the OPC UA subscription.
+     * In case the subscription is already created (device was opened) monitored items are added to the subscription.
+     * In case asyncRead was already activated in the Device also activate is called and pushing to the TransferElement
+     * future queue is enabled.
      */
-    void subscribe(const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor);
+    void subscribe(const std::string &browseName, const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor);
 
     void unsubscribe(const UA_UInt32& id);
 
@@ -61,7 +84,7 @@ namespace ChimeraTK{
 
     void runClient();
 
-    void setClient(UA_Client* client, std::mutex* opcuaMutex);
+    void setClient(UA_Client* client, std::mutex* opcuaMutex, const unsigned long &publishingInterval);
 
     /**
      * Check if client is up and subscriptions are valid
@@ -84,13 +107,16 @@ namespace ChimeraTK{
     void addMonitoredItems();
 
 
-    bool _run{false};
+    std::atomic<bool> _run{false};
     bool _subscriptionActive{false};
+    bool _asyncReadActive{false};
 
     UA_Client* _client{nullptr};
     std::mutex* _opcuaMutex{nullptr};
 
     UA_UInt32 _subscriptionID;
+
+    unsigned long _publishingInterval;
 
     /*
      *  To keep asynchronous services alive (e.g. renew secure channel,...) the client needs
@@ -106,6 +132,14 @@ namespace ChimeraTK{
 
     // Send exception to all accesors via the future queue
     void handleException();
+
+    /*
+     *  This is necessary if the client connection is reset.
+     *  It will clear the subscription map and reset the MonitorItem status,
+     *  such that they will be added as monitored items again when calling addMonitoredItems.
+     */
+
+    void resetMonitoredItems();
   };
 
   /**
