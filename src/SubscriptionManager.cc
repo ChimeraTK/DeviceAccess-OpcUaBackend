@@ -93,6 +93,7 @@ void OPCUASubscriptionManager::deactivate(){
   }
   OPCUASubscriptionManager::_items.clear();
   _client = nullptr;
+  _asyncReadActive = false;
 }
 
 void OPCUASubscriptionManager::deactivateAllAndPushException(){
