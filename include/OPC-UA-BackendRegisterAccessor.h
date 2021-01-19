@@ -182,7 +182,7 @@ namespace ChimeraTK {
   public:
 
 //   virtual ~OpcUABackendRegisterAccessor(){this->shutdown();};
-   virtual ~OpcUABackendRegisterAccessor(){};
+   ~OpcUABackendRegisterAccessor();
 
    void doReadTransferSynchronously() override;
 
@@ -284,6 +284,7 @@ namespace ChimeraTK {
 
     // Write data to  the internal data buffer
     UA_Variant_copy(val->var, &_data.value);
+    _data.sourceTimestamp = UA_DateTime_now();
   }
 
   template<typename UAType, typename CTKType>
@@ -321,6 +322,7 @@ namespace ChimeraTK {
     if(retval == UA_STATUSCODE_GOOD){
       return true;
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
+      OPCUASubscriptionManager::getInstance().setExternalError(_info->_nodeBrowseName);
       throw ChimeraTK::logic_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
     } else {
       handleError(retval);
@@ -334,7 +336,15 @@ namespace ChimeraTK {
     out << "OPC-UA-Backend::Failed to access variable: " << _node_id << " with reason: " <<
         UA_StatusCode_name(retval) << " --> " <<
         std::hex << retval;
+    OPCUASubscriptionManager::getInstance().setExternalError(_info->_nodeBrowseName);
     throw ChimeraTK::runtime_error(out.str());
+  }
+
+  template<typename UAType, typename CTKType>
+  OpcUABackendRegisterAccessor<UAType, CTKType>::~OpcUABackendRegisterAccessor(){
+    if(_backend->_asyncReadActivated){
+      OPCUASubscriptionManager::getInstance().unsubscribe(_info->_nodeBrowseName, this);
+    }
   }
 }
 

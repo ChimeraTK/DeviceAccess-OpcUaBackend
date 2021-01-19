@@ -180,8 +180,9 @@ namespace ChimeraTK {
     /**
      * Connect the client. If called after client is connected the connection is checked
      * and if it is ok no new connection is established.
+     * \param initialCall True if called in the constructor.
      */
-    void connect();
+    void connect(bool initalCall = false);
 
     /**
      * Delete the client connection and set the client pointer

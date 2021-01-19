@@ -67,6 +67,8 @@ struct AllRegisterDefaults{
       // check if server is running is done by the method itself.
       OPCUALauncher::threadedServer->start();
     }
+    // sleep for twice the publishing interval
+    std::this_thread::sleep_for(std::chrono::milliseconds(2*100));
 
   }
 

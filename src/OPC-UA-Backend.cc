@@ -43,7 +43,7 @@ namespace ChimeraTK{
      */
     //\ToDo: When using open62541 v1.1 set up callback function here to receive callback on state change.
 //    _config->stateCallback = ...
-    connect();
+    connect(true);
     fillCatalogue();
     _catalogue_filled = true;
   }
@@ -247,8 +247,7 @@ namespace ChimeraTK{
      */
     std::cout << "Opening the device...." << std::endl;
     connect();
-    //ToDo: What to do with the subscription manager?
-    OPCUASubscriptionManager::getInstance().start();
+
     if(!_catalogue_filled){
       fillCatalogue();
       _catalogue_filled = true;
@@ -274,7 +273,7 @@ namespace ChimeraTK{
     return UA_Client_getState(_client);
   }
 
-  void OpcUABackend::connect(){
+  void OpcUABackend::connect(bool initialCall){
 //    if(_client == nullptr || getConnectionState() != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
       if(_client != nullptr)
         deleteClient();
@@ -298,7 +297,8 @@ namespace ChimeraTK{
         ss << "Failed to connect to opc server: " <<  _serverAddress << " with reason: " << std::hex << retval;
         throw ChimeraTK::runtime_error(ss.str());
       }
-      OPCUASubscriptionManager::getInstance().setClient(_client, &opcua_mutex, _publishingInterval);
+      if(!initialCall)
+        OPCUASubscriptionManager::getInstance().setClient(_client, &opcua_mutex, _publishingInterval);
 //    }
   }
 
@@ -317,12 +317,19 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::activateAsyncRead()noexcept{
+    if(!_opened || !_isFunctional)
+      return;
     _asyncReadActivated = true;
     OPCUASubscriptionManager::getInstance().activate();
+    // sleep twice the publishing interval to make sure intital values are written
+    //ToDo: What to do with the subscription manager?
+    OPCUASubscriptionManager::getInstance().start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2*_publishingInterval));
   }
 
   void OpcUABackend::setException(){
     std::cout << "Exception caught..." << std::endl;
+    _isFunctional = false;
     if(_asyncReadActivated)
       OPCUASubscriptionManager::getInstance().deactivateAllAndPushException();
     deleteClient();

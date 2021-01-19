@@ -28,6 +28,7 @@ namespace ChimeraTK{
     UA_UInt32 _id{0}; ///< ID of the monitored item that belongs to the subscription
     bool _active{false}; ///< If active the data is updated by the callback function
     bool _isMonitored{false}; ///< If true it is already added to the subscription as monitored item
+    bool _hasException{false}; ///<True if exception is thrown by a certain item and used to avoid sending exception twice in deactivateAllAndPushException
     std::string _browseName; ///< browseName - used to compare monitored items -> \ToDo: use NodeStore?!
 
     MonitorItem(const std::string &browseName, const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor): _node(node), _browseName(browseName){_accessors.push_back(accessor);};
@@ -59,11 +60,12 @@ namespace ChimeraTK{
      * Unsubscribe all PVs from the OPC UA subscription.
      * Reset client pointer.
      * To work again a setClient is required.
+     * \param keepItems If true _items is not cleared. That is important if it is called following an exception by the device and not following a close device
      */
-    void deactivate();
+    void deactivate(bool keepItems=false);
 
     /**
-     * Push exception to the TransferElement future queue and call deactivate().
+     * Push exception to the TransferElement future queue and call deactivate(True) keeping the _item list.
      */
     void deactivateAllAndPushException();
 
@@ -78,7 +80,7 @@ namespace ChimeraTK{
      */
     void subscribe(const std::string &browseName, const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor);
 
-    void unsubscribe(const UA_UInt32& id);
+    void unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor);
 
     void start();
 
@@ -95,6 +97,12 @@ namespace ChimeraTK{
 //    template <typename UAType>
     static void responseHandler(UA_UInt32 monId, UA_DataValue *value, void *monContext);
 
+    bool isRunning(){return _run;}
+
+    // Report an exception to the subscription manager. E.g. thrown by the RegisterAccessor.
+    void setExternalError(const std::string &browseName);
+
+    static std::mutex _mutex; ///< Mutex used to protect writing non atomic member variables of items in the _items vector (can not use atomic because we put it into a vector of unknown size)
   private:
     OPCUASubscriptionManager(){};
     ~OPCUASubscriptionManager();
@@ -102,10 +110,15 @@ namespace ChimeraTK{
     /**
      * Here the items are registered to the server by the client.
      * This is to be called after the client is set up.
-     * It is called by setClient()
+     * Called in activateAsyncRead()
      */
     void addMonitoredItems();
 
+    /**
+     * Set up the subscription.
+     * It is called by setClient().
+     */
+    void createSubscription();
 
     std::atomic<bool> _run{false};
     bool _subscriptionActive{false};
@@ -131,7 +144,7 @@ namespace ChimeraTK{
     static std::map<UA_UInt32, MonitorItem*> subscriptionMap;
 
     // Send exception to all accesors via the future queue
-    void handleException();
+    void handleException(const std::string &msg);
 
     /*
      *  This is necessary if the client connection is reset.
