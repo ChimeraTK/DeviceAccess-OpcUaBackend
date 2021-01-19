@@ -113,9 +113,58 @@ struct RegSomeInt : ScalarDefaults {
   }
 
   void setRemoteValue(){
-    UA_Int32 value = generateValue<int32_t>().at(0).at(0);
-    std::cout << "Setting value: " << value << std::endl;
+    std::vector<UA_Int32> value;
+    value.push_back(generateValue<int32_t>().at(0).at(0));
+    std::cout << "Setting value: " << value.at(0) << std::endl;
     OPCUALauncher::threadedServer->_server.setValue(path(),value);
+  }
+
+};
+
+struct RegSomeIntArray : ArrayDefaults {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  std::string path() { return "Dummy/array/int32"; }
+  typedef int32_t minimumUserType;
+  int32_t increment{3};
+  UA_Int32* data;
+
+  // \ToDo: Is that needed for OPC UA?
+//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+
+  template<typename UserType>
+  std::vector<std::vector<UserType> > generateValue(){
+    auto currentData = getRemoteValue<UserType>();
+    std::vector<UserType> val;
+    for(size_t i =0; i < nElementsPerChannel(); ++i){
+      val.push_back(currentData.at(0).at(i)+(i+1)*increment);
+    }
+    return {val};
+  }
+
+  template<typename UserType>
+  std::vector<std::vector<UserType> > getRemoteValue(){
+    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    data = (UA_Int32*)variant->data;
+    std::vector<UserType> values;
+    for(size_t i =0; i < nElementsPerChannel(); ++i){
+      auto value = ChimeraTK::numericToUserType<UserType>(data[i]);
+      values.push_back(value);
+    }
+    UA_Variant_delete(variant);
+    return {values};
+  }
+
+  void setRemoteValue(){
+    std::vector<UA_Int32> values;
+    auto v = generateValue<int32_t>().at(0);
+    std::stringstream ss;
+    for(auto t : v){
+      values.push_back(t);
+      ss << " " << t;
+    }
+
+    std::cout << "Setting array: " << ss.str() << std::endl;
+    OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
   }
 
 };
@@ -124,7 +173,8 @@ struct RegSomeInt : ScalarDefaults {
 BOOST_FIXTURE_TEST_SUITE(s, OPCUALauncher)
 BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   auto ubt = ChimeraTK::UnifiedBackendTest<>()
-                 .addRegister<RegSomeInt>();
+//                 .addRegister<RegSomeInt>()
+                 .addRegister<RegSomeIntArray>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;

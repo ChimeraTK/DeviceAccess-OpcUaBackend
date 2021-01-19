@@ -205,7 +205,7 @@ namespace ChimeraTK {
 
    bool doWriteTransfer(VersionNumber /*versionNumber*/={}) override;
 
-   OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo, AccessModeFlags flags, size_t numberOfWords);
+   OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo, AccessModeFlags flags, size_t numberOfWords, size_t wordOffsetInRegister);
 
    bool isReadOnly() const override {
      return _info->_isReadonly;
@@ -240,6 +240,7 @@ namespace ChimeraTK {
    std::string _node_id;
    ChimeraTK::VersionNumber _currentVersion;
    size_t _numberOfWords; ///< Requested array length. Could be smaller than what is available on the server.
+   size_t _offsetWords; ///< Requested offset for arrays.
    RangeCheckingDataConverter<UAType, CTKType> toOpcUA;
    RangeCheckingDataConverter<CTKType, UAType> toCTK;
 
@@ -250,8 +251,8 @@ namespace ChimeraTK {
 
   template<typename UAType, typename CTKType>
   OpcUABackendRegisterAccessor<UAType, CTKType>::OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend, const std::string &node_id, OpcUABackendRegisterInfo* registerInfo,
-      AccessModeFlags flags, size_t numberOfWords)
-  : OpcUABackendRegisterAccessorBase(boost::dynamic_pointer_cast<OpcUABackend>(backend), registerInfo), NDRegisterAccessor<CTKType>(path, flags), _node_id(node_id), _numberOfWords(numberOfWords)
+      AccessModeFlags flags, size_t numberOfWords, size_t wordOffsetInRegister)
+  : OpcUABackendRegisterAccessorBase(boost::dynamic_pointer_cast<OpcUABackend>(backend), registerInfo), NDRegisterAccessor<CTKType>(path, flags), _node_id(node_id), _numberOfWords(numberOfWords), _offsetWords(wordOffsetInRegister)
   {
     if(flags.has(AccessMode::raw))
       throw ChimeraTK::logic_error("Raw access mode is not supported.");
@@ -292,7 +293,7 @@ namespace ChimeraTK {
     if(!hasNewData) return;
     UAType* tmp = (UAType*)(_data.value.data);
     for(size_t i = 0; i < _numberOfWords; i++){
-      UAType value = tmp[i];
+      UAType value = tmp[_offsetWords+i];
       // Fill the NDRegisterAccessor buffer
       this->accessData(i) = toCTK.convert(value);
     }

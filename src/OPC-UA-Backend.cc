@@ -338,9 +338,6 @@ namespace ChimeraTK{
   template<typename UserType>
   boost::shared_ptr< NDRegisterAccessor<UserType> > OpcUABackend::getRegisterAccessor_impl(
       const RegisterPath &registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags) {
-    if(wordOffsetInRegister > 0){
-      throw ChimeraTK::logic_error("2D Arrays are not yet supported by the backend.");
-    }
     std::string path = _serverAddress+registerPathName;
 
     if(_catalogue_mutable.getNumberOfRegisters() == 0){
@@ -358,9 +355,10 @@ namespace ChimeraTK{
       throw ChimeraTK::logic_error(std::string("Requested register (") + registerPathName + ") was not found in the catalog.");
     }
 
-    if(numberOfWords > info->_arrayLength){
+    if(numberOfWords + wordOffsetInRegister > info->_arrayLength ||
+       (numberOfWords == 0 && wordOffsetInRegister > 0)){
       std::stringstream ss;
-      ss << "Requested number of words/elements ( " << numberOfWords << ") exceeds the number of available words/elements: " << info->_arrayLength;
+      ss << "Requested number of words/elements ( " << numberOfWords << ") with offset " + wordOffsetInRegister << " exceeds the number of available words/elements: " << info->_arrayLength;
       throw ChimeraTK::logic_error(ss.str());
     }
 
@@ -369,37 +367,37 @@ namespace ChimeraTK{
 
     switch(info->_dataType){
       case 2:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_SByte, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_SByte, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 3:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Byte,  UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Byte,  UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 4:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int16, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int16, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 5:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt16, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt16, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 6:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 7:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 8:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int64, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Int64, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 9:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_UInt32, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 10:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Float, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Float, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 11:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Double, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Double, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       case 12:
-        return boost::make_shared<OpcUABackendRegisterAccessor<UA_String, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords);
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_String, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       default:
         throw ChimeraTK::runtime_error(std::string("Type ") + std::to_string(info->_dataType) + " not implemented.");
