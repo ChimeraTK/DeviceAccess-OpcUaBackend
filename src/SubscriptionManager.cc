@@ -86,7 +86,6 @@ void OPCUASubscriptionManager::activate(){
 
 void OPCUASubscriptionManager::deactivate(bool keepItems){
   // check if subscription thread was started at all. If yes _run was set true in OPCUASubscriptionManager::start()
-  std::cout << "Calling deactivate with keepItems: " << keepItems << std::endl;
   std::lock_guard<std::mutex> lock(_mutex);
   for(auto &item : subscriptionMap){
     item.second->_active = false;
