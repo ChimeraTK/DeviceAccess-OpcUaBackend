@@ -53,6 +53,7 @@ struct AllRegisterDefaults{
                                            .disableAsyncReadInconsistency()
                                            .disableSwitchReadOnly()
                                            .disableSwitchWriteOnly();
+
   void setForceRuntimeError(bool enable, size_t){
     if(enable){
       OPCUALauncher::threadedServer->_server.stop();
@@ -69,14 +70,8 @@ struct AllRegisterDefaults{
     }
     // sleep for twice the publishing interval
     std::this_thread::sleep_for(std::chrono::milliseconds(2*100));
-
   }
-
-
-
 };
-
-
 
 template <typename UAType>
 struct ScalarDefaults : AllRegisterDefaults{
@@ -120,10 +115,6 @@ struct ScalarDefaults : AllRegisterDefaults{
   }
 };
 
-namespace detail{
-
-}
-
 template<typename T>
 struct identity { typedef T type; };
 
@@ -166,7 +157,7 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults{
     OPCUALauncher::threadedServer->_server.setValue(path(),value);
   }
 
-private:
+  private:
   template<typename UserType>
   std::vector<std::vector<UserType> > generateValue(identity<UserType>){
     UserType increment(3);
@@ -229,10 +220,8 @@ struct ArrayDefaults : AllRegisterDefaults{
       values.push_back(t);
       ss << " " << t;
     }
-
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                       "Setting array:   %s", ss.str().c_str());
-
     OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
   }
 };
@@ -280,7 +269,6 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults{
       values.push_back(UA_STRING((char*)t.c_str()));
       ss << " " << t;
     }
-
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                       "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
