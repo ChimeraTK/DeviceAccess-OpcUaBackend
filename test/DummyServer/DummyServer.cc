@@ -140,9 +140,9 @@ struct VariableAttacher{
 
 OPCUAServer::OPCUAServer(): _config(UA_ServerConfig_standard), _server(nullptr){
   std::random_device rd;
-  std::uniform_int_distribution<uint> dist(20000, 99999);
-//  _port = dist(rd);
-  _port = 4848;
+  std::uniform_int_distribution<uint> dist(20000, 22000);
+  _port = dist(rd);
+//  _port = 4848;
 }
 
 OPCUAServer::~OPCUAServer(){
