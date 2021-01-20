@@ -76,9 +76,40 @@ struct AllRegisterDefaults{
 
 };
 
+template <typename UAType>
 struct ScalarDefaults : AllRegisterDefaults{
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 1; }
+  virtual std::string path() = 0;
+
+  // \ToDo: Is that needed for OPC UA?
+//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+
+  UAType* data;
+  UAType increment{3};
+  
+  template<typename UserType>
+  std::vector<std::vector<UserType> > generateValue(){
+    auto currentData = getRemoteValue<UserType>();
+    UserType data = currentData.at(0).at(0) + increment;
+    return {{data}};
+  }
+  
+  template<typename UserType>
+  std::vector<std::vector<UserType> > getRemoteValue(){
+    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    data = (UAType*)variant->data;
+    auto d = ChimeraTK::numericToUserType<UserType>(*data);
+    UA_Variant_delete(variant);
+    return {{d}};
+  }
+
+  void setRemoteValue(){
+    std::vector<UAType> value;
+    value.push_back(generateValue<int32_t>().at(0).at(0));
+    std::cout << "Setting value: " << value.at(0) << std::endl;
+    OPCUALauncher::threadedServer->_server.setValue(path(),value);
+  }
 };
 
 struct ArrayDefaults : AllRegisterDefaults{
@@ -86,39 +117,52 @@ struct ArrayDefaults : AllRegisterDefaults{
   size_t nElementsPerChannel() { return 5; }
 };
 
-struct RegSomeInt : ScalarDefaults {
+struct RegSomeInt64 : ScalarDefaults<UA_Int64> {
   AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
-  std::string path() { return "Dummy/scalar/int32"; }
+  std::string path() override { return "Dummy/scalar/int64"; }
+  typedef int64_t minimumUserType;
+};
+
+struct RegSomeUInt64 : ScalarDefaults<UA_UInt64> {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  std::string path() override { return "Dummy/scalar/uint64"; }
+  typedef uint64_t minimumUserType;
+};
+
+struct RegSomeInt32 : ScalarDefaults<UA_Int32> {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  std::string path() override { return "Dummy/scalar/int32"; }
   typedef int32_t minimumUserType;
-  int32_t increment{3};
-  UA_Int32* data;
+};
 
-  // \ToDo: Is that needed for OPC UA?
-//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+struct RegSomeUInt32 : ScalarDefaults<UA_UInt32> {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  std::string path() override { return "Dummy/scalar/uint32"; }
+  typedef uint32_t minimumUserType;
+};
 
-  template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(){
-    auto currentData = getRemoteValue<UserType>();
-    UserType data = currentData.at(0).at(0) + increment;
-    return {{data}};
-  }
+struct RegSomeInt16 : ScalarDefaults<UA_Int16> {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  std::string path() override { return "Dummy/scalar/int16"; }
+  typedef int16_t minimumUserType;
+};
 
-  template<typename UserType>
-  std::vector<std::vector<UserType> > getRemoteValue(){
-    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
-    data = (UA_Int32*)variant->data;
-    auto d = ChimeraTK::numericToUserType<UserType>(*data);
-    UA_Variant_delete(variant);
-    return {{d}};
-  }
+struct RegSomeUInt16 : ScalarDefaults<UA_UInt16> {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  std::string path() override { return "Dummy/scalar/uint16"; }
+  typedef uint16_t minimumUserType;
+};
 
-  void setRemoteValue(){
-    std::vector<UA_Int32> value;
-    value.push_back(generateValue<int32_t>().at(0).at(0));
-    std::cout << "Setting value: " << value.at(0) << std::endl;
-    OPCUALauncher::threadedServer->_server.setValue(path(),value);
-  }
+struct RegSomeFloat : ScalarDefaults<UA_Float> {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  std::string path() override { return "Dummy/scalar/float"; }
+  typedef float minimumUserType;
+};
 
+struct RegSomeDouble : ScalarDefaults<UA_Double> {
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  std::string path() override { return "Dummy/scalar/double"; }
+  typedef double minimumUserType;
 };
 
 struct RegSomeIntArray : ArrayDefaults {
@@ -173,7 +217,14 @@ struct RegSomeIntArray : ArrayDefaults {
 BOOST_FIXTURE_TEST_SUITE(s, OPCUALauncher)
 BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   auto ubt = ChimeraTK::UnifiedBackendTest<>()
-                 .addRegister<RegSomeInt>()
+                 .addRegister<RegSomeInt16>()
+                 .addRegister<RegSomeUInt16>()
+                 .addRegister<RegSomeInt32>()
+                 .addRegister<RegSomeUInt32>()
+                 .addRegister<RegSomeInt64>()
+                 .addRegister<RegSomeUInt64>()
+                 .addRegister<RegSomeFloat>()
+                 .addRegister<RegSomeDouble>()
                  .addRegister<RegSomeIntArray>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
