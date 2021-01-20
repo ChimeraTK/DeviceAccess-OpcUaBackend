@@ -9,6 +9,7 @@
 #define INCLUDE_SUBSCRIPTIONMANAGER_H_
 
 #include <map>
+#include <deque>
 #include <vector>
 #include <mutex>
 #include <thread>
@@ -138,7 +139,7 @@ namespace ChimeraTK{
     std::thread _opcuaThread;
 
     // List of subscriptions (not OPC UA subscriptions)
-    std::vector<MonitorItem> _items;
+    std::deque<MonitorItem> _items;
 
     /// map of ctk subscriptions (not OPC UA subscriptions)
     static std::map<UA_UInt32, MonitorItem*> subscriptionMap;

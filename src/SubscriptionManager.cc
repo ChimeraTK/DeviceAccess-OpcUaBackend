@@ -78,7 +78,7 @@ void OPCUASubscriptionManager::activate(){
   if(_items.size() > 0 && subscriptionMap.size() == 0){
     addMonitoredItems();
   } else {
-    for(auto &item : OPCUASubscriptionManager::subscriptionMap){
+    for(auto &item : subscriptionMap){
       item.second->_active = true;
     }
   }
@@ -88,7 +88,7 @@ void OPCUASubscriptionManager::deactivate(bool keepItems){
   // check if subscription thread was started at all. If yes _run was set true in OPCUASubscriptionManager::start()
   std::cout << "Calling deactivate with keepItems: " << keepItems << std::endl;
   std::lock_guard<std::mutex> lock(_mutex);
-  for(auto &item : OPCUASubscriptionManager::subscriptionMap){
+  for(auto &item : subscriptionMap){
     item.second->_active = false;
   }
   if(_run == true){
@@ -111,22 +111,7 @@ void OPCUASubscriptionManager::deactivate(bool keepItems){
 }
 
 void OPCUASubscriptionManager::deactivateAllAndPushException(){
-  {
-    std::lock_guard<std::mutex> lock(_mutex);
-    for(auto &item : OPCUASubscriptionManager::subscriptionMap ){
-      try {
-        throw ChimeraTK::runtime_error("Exception reported by another accessor.");
-      }
-      catch(...) {
-        if(!item.second->_hasException){
-          for(auto &accessor : item.second->_accessors){
-            accessor->_notifications.push_overwrite_exception(std::current_exception());
-          }
-          item.second->_hasException = true;
-        }
-      }
-    }
-  }
+  handleException("Exception reported by another accessor.");
   deactivate(true);
 }
 
@@ -148,13 +133,12 @@ void OPCUASubscriptionManager::responseHandler(UA_UInt32 monId, UA_DataValue *va
   UA_Int32 tmpVal = tmp[0];
   UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
     "Data: %02u", tmpVal);
-
-  if(OPCUASubscriptionManager::subscriptionMap[monId]->_active){
+  std::lock_guard<std::mutex> lock(_mutex);
+  if(subscriptionMap[monId]->_active){
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
       "Pushing data to the queue.");
-    std::lock_guard<std::mutex> lock(_mutex);
-    OPCUASubscriptionManager::subscriptionMap[monId]->_hasException = false;
-    for(auto &accessor : OPCUASubscriptionManager::subscriptionMap[monId]->_accessors){
+    subscriptionMap[monId]->_hasException = false;
+    for(auto &accessor : subscriptionMap[monId]->_accessors){
       accessor->_notifications.push_overwrite(data);
     }
   }
@@ -197,7 +181,7 @@ void OPCUASubscriptionManager::addMonitoredItems(){
       if(retval == UA_STATUSCODE_GOOD){
           UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
             "Monitoring id %u", item._id);
-          OPCUASubscriptionManager::subscriptionMap[item._id] = &item;
+          subscriptionMap[item._id] = &item;
           item._isMonitored = true;
       } else {
         handleException("Failed to add monitored item for node: " + (*item._accessors.begin())->_info->getRegisterPath());
@@ -253,7 +237,7 @@ void OPCUASubscriptionManager::resetMonitoredItems(){
   for(auto &item : _items){
     item._isMonitored = false;
   }
-  OPCUASubscriptionManager::subscriptionMap.clear();
+  subscriptionMap.clear();
 }
 
 void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor){
@@ -313,12 +297,13 @@ bool OPCUASubscriptionManager::isActive(){
 
 void OPCUASubscriptionManager::handleException(const std::string &message){
   std::lock_guard<std::mutex> lock(_mutex);
-  for(auto &item : OPCUASubscriptionManager::subscriptionMap){
+  for(auto &item : subscriptionMap){
     try {
       throw ChimeraTK::runtime_error(message);
     } catch(...) {
-      if(item.second->_active){
+      if(item.second->_active && !item.second->_hasException){
         item.second->_hasException = true;
+        std::cout << "Sending exception to " << item.second->_accessors.size() << " accessors." << std::endl;
         for(auto &accessor : item.second->_accessors){
           accessor->_notifications.push_overwrite_exception(std::current_exception());
         }

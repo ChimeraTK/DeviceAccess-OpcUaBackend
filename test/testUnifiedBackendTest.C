@@ -173,7 +173,7 @@ struct RegSomeIntArray : ArrayDefaults {
 BOOST_FIXTURE_TEST_SUITE(s, OPCUALauncher)
 BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   auto ubt = ChimeraTK::UnifiedBackendTest<>()
-//                 .addRegister<RegSomeInt>()
+                 .addRegister<RegSomeInt>()
                  .addRegister<RegSomeIntArray>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   // minimum publishing interval on the server is 100ms
   ss << "(" << path << "?port=" << port << "&publishingInterval=100)";
 
-  ubt.runTests(ss.str());
+  ubt.runTests(ss.str(),"");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
