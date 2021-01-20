@@ -260,7 +260,8 @@ namespace ChimeraTK {
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
     this->accessChannel(0).resize(numberOfWords);
     if(flags.has(AccessMode::wait_for_new_data)){
-      std::cout << "Adding subscription for node: " << _info->_nodeBrowseName << std::endl;
+      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                  "Adding subscription for node: %s", _info->_nodeBrowseName);
       // Create notification queue.
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) { this->_data = data; }, std::launch::deferred);
@@ -299,7 +300,6 @@ namespace ChimeraTK {
     }
     _currentVersion = VersionMapper::getInstance().getVersion(_data.sourceTimestamp);
     TransferElement::_versionNumber = _currentVersion;
-    std::cout << "Version number is: " << (std::string)_currentVersion << std::endl;
   }
 
   template<typename UAType, typename CTKType>

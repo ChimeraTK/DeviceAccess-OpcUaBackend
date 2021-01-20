@@ -5,7 +5,6 @@
  *      Author: Klaus Zenker (HZDR)
  */
 
-#include <iostream>
 #include <chrono>
 #include <cstddef>
 
@@ -61,7 +60,8 @@ struct AllRegisterDefaults{
       if(!OPCUALauncher::threadedServer->checkConnection(ServerState::Off)){
         throw std::runtime_error("Failed to force runtime error.");
       }
-      std::cout << "Server is stopped." << std::endl;
+      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                        "Server is stopped.");
     }
     else {
       // check if server is running is done by the method itself.
@@ -112,7 +112,10 @@ struct ScalarDefaults : AllRegisterDefaults{
     std::vector<UAType> value;
     //\ToDo: Should this be UserType instead of UAType?
     value.push_back(generateValue<UAType>().at(0).at(0));
-    std::cout << "Setting value: " << value.at(0) << std::endl;
+    std::stringstream ss;
+    ss << value.at(0);
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Setting value:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(),value);
   }
 };
@@ -158,7 +161,8 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults{
     std::vector<UA_String> value;
     std::string tmp  = generateValue<std::string>().at(0).at(0);
     value.push_back(UA_STRING((char*)tmp.c_str()));
-    std::cout << "Setting value: " << tmp << std::endl;
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Setting value:   %s", tmp.c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(),value);
   }
 
@@ -226,7 +230,9 @@ struct ArrayDefaults : AllRegisterDefaults{
       ss << " " << t;
     }
 
-    std::cout << "Setting array: " << ss.str() << std::endl;
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Setting array:   %s", ss.str().c_str());
+
     OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
   }
 };
@@ -275,7 +281,8 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults{
       ss << " " << t;
     }
 
-    std::cout << "Setting array: " << ss.str() << std::endl;
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
   }
 

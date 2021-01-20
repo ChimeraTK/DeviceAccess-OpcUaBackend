@@ -6,7 +6,6 @@
  */
 
 #include "VersionMapper.h"
-#include <iostream>
 
 timePoint_t VersionMapper::convertToTimePoint(const UA_DateTime& timeStamp){
  /**
@@ -26,7 +25,6 @@ ChimeraTK::VersionNumber VersionMapper::getVersion(const UA_DateTime &timeStamp)
       _versionMap.erase(_versionMap.begin());
     _versionMap[timeStamp] = ChimeraTK::VersionNumber(convertToTimePoint(timeStamp));
   }
-  std::cout << "Source time stamp is: " << timeStamp << " assgined version is: " << (std::string)_versionMap[timeStamp] << std::endl;
   return _versionMap[timeStamp];
 }
 

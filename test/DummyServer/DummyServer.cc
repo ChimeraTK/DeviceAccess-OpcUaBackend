@@ -5,7 +5,6 @@
  *      Author: Klaus Zenker (HZDR)
  */
 
-#include <iostream>
 #include <random>
 #include <vector>
 
@@ -86,7 +85,8 @@ struct VariableAttacher{
     UA_Server_addVariableNode(_server, nodeId, _parent,
         UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), nodeName,
                               UA_NODEID_NULL, attr, NULL, NULL);
-    std::cout << "Trying to add node: " << name << " with name: " << mypair.first << std::endl;
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
   }
 
   void operator()(fusion::pair<UA_String, std::pair<std::string,UA_DataType> >& pair) const{
@@ -132,7 +132,8 @@ struct VariableAttacher{
       UA_Server_addVariableNode(_server, myIntegerNodeId, _parent,
           UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myIntegerName,
                                 UA_NODEID_NULL, attr, NULL, NULL);
-      std::cout << "Trying to add node: " << name << " with name: " << mypair.first << std::endl;
+      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                        "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
     }
 
 };
@@ -187,13 +188,10 @@ void OPCUAServer::addVariables(){
                           UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
                           UA_QUALIFIEDNAME(1, "Dummy"),
                           UA_NODEID_NULL, oAttr, NULL, NULL);
-//
   addFolder("Dummy/scalar", UA_NODEID_STRING(1,"Dummy"));
   boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar"), _server, false, false));
-//    addVariable("Dummy/scalar/int32", UA_NODEID_STRING(1,"Dummy/scalar"));
   addFolder("Dummy/array", UA_NODEID_STRING(1,"Dummy"));
   boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array"), _server, true, false));
-//    addVariable("Dummy/array/int32", UA_NODEID_STRING(1,"Dummy/array"));
 }
 
 UA_Variant* OPCUAServer::getValue(std::string nodeName){
@@ -208,7 +206,8 @@ void ThreadedOPCUAServer::start(){
   _serverThread = std::thread{&OPCUAServer::start, &_server};
   if(!checkConnection(ServerState::On))
     throw std::runtime_error("Failed to connect to the test server!");
-  std::cout << "Test server is set up and running..." << std::endl;
+  UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                          "Test server is set up and running.");
 }
 
 ThreadedOPCUAServer::~ThreadedOPCUAServer(){
