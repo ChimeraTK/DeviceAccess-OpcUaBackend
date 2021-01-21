@@ -90,8 +90,9 @@ namespace ChimeraTK{
         tokenizer tok{line, sep};
         size_t nTokens = std::distance(tok.begin(), tok.end());
         if (!(nTokens == 2 || nTokens == 3)){
-          std::cerr << "Wrong number of tokens (" + std::to_string(nTokens)+ ") in opcua mapfile line: \n" << line
-              << " -> line is ignored." << std::endl;
+          UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Wrong number of tokens (%s) in opcua mapfile %s line (-> line is ignored): \n %s",
+                    std::to_string(nTokens), _mapfile.c_str(), line.c_str());
           continue;
         }
         auto it = tok.begin();
@@ -117,14 +118,15 @@ namespace ChimeraTK{
             UA_UInt16 ns = std::stoul(*it);
             addCatalogueEntry(UA_NODEID_STRING(ns,(char*)id.c_str()), nodeName);
           } catch (std::invalid_argument &innerError){
-            std::cerr << "Failed reading the following line from mapping file " << _mapfile << ": \n\t " << line << std::endl;
+            UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Failed reading the following line from mapping file %s:\n %s", _mapfile.c_str(), line.c_str());
           } catch (std::out_of_range &e){
-            std::cerr << "Failed reading the following line from mapping file " << _mapfile << ": \n\t " << line << std::endl;
-            std::cerr << "Namespace id is out of range!" << std::endl;
+            UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Failed reading the following line from mapping file %s (Namespace id is out of range!):\n %s", _mapfile.c_str(), line.c_str());
           }
         } catch (std::out_of_range &e){
-          std::cerr << "Failed reading the following line from mapping file " << _mapfile << ": \n\t " << line << std::endl;
-          std::cerr << "Namespace id or Node id is out of range!" << std::endl;
+          UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Failed reading the following line from mapping file %s (Namespace id or Node id is out of range!):\n %s", _mapfile.c_str(), line.c_str());
         }
       }
       mapfile.close();
@@ -136,10 +138,13 @@ namespace ChimeraTK{
   void OpcUABackend::fillCatalogue() {
     std::lock_guard<std::mutex> lock(opcua_mutex);
     if(_mapfile.empty()){
-      std::cout << "Setting up OPC-UA catalog by browsing the server..." << std::endl;
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                "Setting up OPC-UA catalog by browsing the server.");
       browseRecursive(_client);
     } else {
-      std::cout << "Setting up OPC-UA catalog by reading the map file: " << _mapfile.c_str() << std::endl;
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                "Setting up OPC-UA catalog by reading the map file: %s", _mapfile.c_str());
+
       getNodesFromMapfile();
     }
   }
@@ -165,8 +170,9 @@ namespace ChimeraTK{
     UA_StatusCode retval = UA_Client_readDataTypeAttribute(_client,node,id);
     if(retval != UA_STATUSCODE_GOOD){
       UA_NodeId_delete(id);
-      std::cerr << "OPC-UA-Backend::Failed to read data type from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval << std::endl;
-      std::cout << "Variable is not added to the catalog." << std::endl;
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          "Failed to read data type from variable: %s with reason: %s. Variable is not added to the catalog."
+          , entry->_nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
     }
     entry->_dataType = id->identifier.numeric;
@@ -176,8 +182,9 @@ namespace ChimeraTK{
     retval = UA_Client_readDescriptionAttribute(_client,node,text);
     if(retval != UA_STATUSCODE_GOOD){
       UA_LocalizedText_deleteMembers(text);
-      std::cerr << "OPC-UA-Backend::Failed to read data description from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval << std::endl;
-      std::cout << "Variable is not added to the catalog." << std::endl;
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          "Failed to read data description from variable: %s with reason: %s. Variable is not added to the catalog."
+          , entry->_nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
     }
     entry->_description =  std::string((char*)text->text.data, text->text.length);
@@ -187,16 +194,18 @@ namespace ChimeraTK{
     retval = UA_Client_readValueAttribute(_client, node, val);
     if(retval != UA_STATUSCODE_GOOD){
       UA_Variant_delete(val);
-      std::cerr << "OPC-UA-Backend::Failed to read data from variable: " << entry->_nodeBrowseName << " with reason: " << std::hex << retval << std::endl;
-      std::cout << "Variable is not added to the catalog." << std::endl;
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          "Failed to read data from variable: %s with reason: %s. Variable is not added to the catalog."
+          , entry->_nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
     }
 
     if(UA_Variant_isScalar(val)){
       entry->_arrayLength = 1;
     } else if(val->arrayLength == 0){
-      std::cerr << "Array length of variable: " << entry->_nodeBrowseName << " is 0!" <<  std::endl;
-      std::cout << "Variable is not added to the catalog." << std::endl;
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          "Array length of variable: %s  is 0!. Variable is not added to the catalog."
+          , entry->_nodeBrowseName.c_str());
       return;
     } else {
       entry->_arrayLength = val->arrayLength;
@@ -223,7 +232,8 @@ namespace ChimeraTK{
       entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
                           false, true, 320, 300 );
     } else {
-      std::cerr << "Failed to determine data type for node: " << entry->_nodeBrowseName << " -> entry is not added to the catalogue." << std::endl;
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                  "Failed to determine data type for node: %s  -> entry is not added to the catalogue." , entry->_nodeBrowseName.c_str());
       return;
     }
     //\ToDo: Test this here!!
@@ -245,7 +255,9 @@ namespace ChimeraTK{
      * was detected by the Backend (i.e. an exception was thrown
      * by one of the RegisterAccessors).
      */
-    std::cout << "Opening the device...." << std::endl;
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                "Opening the device: %" , _serverAddress.c_str());
+
     connect();
 
     if(!_catalogue_filled){
@@ -258,7 +270,8 @@ namespace ChimeraTK{
 
   void OpcUABackend::close() {
     //ToDo: What to do with the subscription manager?
-    std::cout << "Closing the device...." << std::endl;
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Closing the device: %" , _serverAddress.c_str());
     OPCUASubscriptionManager::getInstance().deactivate();
     deleteClient();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
@@ -294,8 +307,11 @@ namespace ChimeraTK{
       if(retval != UA_STATUSCODE_GOOD) {
         deleteClient();
         std::stringstream ss;
-        ss << "Failed to connect to opc server: " <<  _serverAddress << " with reason: " << std::hex << retval;
+        ss << "Failed to connect to opc server: " <<  _serverAddress << " with reason: " << UA_StatusCode_name(retval);
         throw ChimeraTK::runtime_error(ss.str());
+      } else {
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Connection established:  %s " , _serverAddress.c_str());
       }
       if(!initialCall)
         OPCUASubscriptionManager::getInstance().setClient(_client, &opcua_mutex, _publishingInterval);
@@ -328,7 +344,6 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::setException(){
-    std::cout << "Exception caught..." << std::endl;
     _isFunctional = false;
     if(_asyncReadActivated)
       OPCUASubscriptionManager::getInstance().deactivateAllAndPushException();
@@ -407,7 +422,8 @@ namespace ChimeraTK{
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map", "publishingInterval"});
-    std::cout << "opcua::BackendRegisterer: registered backend type opcua" << std::endl;
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                "BackendRegisterer: registered backend type opcua");
   }
 
   const RegisterCatalogue& OpcUABackend::getRegisterCatalogue() const {
