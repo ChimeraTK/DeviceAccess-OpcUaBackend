@@ -86,15 +86,18 @@ void OPCUASubscriptionManager::activate(){
 
 void OPCUASubscriptionManager::deactivate(bool keepItems){
   // check if subscription thread was started at all. If yes _run was set true in OPCUASubscriptionManager::start()
-  std::lock_guard<std::mutex> lock(_mutex);
-  for(auto &item : subscriptionMap){
-    item.second->_active = false;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    for(auto &item : subscriptionMap){
+      item.second->_active = false;
+    }
+    if(!keepItems)
+      OPCUASubscriptionManager::_items.clear();
   }
-  if(_run == true){
+  if(_run == true)
     _run = false;
-    if(_opcuaThread.joinable())
-      _opcuaThread.join();
-  }
+  if(_opcuaThread.joinable())
+    _opcuaThread.join();
   if(_subscriptionActive){
     std::lock_guard<std::mutex> lock(*_opcuaMutex);
     if(!UA_Client_Subscriptions_remove(_client, _subscriptionID)){
@@ -103,8 +106,6 @@ void OPCUASubscriptionManager::deactivate(bool keepItems){
     }
     _subscriptionActive = false;
   }
-  if(!keepItems)
-    OPCUASubscriptionManager::_items.clear();
   _client = nullptr;
   _asyncReadActive = false;
 }
