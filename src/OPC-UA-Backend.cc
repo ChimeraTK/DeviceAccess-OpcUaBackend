@@ -236,6 +236,7 @@ namespace ChimeraTK{
                   "Failed to determine data type for node: %s  -> entry is not added to the catalogue." , entry->_nodeBrowseName.c_str());
       return;
     }
+    entry->_accessModes.add(AccessMode::wait_for_new_data);
     //\ToDo: Test this here!!
     entry->_isReadonly = false;
     _catalogue_mutable.addRegister(entry);
