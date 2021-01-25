@@ -257,7 +257,7 @@ namespace ChimeraTK{
      * by one of the RegisterAccessors).
      */
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                "Opening the device: %" , _serverAddress.c_str());
+                "Opening the device: %s" , _serverAddress.c_str());
 
     connect();
 
@@ -272,7 +272,7 @@ namespace ChimeraTK{
   void OpcUABackend::close() {
     //ToDo: What to do with the subscription manager?
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Closing the device: %" , _serverAddress.c_str());
+                    "Closing the device: %s" , _serverAddress.c_str());
     OPCUASubscriptionManager::getInstance().deactivate();
     deleteClient();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.

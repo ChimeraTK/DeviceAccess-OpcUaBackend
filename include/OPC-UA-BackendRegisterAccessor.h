@@ -188,7 +188,6 @@ namespace ChimeraTK {
 
    void doPreRead(TransferType) override {
      if(!_backend->isOpen()) {
-       std::cout << "Throwing exception..." << std::endl;
        throw ChimeraTK::logic_error("Read operation not allowed while device is closed.");
      }
      // This will be done by the subscription manager how sends exception to the future queue and stops waiting.
