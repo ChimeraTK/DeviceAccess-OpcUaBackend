@@ -18,6 +18,8 @@
 #include <memory>
 #include <unordered_set>
 
+#include "SubscriptionManager.h"
+
 namespace ChimeraTK {
 
   /* -> Use UASet to make sure there are no duplicate nodes when adding nodes from the mapping file.
@@ -129,6 +131,9 @@ namespace ChimeraTK {
 
     void activateAsyncRead() noexcept override;
 
+    // Used to add the subscription support -> subscriptions are not active until activateAsyncRead() is called.
+    void activateSubscriptionSupport();
+
     template<typename UserType>
     boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(const RegisterPath &registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags);
 
@@ -151,7 +156,14 @@ namespace ChimeraTK {
 		// This needs to be public because it is accessed by the RegisterAccessor.
     UA_Client *_client;
 
-    bool isAsyncReadActive(){return _asyncReadActivated;}
+    bool isAsyncReadActive(){
+      if(_subscriptionManager)
+        return true;
+      else
+        return false;
+    }
+
+    std::unique_ptr<OPCUASubscriptionManager> _subscriptionManager;
 
   private:
     /**
@@ -162,8 +174,6 @@ namespace ChimeraTK {
     bool _catalogue_filled;
 
     bool _isFunctional{false};
-
-    bool _asyncReadActivated{false};
 
     std::string _serverAddress;
 
@@ -180,9 +190,8 @@ namespace ChimeraTK {
     /**
      * Connect the client. If called after client is connected the connection is checked
      * and if it is ok no new connection is established.
-     * \param initialCall True if called in the constructor.
      */
-    void connect(bool initalCall = false);
+    void connect();
 
     /**
      * Delete the client connection and set the client pointer

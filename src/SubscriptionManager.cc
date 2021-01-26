@@ -12,10 +12,6 @@
 
 namespace ChimeraTK{
 
-std::map<UA_UInt32, MonitorItem*> OPCUASubscriptionManager::subscriptionMap;
-std::mutex OPCUASubscriptionManager::_mutex;
-
-
 OPCUASubscriptionManager::~OPCUASubscriptionManager(){
   deactivate();
 }
@@ -74,6 +70,8 @@ void OPCUASubscriptionManager::runClient(){
 
 void OPCUASubscriptionManager::activate(){
   std::lock_guard<std::mutex> lock(_mutex);
+  if(!_subscriptionActive)
+    createSubscription();
   _asyncReadActive = true;
   if(_items.size() > 0 && subscriptionMap.size() == 0){
     addMonitoredItems();
@@ -86,6 +84,7 @@ void OPCUASubscriptionManager::activate(){
 
 void OPCUASubscriptionManager::deactivate(bool keepItems){
   // check if subscription thread was started at all. If yes _run was set true in OPCUASubscriptionManager::start()
+  //\ToDo: can we use resetMonitoredItems here?
   {
     std::lock_guard<std::mutex> lock(_mutex);
     for(auto &item : subscriptionMap){
@@ -124,33 +123,31 @@ void OPCUASubscriptionManager::responseHandler(UA_UInt32 monId, UA_DataValue *va
   UA_DataValue data;
   UA_DataValue_copy(value, &data);
 
-  std::lock_guard<std::mutex> lock(_mutex);
-  if(subscriptionMap[monId]->_active){
-    subscriptionMap[monId]->_hasException = false;
-    for(auto &accessor : subscriptionMap[monId]->_accessors){
+  auto base = reinterpret_cast<OPCUASubscriptionManager*>(monContext);
+
+  std::lock_guard<std::mutex> lock(base->_mutex);
+  if(base->subscriptionMap[monId]->_active){
+    base->subscriptionMap[monId]->_hasException = false;
+    for(auto &accessor : base->subscriptionMap[monId]->_accessors){
       accessor->_notifications.push_overwrite(data);
     }
   }
 }
 
 void OPCUASubscriptionManager::createSubscription(){
-  if(_client == nullptr){
-    throw ChimeraTK::logic_error("No client pointer available in runClient.");
-  }
+  if(!_client)
+    return;
   std::lock_guard<std::mutex> lock(*_opcuaMutex);
-  if(!_subscriptionActive){
-    /* Create the subscription with default configuration. */
-
-    auto config = UA_SubscriptionSettings_standard;
-    config.requestedPublishingInterval = _publishingInterval;
-    UA_StatusCode retval = UA_Client_Subscriptions_new(_client, config, &_subscriptionID);
-    if(retval == UA_STATUSCODE_GOOD){
-      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-        "Create subscription succeeded, id %u", _subscriptionID);
-      _subscriptionActive = true;
-    } else {
-      throw ChimeraTK::runtime_error("Failed to set up subscription.");
-    }
+  /* Create the subscription with default configuration. */
+  auto config = UA_SubscriptionSettings_standard;
+  config.requestedPublishingInterval = _publishingInterval;
+  UA_StatusCode retval = UA_Client_Subscriptions_new(_client, config, &_subscriptionID);
+  if(retval == UA_STATUSCODE_GOOD){
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      "Create subscription succeeded, id %u", _subscriptionID);
+    _subscriptionActive = true;
+  } else {
+    throw ChimeraTK::runtime_error("Failed to set up subscription.");
   }
 }
 
@@ -164,11 +161,13 @@ void OPCUASubscriptionManager::addMonitoredItems(){
     if(!item._isMonitored){
       // create monitored item
       std::lock_guard<std::mutex> lock(*_opcuaMutex);
-      UA_StatusCode retval = UA_Client_Subscriptions_addMonitoredItem(_client,_subscriptionID, item._node,UA_ATTRIBUTEID_VALUE, &responseHandler, NULL,&item._id);
+      // pass object as context to the callback function. This allows to use individual subscriptionMaps for each manager!
+      UA_StatusCode retval = UA_Client_Subscriptions_addMonitoredItem(_client,_subscriptionID,
+          item._node,UA_ATTRIBUTEID_VALUE, &OPCUASubscriptionManager::responseHandler, this,&item._id);
 
       /* Check server response to adding the item to be monitored. */
       if(retval == UA_STATUSCODE_GOOD){
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
             "Monitoring id %u", item._id);
           subscriptionMap[item._id] = &item;
           item._isMonitored = true;
@@ -177,6 +176,13 @@ void OPCUASubscriptionManager::addMonitoredItems(){
       }
     }
   }
+}
+
+void OPCUASubscriptionManager::resetClient(UA_Client* client){
+  resetMonitoredItems();
+  _client = client;
+  createSubscription();
+  addMonitoredItems();
 }
 
 void  OPCUASubscriptionManager::subscribe(const std::string &browseName, const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor){
@@ -207,24 +213,19 @@ void  OPCUASubscriptionManager::subscribe(const std::string &browseName, const U
   }
 }
 
-void OPCUASubscriptionManager::setClient(UA_Client* client, std::mutex* opcuaMutex, const unsigned long &publishingInterval){
-  _subscriptionActive = false;
-  _asyncReadActive = false;
-  _run = false;
-  if(_opcuaThread.joinable())
-    _opcuaThread.join();
-  resetMonitoredItems();
-  // set new client
-  _publishingInterval = publishingInterval;
-  _client = client;
-  _opcuaMutex = opcuaMutex;
+OPCUASubscriptionManager::OPCUASubscriptionManager(UA_Client* client, std::mutex* opcuaMutex, const unsigned long &publishingInterval):
+  _client(client), _opcuaMutex(opcuaMutex), _subscriptionActive(false), _asyncReadActive(false), _run(true), _subscriptionID(0), _publishingInterval(publishingInterval){
   createSubscription();
-//  addMonitoredItems();
-  _run = true;
 }
 
 void OPCUASubscriptionManager::resetMonitoredItems(){
   std::lock_guard<std::mutex> lock(_mutex);
+  // stop updates
+  if(_run == true)
+    _run = false;
+  if(_opcuaThread.joinable())
+    _opcuaThread.join();
+
   for(auto &item : _items){
     item._isMonitored = false;
   }

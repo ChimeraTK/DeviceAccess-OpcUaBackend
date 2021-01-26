@@ -35,7 +35,7 @@ namespace ChimeraTK{
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
 
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile, const unsigned long &subscriptonPublishingInterval):
-      _client(nullptr), _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _config(UA_ClientConfig_standard), _publishingInterval(subscriptonPublishingInterval){
+      _client(nullptr), _subscriptionManager(nullptr), _catalogue_filled(false), _serverAddress(fileAddress), _port(port), _username(username), _password(password), _mapfile(mapfile), _config(UA_ClientConfig_standard), _publishingInterval(subscriptonPublishingInterval){
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
     /* Registers are added before open() is called in ApplicationCore.
      * Since in the registration the catalog is needed we connect already
@@ -43,7 +43,7 @@ namespace ChimeraTK{
      */
     //\ToDo: When using open62541 v1.1 set up callback function here to receive callback on state change.
 //    _config->stateCallback = ...
-    connect(true);
+    connect();
     fillCatalogue();
     _catalogue_filled = true;
   }
@@ -273,7 +273,8 @@ namespace ChimeraTK{
     //ToDo: What to do with the subscription manager?
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Closing the device: %s" , _serverAddress.c_str());
-    OPCUASubscriptionManager::getInstance().deactivate();
+    if(_subscriptionManager)
+      _subscriptionManager->deactivate();
     deleteClient();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
 //    _catalogue_mutable = RegisterCatalogue();
@@ -287,7 +288,7 @@ namespace ChimeraTK{
     return UA_Client_getState(_client);
   }
 
-  void OpcUABackend::connect(bool initialCall){
+  void OpcUABackend::connect(){
 //    if(_client == nullptr || getConnectionState() != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
       if(_client != nullptr)
         deleteClient();
@@ -314,8 +315,9 @@ namespace ChimeraTK{
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Connection established:  %s " , _serverAddress.c_str());
       }
-      if(!initialCall)
-        OPCUASubscriptionManager::getInstance().setClient(_client, &opcua_mutex, _publishingInterval);
+      // if already setup subscriptions where used
+      if(_subscriptionManager)
+        _subscriptionManager->resetClient(_client);
 //    }
   }
 
@@ -336,18 +338,26 @@ namespace ChimeraTK{
   void OpcUABackend::activateAsyncRead()noexcept{
     if(!_opened || !_isFunctional)
       return;
-    _asyncReadActivated = true;
-    OPCUASubscriptionManager::getInstance().activate();
+    if(!_subscriptionManager)
+      _subscriptionManager.reset(new OPCUASubscriptionManager(_client, &opcua_mutex, _publishingInterval));
+    else if (!_subscriptionManager->hasClient())
+      _subscriptionManager->resetClient(_client);
+    _subscriptionManager->activate();
     // sleep twice the publishing interval to make sure intital values are written
     //ToDo: What to do with the subscription manager?
-    OPCUASubscriptionManager::getInstance().start();
+    _subscriptionManager->start();
     std::this_thread::sleep_for(std::chrono::milliseconds(2*_publishingInterval));
+  }
+
+  void OpcUABackend::activateSubscriptionSupport(){
+    if(!_subscriptionManager)
+      _subscriptionManager.reset(new OPCUASubscriptionManager(_client, &opcua_mutex, _publishingInterval));
   }
 
   void OpcUABackend::setException(){
     _isFunctional = false;
-    if(_asyncReadActivated)
-      OPCUASubscriptionManager::getInstance().deactivateAllAndPushException();
+    if(_subscriptionManager)
+      _subscriptionManager->deactivateAllAndPushException();
     deleteClient();
   }
 
@@ -445,7 +455,7 @@ namespace ChimeraTK{
   }
 
   OpcUABackend::~OpcUABackend(){
-    OPCUASubscriptionManager::getInstance().deactivate();
+    _subscriptionManager.reset(nullptr);
     deleteClient();
   }
 }

@@ -266,7 +266,9 @@ namespace ChimeraTK {
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) { this->_data = data; }, std::launch::deferred);
 //      std::cerr << "Subscriptions are not yet supported by the backend." << std::endl;
       // needs to be called after the notifications queue is created!
-      OPCUASubscriptionManager::getInstance().subscribe(_info->_nodeBrowseName, _info->_id, this);
+      if(!_backend->_subscriptionManager)
+        _backend->activateSubscriptionSupport();
+      _backend->_subscriptionManager->subscribe(_info->_nodeBrowseName, _info->_id, this);
     }
   }
 
@@ -322,7 +324,8 @@ namespace ChimeraTK {
     if(retval == UA_STATUSCODE_GOOD){
       return true;
     } else if (retval == UA_STATUSCODE_BADNOTWRITABLE || retval == UA_STATUSCODE_BADWRITENOTSUPPORTED){
-      OPCUASubscriptionManager::getInstance().setExternalError(_info->_nodeBrowseName);
+      if(_backend->_subscriptionManager)
+        _backend->_subscriptionManager->setExternalError(_info->_nodeBrowseName);
       throw ChimeraTK::logic_error(std::string("OPC-UA-Backend::Variable ") + _node_id + " is not writable!");
     } else {
       handleError(retval);
@@ -336,14 +339,15 @@ namespace ChimeraTK {
     out << "OPC-UA-Backend::Failed to access variable: " << _node_id << " with reason: " <<
         UA_StatusCode_name(retval) << " --> " <<
         std::hex << retval;
-    OPCUASubscriptionManager::getInstance().setExternalError(_info->_nodeBrowseName);
+    if(_backend->_subscriptionManager)
+      _backend->_subscriptionManager->setExternalError(_info->_nodeBrowseName);
     throw ChimeraTK::runtime_error(out.str());
   }
 
   template<typename UAType, typename CTKType>
   OpcUABackendRegisterAccessor<UAType, CTKType>::~OpcUABackendRegisterAccessor(){
-    if(_backend->_asyncReadActivated){
-      OPCUASubscriptionManager::getInstance().unsubscribe(_info->_nodeBrowseName, this);
+    if(_backend->_subscriptionManager){
+      _backend->_subscriptionManager->unsubscribe(_info->_nodeBrowseName, this);
     }
   }
 }

@@ -45,10 +45,9 @@ namespace ChimeraTK{
    */
   class OPCUASubscriptionManager{
   public:
-    static OPCUASubscriptionManager& getInstance() {
-      static OPCUASubscriptionManager manager;
-      return manager;
-    }
+
+    OPCUASubscriptionManager(UA_Client* client, std::mutex* opcuaMutex, const unsigned long &publishingInterval);
+    ~OPCUASubscriptionManager();
 
     /**
      * Enable pushing values to the TransferElement future queue in the OPC UA callback function.
@@ -87,7 +86,9 @@ namespace ChimeraTK{
 
     void runClient();
 
-    void setClient(UA_Client* client, std::mutex* opcuaMutex, const unsigned long &publishingInterval);
+    void resetClient(UA_Client* client);
+
+    bool hasClient(){return _client;}
 
     /**
      * Check if client is up and subscriptions are valid
@@ -103,10 +104,8 @@ namespace ChimeraTK{
     // Report an exception to the subscription manager. E.g. thrown by the RegisterAccessor.
     void setExternalError(const std::string &browseName);
 
-    static std::mutex _mutex; ///< Mutex used to protect writing non atomic member variables of items in the _items vector (can not use atomic because we put it into a vector of unknown size)
+    std::mutex _mutex; ///< Mutex used to protect writing non atomic member variables of items in the _items vector (can not use atomic because we put it into a vector of unknown size)
   private:
-    OPCUASubscriptionManager(){};
-    ~OPCUASubscriptionManager();
 
     /**
      * Here the items are registered to the server by the client.
@@ -142,7 +141,7 @@ namespace ChimeraTK{
     std::deque<MonitorItem> _items;
 
     /// map of ctk subscriptions (not OPC UA subscriptions)
-    static std::map<UA_UInt32, MonitorItem*> subscriptionMap;
+    std::map<UA_UInt32, MonitorItem*> subscriptionMap;
 
     // Send exception to all accesors via the future queue
     void handleException(const std::string &msg);
