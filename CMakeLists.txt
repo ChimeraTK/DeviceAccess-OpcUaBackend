@@ -6,21 +6,12 @@ set(${PROJECT_NAME}_MINOR_VERSION 04)
 set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
-#Moderate version of the compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC -Wextra -ansi -Wuninitialized")
-
-#use -DCMAKE_BUILD_TYPE=Debug in your cmake command to turn on the coverage option
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb")
-
-# linker flags
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--export-dynamic")
-
 # Options
 option(WithCSA-OPCUA "Test against ControlsystemAdapter-OPC-UA")
 
 
 include(cmake/add_dependency.cmake)
-add_dependency(ChimeraTK-DeviceAccess 01.01 REQUIRED)
+add_dependency(ChimeraTK-DeviceAccess 02.00 REQUIRED)
 
 if(WithCSA-OPCUA)
   add_dependency(ChimeraTK-ControlSystemAdapter-OPCUAAdapter 01.05 REQUIRED)
