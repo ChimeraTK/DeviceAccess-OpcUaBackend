@@ -256,7 +256,7 @@ namespace ChimeraTK{
      * was detected by the Backend (i.e. an exception was thrown
      * by one of the RegisterAccessors).
      */
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                 "Opening the device: %s" , _serverAddress.c_str());
 
     connect();
