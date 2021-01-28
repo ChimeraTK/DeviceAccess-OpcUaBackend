@@ -245,6 +245,7 @@ namespace ChimeraTK{
 
   void OpcUABackend::deleteClient(){
     if(_client != nullptr){
+      std::lock_guard<std::mutex> lock(opcua_mutex);
       UA_Client_delete(_client); /* Disconnects the client internally */
       _client = nullptr;
     }
