@@ -121,7 +121,7 @@ namespace ChimeraTK{
     void createSubscription();
 
     std::atomic<bool> _run{false};
-    bool _subscriptionActive{false};
+    std::atomic<bool> _subscriptionActive{false};
     bool _asyncReadActive{false};
 
     UA_Client* _client{nullptr};

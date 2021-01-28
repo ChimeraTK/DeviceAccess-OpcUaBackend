@@ -98,12 +98,13 @@ void OPCUASubscriptionManager::deactivate(bool keepItems){
   if(_opcuaThread.joinable())
     _opcuaThread.join();
   if(_subscriptionActive){
+    // set active false first to protect other threads from using an empty client pointer
+    _subscriptionActive = false;
     std::lock_guard<std::mutex> lock(*_opcuaMutex);
     if(!UA_Client_Subscriptions_remove(_client, _subscriptionID)){
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
           "Subscriptions sucessfully removed.");
     }
-    _subscriptionActive = false;
   }
   _client = nullptr;
   _asyncReadActive = false;
@@ -117,7 +118,7 @@ void OPCUASubscriptionManager::deactivateAllAndPushException(){
 void OPCUASubscriptionManager::responseHandler(UA_UInt32 monId, UA_DataValue *value, void *monContext){
   UA_DateTime sourceTime = value->sourceTimestamp;
   UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime);
-  UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
   "Subscription handler called.\nSource time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u, ",
                  dts.day, dts.month, dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
   UA_DataValue data;
@@ -237,17 +238,20 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
     // client pointer might be reset already when closing the device - in this case nothing to do here
     std::lock_guard<std::mutex> lock(_mutex);
     auto it = std::find(_items.begin(), _items.end(), browseName);
+    // in case the asyncread was activated but no variables were subscribed - unsubscribe is called by RegisterAccessor destructor
+    if(it == _items.end())
+      return;
     if(it->_accessors.size() > 1){
       // only remove accessor if still other accessors are using that subscription
       it->_accessors.erase(std::find(it->_accessors.begin(), it->_accessors.end(), accessor));
     } else {
       // remove subscription
       // find map item
-      for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it){
+      for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it_map){
         if(it_map->second->_browseName == browseName){
           std::lock_guard<std::mutex> lock(*_opcuaMutex);
           if(!UA_Client_Subscriptions_removeMonitoredItem(_client, _subscriptionID, it_map->first)){
-            UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Monitored item removed for: %s", browseName.c_str());
             subscriptionMap.erase(it_map);
             _items.erase(it);
