@@ -137,7 +137,7 @@ namespace ChimeraTK {
   class OpcUABackendRegisterAccessorBase {
   public:
     OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend, OpcUABackendRegisterInfo* info):_backend(backend), _info(info){}
-    /// future_queue used to notify the TransferFuture about completed transfers
+    // future_queue used to notify the TransferFuture about completed transfers
     cppext::future_queue<UA_DataValue> _notifications;
 
     boost::shared_ptr<OpcUABackend> _backend;
@@ -145,6 +145,8 @@ namespace ChimeraTK {
     UA_DataValue _data;
 
     OpcUABackendRegisterInfo* _info;
+
+    bool _subscribed{false}; ///< Remember if a subscription was added.
 
     myMap m{
         fusion::make_pair<UA_Int16>(UA_TYPES[UA_TYPES_INT16]),
@@ -269,6 +271,7 @@ namespace ChimeraTK {
       if(!_backend->_subscriptionManager)
         _backend->activateSubscriptionSupport();
       _backend->_subscriptionManager->subscribe(_info->_nodeBrowseName, _info->_id, this);
+      _subscribed = true;
     }
   }
 
@@ -346,7 +349,7 @@ namespace ChimeraTK {
 
   template<typename UAType, typename CTKType>
   OpcUABackendRegisterAccessor<UAType, CTKType>::~OpcUABackendRegisterAccessor(){
-    if(_backend->_subscriptionManager){
+    if(_subscribed){
       _backend->_subscriptionManager->unsubscribe(_info->_nodeBrowseName, this);
     }
   }
