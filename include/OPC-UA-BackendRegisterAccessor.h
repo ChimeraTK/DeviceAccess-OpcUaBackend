@@ -281,9 +281,9 @@ namespace ChimeraTK {
     if(!_backend->isFunctional()){
       throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
     }
-    std::lock_guard<std::mutex> lock(_backend->opcua_mutex);
+    std::lock_guard<std::mutex> lock(_backend->_connection->lock);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UA_StatusCode retval = UA_Client_readValueAttribute(_backend->_client, _info->_id, val->var);
+    UA_StatusCode retval = UA_Client_readValueAttribute(_backend->_connection->client.get(), _info->_id, val->var);
     if(retval != UA_STATUSCODE_GOOD){
       handleError(retval);
     }
@@ -311,7 +311,7 @@ namespace ChimeraTK {
     if(!_backend->isFunctional()) {
       throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
     }
-    std::lock_guard<std::mutex> lock(_backend->opcua_mutex);
+    std::lock_guard<std::mutex> lock(_backend->_connection->lock);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     std::vector<UAType> v(this->getNumberOfSamples());
     for(size_t i = 0; i < this->getNumberOfSamples(); i++){
@@ -322,7 +322,7 @@ namespace ChimeraTK {
     } else {
       UA_Variant_setArrayCopy(val->var, &v[0], _numberOfWords,  &fusion::at_key<UAType>(m));
     }
-    UA_StatusCode retval = UA_Client_writeValueAttribute(_backend->_client, _info->_id, val->var);
+    UA_StatusCode retval = UA_Client_writeValueAttribute(_backend->_connection->client.get(), _info->_id, val->var);
     _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;

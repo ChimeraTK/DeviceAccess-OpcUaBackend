@@ -13,15 +13,16 @@
 #include <boost/enable_shared_from_this.hpp>
 
 #include "open62541.h"
+#include "OPC-UA-Connection.h"
+#include "SubscriptionManager.h"
+
 #include <sstream>
 #include <mutex>
 #include <memory>
 #include <unordered_set>
 
-#include "SubscriptionManager.h"
-
 namespace ChimeraTK {
-
+  class OPCUASubscriptionManager;
   /* -> Use UASet to make sure there are no duplicate nodes when adding nodes from the mapping file.
    * When browsing the server this should be avoided automatically.
   struct NodeComp{
@@ -93,13 +94,6 @@ namespace ChimeraTK {
 
   class OpcUABackend : public DeviceBackendImpl{
   public:
-    /**
-     * This is used since async access is not supported by OPC-UA.
-     [12/26/2018 20:55:49.705] error/client Reply answers the wrong requestId. Async services are not yet implemented.
-     [12/26/2018 20:55:49.705] info/client  Error receiving the response
-     * One could also use a client per process variable...
-     */
-    std::mutex opcua_mutex;
     ~OpcUABackend();
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
   protected:
@@ -123,7 +117,7 @@ namespace ChimeraTK {
 
     std::string readDeviceInfo() override {
       std::stringstream ss;
-      ss << "OPC-UA Server: " << _serverAddress << ":" << _port;
+      ss << "OPC-UA Server: " << _connection->serverAddress << ":" << _connection->port;
       return ss.str();
     }
 
@@ -153,9 +147,6 @@ namespace ChimeraTK {
     template<typename UAType, typename CTKType>
     friend class OpcUABackendRegisterAccessor;
 		
-		// This needs to be public because it is accessed by the RegisterAccessor.
-    UA_Client *_client;
-
     bool isAsyncReadActive(){
       if(_subscriptionManager)
         return true;
@@ -164,6 +155,7 @@ namespace ChimeraTK {
     }
 
     std::unique_ptr<OPCUASubscriptionManager> _subscriptionManager;
+    std::shared_ptr<OPCUAConnection> _connection;
 
   private:
     /**
@@ -175,17 +167,7 @@ namespace ChimeraTK {
 
     bool _isFunctional{false};
 
-    std::string _serverAddress;
-
-    unsigned long _port;
-
-    std::string _username;
-    std::string _password;
     std::string _mapfile;
-
-    UA_ClientConfig _config;
-
-    uint32_t _publishingInterval;
 
     /**
      * Connect the client. If called after client is connected the connection is checked
@@ -218,7 +200,7 @@ namespace ChimeraTK {
      * Browse for nodes of type Variable.
      * If type Object is found move into the object and recall browseRecursive.
      */
-    void browseRecursive(UA_Client *client, UA_NodeId startingNode = UA_NODEID_NUMERIC(0,UA_NS0ID_OBJECTSFOLDER));
+    void browseRecursive(UA_NodeId startingNode = UA_NODEID_NUMERIC(0,UA_NS0ID_OBJECTSFOLDER));
 
     /**
      * Read nodes from the file supplied as mapping file.
@@ -233,8 +215,6 @@ namespace ChimeraTK {
      *  myname2     123                1
      */
     void getNodesFromMapfile();
-
-    UA_ClientState getConnectionState();
 
   };
 }
