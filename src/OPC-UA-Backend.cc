@@ -274,7 +274,7 @@ namespace ChimeraTK{
     // but in the tests the the device is reset without calling read in between -> so we need to check the connection here
     // -> to make sure the Subscription intgernal thread is stopped.
     if(!_isFunctional || state != UA_CONNECTION_ESTABLISHED){
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Opening the device: %s" , _connection->serverAddress.c_str());
       connect();
     }
@@ -289,7 +289,7 @@ namespace ChimeraTK{
 
   void OpcUABackend::close() {
     //ToDo: What to do with the subscription manager?
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Closing the device: %s" , _connection->serverAddress.c_str());
     deleteClient();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.

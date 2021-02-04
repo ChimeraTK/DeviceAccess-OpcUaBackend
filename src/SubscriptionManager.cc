@@ -186,7 +186,7 @@ void OPCUASubscriptionManager::addMonitoredItems(){
 
       /* Check server response to adding the item to be monitored. */
       if(retval == UA_STATUSCODE_GOOD){
-          UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
             "Monitoring id %u (%s) for pv: %s", item._id, _connection->serverAddress.c_str(), item._browseName.c_str());
           subscriptionMap[item._id] = &item;
           item._isMonitored = true;
@@ -270,7 +270,7 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
         std::lock_guard<std::mutex> lock(_connection->lock);
         // try to unsubscribe
         if(_connection->client && !UA_Client_Subscriptions_removeMonitoredItem(_connection->client.get(), _subscriptionID, it_map->first)){
-          UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Monitored item removed for: %s", browseName.c_str());
         } else {
           UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -316,7 +316,7 @@ void OPCUASubscriptionManager::handleException(const std::string &message){
     } catch(...) {
       if(item.second->_active && !item.second->_hasException){
         item.second->_hasException = true;
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                            "Sending exception to %u accessors for node %s", item.second->_accessors.size(), item.second->_browseName.c_str());
         for(auto &accessor : item.second->_accessors){
           accessor->_notifications.push_overwrite_exception(std::current_exception());
