@@ -154,7 +154,7 @@ namespace ChimeraTK {
         return false;
     }
 
-    std::unique_ptr<OPCUASubscriptionManager> _subscriptionManager;
+    std::shared_ptr<OPCUASubscriptionManager> _subscriptionManager;
     std::shared_ptr<OPCUAConnection> _connection;
 
   private:

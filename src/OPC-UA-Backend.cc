@@ -468,7 +468,6 @@ namespace ChimeraTK{
   }
 
   OpcUABackend::~OpcUABackend(){
-    _subscriptionManager.reset(nullptr);
     deleteClient();
   }
 }
