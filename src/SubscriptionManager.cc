@@ -53,7 +53,7 @@ void OPCUASubscriptionManager::runClient(){
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Sending subscription request.");
     {
-      std::lock_guard<std::mutex> lock(_connection->lock);
+      std::lock_guard<std::mutex> lock(_connection->client_lock);
       if(!_connection->client){
         UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Client point was removed by the subscription manager.");
@@ -114,7 +114,7 @@ void OPCUASubscriptionManager::deactivate(){
   if(_subscriptionActive){
     // set active false first to protect other threads from using an empty client pointer
     _subscriptionActive = false;
-    std::lock_guard<std::mutex> lock(_connection->lock);
+    std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(!_connection->client){
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                 "Why the client is already reset?");
@@ -154,7 +154,7 @@ void OPCUASubscriptionManager::responseHandler(UA_UInt32 monId, UA_DataValue *va
 }
 
 void OPCUASubscriptionManager::createSubscription(){
-  std::lock_guard<std::mutex> lock(_connection->lock);
+  std::lock_guard<std::mutex> lock(_connection->client_lock);
   if(!_connection->client)
     return;
   /* Create the subscription with default configuration. */
@@ -171,7 +171,7 @@ void OPCUASubscriptionManager::createSubscription(){
 }
 
 void OPCUASubscriptionManager::addMonitoredItems(){
-  std::lock_guard<std::mutex> lock(_connection->lock);
+  std::lock_guard<std::mutex> lock(_connection->client_lock);
   if(!_connection->client){
     throw ChimeraTK::logic_error("No client pointer available in runClient.");
   }
@@ -267,7 +267,7 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
     // find map item
     for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it_map){
       if(it_map->second->_browseName == browseName){
-        std::lock_guard<std::mutex> lock(_connection->lock);
+        std::lock_guard<std::mutex> lock(_connection->client_lock);
         // try to unsubscribe
         if(_connection->client && !UA_Client_Subscriptions_removeMonitoredItem(_connection->client.get(), _subscriptionID, it_map->first)){
           UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -294,7 +294,7 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
 bool OPCUASubscriptionManager::isActive(){
   // If the subscriptions is broken the thread will set _run to false
 //  return _run;
-  std::lock_guard<std::mutex> lock(_connection->lock);
+  std::lock_guard<std::mutex> lock(_connection->client_lock);
   // update client state
   UA_Client_Subscriptions_manuallySendPublishRequest(_connection->client.get());
   // check connection

@@ -50,9 +50,11 @@ namespace ChimeraTK{
      */
     //\ToDo: When using open62541 v1.1 set up callback function here to receive callback on state change.
 //    _config->stateCallback = ...
+    std::lock_guard<std::mutex> lock(_connection->connection_lock);
     connect();
     fillCatalogue();
     _catalogue_filled = true;
+    _isFunctional = true;
   }
 
   void OpcUABackend::browseRecursive(UA_NodeId startingNode) {
@@ -144,7 +146,7 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::fillCatalogue() {
-    std::lock_guard<std::mutex> lock(_connection->lock);
+    std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(_mapfile.empty()){
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                 "Setting up OPC-UA catalog by browsing the server.");
@@ -255,11 +257,12 @@ namespace ChimeraTK{
   void OpcUABackend::deleteClient(){
     if(_connection->client && _subscriptionManager)
       _subscriptionManager->deactivate();
-    std::lock_guard<std::mutex> lock(_connection->lock);
+    std::lock_guard<std::mutex> lock(_connection->client_lock);
     _connection->client.reset();/* Disconnects the client internally */
     _isFunctional = false;
   }
   void OpcUABackend::open() {
+    std::lock_guard<std::mutex> lock(_connection->connection_lock);
     /* Normally client is already connected in the constructor.
      * But open() is also called by ApplicationCore in case an error
      * was detected by the Backend (i.e. an exception was thrown
@@ -267,7 +270,7 @@ namespace ChimeraTK{
      */
     UA_ConnectionState state;
     {
-      std::lock_guard<std::mutex> lock(_connection->lock);
+      std::lock_guard<std::mutex> lock(_connection->client_lock);
       state = UA_Client_getConnectionState(_connection->client.get());
     }
     // if an error was seen by the accessor the error is in the queue but as long as no read happened setException is not called
@@ -305,7 +308,7 @@ namespace ChimeraTK{
         deleteClient();
       UA_StatusCode retval;
       {
-        std::lock_guard<std::mutex> lock(_connection->lock);
+        std::lock_guard<std::mutex> lock(_connection->client_lock);
         _connection->client.reset(UA_Client_new(_connection->config));
         /** Connect **/
         if(UA_Client_getState(_connection->client.get()) != UA_CLIENTSTATE_READY){

@@ -281,7 +281,7 @@ namespace ChimeraTK {
     if(!_backend->isFunctional()){
       throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
     }
-    std::lock_guard<std::mutex> lock(_backend->_connection->lock);
+    std::lock_guard<std::mutex> lock(_backend->_connection->client_lock);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     UA_StatusCode retval = UA_Client_readValueAttribute(_backend->_connection->client.get(), _info->_id, val->var);
     if(retval != UA_STATUSCODE_GOOD){
@@ -311,7 +311,7 @@ namespace ChimeraTK {
     if(!_backend->isFunctional()) {
       throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
     }
-    std::lock_guard<std::mutex> lock(_backend->_connection->lock);
+    std::lock_guard<std::mutex> lock(_backend->_connection->client_lock);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     std::vector<UAType> v(this->getNumberOfSamples());
     for(size_t i = 0; i < this->getNumberOfSamples(); i++){

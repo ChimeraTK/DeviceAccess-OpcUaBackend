@@ -36,8 +36,13 @@ struct OPCUAConnection{
    [12/26/2018 20:55:49.705] info/client  Error receiving the response
    * One could also use a client per process variable...
    */
+  std::mutex client_lock;
 
-  std::mutex lock;
+  /**
+   * This lock is used during setting up the connection to protect against multiple Device::Open() calls while the
+   * connection is set up.
+   */
+  std::mutex connection_lock;
 
   std::string username;
   std::string password;
