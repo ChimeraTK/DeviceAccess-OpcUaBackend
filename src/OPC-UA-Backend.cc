@@ -249,7 +249,19 @@ namespace ChimeraTK{
     }
     entry->_accessModes.add(AccessMode::wait_for_new_data);
     //\ToDo: Test this here!!
-    entry->_isReadonly = false;
+    UA_Byte accessLevel;
+    retval = UA_Client_readAccessLevelAttribute(_connection->client.get(),node,&accessLevel);
+    if(retval != UA_STATUSCODE_GOOD){
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                "Failed to read access level from variable: %s with reason: %s. Variable is not added to the catalog."
+                , entry->_nodeBrowseName.c_str(), UA_StatusCode_name(retval));
+      return;
+    } else {
+      if(accessLevel == (UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE))
+        entry->_isReadonly = false;
+      else
+        entry->_isReadonly = true;
+    }
     _catalogue_mutable.addRegister(entry);
 
   }

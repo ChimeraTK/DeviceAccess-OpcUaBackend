@@ -72,11 +72,11 @@ struct VariableAttacher{
     attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
     attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
     if(_readOnly){
-      attr.accessLevel = 1;
-      attr.userAccessLevel = 1;
+      attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+      attr.userAccessLevel = UA_ACCESSLEVELMASK_READ;
     } else {
-      attr.accessLevel = 3;
-      attr.userAccessLevel = 3;
+      attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+      attr.userAccessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     }
 
     /* Add the variable node to the information model */
@@ -192,6 +192,11 @@ void OPCUAServer::addVariables(){
   boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar"), _server, false, false));
   addFolder("Dummy/array", UA_NODEID_STRING(1,"Dummy"));
   boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array"), _server, true, false));
+  addFolder("Dummy/scalar_ro", UA_NODEID_STRING(1,"Dummy"));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar_ro"), _server, false, true));
+  addFolder("Dummy/array_ro", UA_NODEID_STRING(1,"Dummy"));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array_ro"), _server, true, true));
+
 }
 
 UA_Variant* OPCUAServer::getValue(std::string nodeName){

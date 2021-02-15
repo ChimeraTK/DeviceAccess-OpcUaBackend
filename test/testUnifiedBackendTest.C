@@ -39,9 +39,9 @@ public:
 ThreadedOPCUAServer* OPCUALauncher::threadedServer;
 
 struct AllRegisterDefaults{
-  bool isWriteable() { return true; }
+  virtual bool isWriteable() { return true; }
   bool isReadable() { return true; }
-  virtual ChimeraTK::AccessModeFlags supportedFlags() { return {}; }
+  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
   size_t nChannels() { return 1; }
   size_t writeQueueLength() { return std::numeric_limits<size_t>::max(); }
   size_t nRuntimeErrorCases() { return 1; }
@@ -84,8 +84,6 @@ struct ScalarDefaults : AllRegisterDefaults{
 
   UAType* data;
   
-  AccessModeFlags supportedFlags() override { return {AccessMode::wait_for_new_data}; }
-
   template<typename UserType>
   std::vector<std::vector<UserType> > generateValue(){
     UserType increment(3);
@@ -115,6 +113,12 @@ struct ScalarDefaults : AllRegisterDefaults{
   }
 };
 
+template <typename UAType>
+struct ScalarDefaultsRO : ScalarDefaults<UAType>{
+  bool isWriteable() override {return false;};
+};
+
+
 template<typename T>
 struct identity { typedef T type; };
 
@@ -128,8 +132,6 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults{
 //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   UA_String* data;
-
-  AccessModeFlags supportedFlags() override { return {AccessMode::wait_for_new_data}; }
 
   template<typename UserType>
   std::vector<std::vector<UserType> > generateValue(){
@@ -174,6 +176,11 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults{
 
 };
 
+template <>
+struct ScalarDefaultsRO<UA_String> : ScalarDefaults<UA_String>{
+  bool isWriteable() override {return false;};
+};
+
 
 template <typename UAType>
 struct ArrayDefaults : AllRegisterDefaults{
@@ -181,8 +188,6 @@ struct ArrayDefaults : AllRegisterDefaults{
   size_t nElementsPerChannel() { return 5; }
   virtual std::string path() = 0;
   UAType* data;
-
-  AccessModeFlags supportedFlags() override { return {AccessMode::wait_for_new_data}; }
 
   // \ToDo: Is that needed for OPC UA?
 //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
@@ -226,14 +231,17 @@ struct ArrayDefaults : AllRegisterDefaults{
   }
 };
 
+template <typename UAType>
+struct ArrayDefaultsRO : ArrayDefaults<UAType>{
+ bool isWriteable() override {return false;}
+};
+
 template <>
 struct ArrayDefaults<UA_String> : AllRegisterDefaults{
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 5; }
   virtual std::string path() = 0;
   UA_String* data;
-
-  AccessModeFlags supportedFlags() override { return {AccessMode::wait_for_new_data}; }
 
   // \ToDo: Is that needed for OPC UA?
 //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
@@ -295,6 +303,11 @@ private:
     }
     return {val};
   }
+};
+
+template <>
+struct ArrayDefaultsRO<UA_String> : ArrayDefaults<UA_String>{
+ bool isWriteable() override {return false;}
 };
 
 struct RegSomeInt64 : ScalarDefaults<UA_Int64> {
@@ -387,6 +400,97 @@ struct RegSomeStringArray : ArrayDefaults<UA_String> {
   typedef std::string minimumUserType;
 };
 
+// read only part
+struct RegSomeInt64RO : ScalarDefaultsRO<UA_Int64> {
+  std::string path() override { return "Dummy/scalar_ro/int64"; }
+  typedef int64_t minimumUserType;
+};
+
+struct RegSomeUInt64RO : ScalarDefaultsRO<UA_UInt64> {
+  std::string path() override { return "Dummy/scalar_ro/uint64"; }
+  typedef uint64_t minimumUserType;
+};
+
+struct RegSomeInt32RO : ScalarDefaultsRO<UA_Int32> {
+  std::string path() override { return "Dummy/scalar_ro/int32"; }
+  typedef int32_t minimumUserType;
+};
+
+struct RegSomeUInt32RO : ScalarDefaultsRO<UA_UInt32> {
+  std::string path() override { return "Dummy/scalar_ro/uint32"; }
+  typedef uint32_t minimumUserType;
+};
+
+struct RegSomeInt16RO : ScalarDefaultsRO<UA_Int16> {
+  std::string path() override { return "Dummy/scalar_ro/int16"; }
+  typedef int16_t minimumUserType;
+};
+
+struct RegSomeUInt16RO : ScalarDefaultsRO<UA_UInt16> {
+  std::string path() override { return "Dummy/scalar_ro/uint16"; }
+  typedef uint16_t minimumUserType;
+};
+
+struct RegSomeFloatRO : ScalarDefaultsRO<UA_Float> {
+  std::string path() override { return "Dummy/scalar_ro/float"; }
+  typedef float minimumUserType;
+};
+
+struct RegSomeDoubleRO : ScalarDefaultsRO<UA_Double> {
+  std::string path() override { return "Dummy/scalar_ro/double"; }
+  typedef double minimumUserType;
+};
+
+struct RegSomeStringRO : ScalarDefaultsRO<UA_String> {
+  std::string path() override { return "Dummy/scalar_ro/string"; }
+  typedef std::string minimumUserType;
+};
+
+struct RegSomeInt64ArrayRO : ArrayDefaultsRO<UA_Int64> {
+  std::string path() override { return "Dummy/array_ro/int64"; }
+  typedef int64_t minimumUserType;
+};
+
+struct RegSomeUInt64ArrayRO : ArrayDefaultsRO<UA_UInt64> {
+  std::string path() override { return "Dummy/array_ro/uint64"; }
+  typedef uint64_t minimumUserType;
+};
+
+struct RegSomeInt32ArrayRO : ArrayDefaultsRO<UA_Int32> {
+  std::string path() override { return "Dummy/array_ro/int32"; }
+  typedef int32_t minimumUserType;
+};
+
+struct RegSomeUInt32ArrayRO : ArrayDefaultsRO<UA_UInt32> {
+  std::string path() override { return "Dummy/array_ro/uint32"; }
+  typedef uint32_t minimumUserType;
+};
+
+struct RegSomeInt16ArrayRO : ArrayDefaultsRO<UA_Int16> {
+  std::string path() override { return "Dummy/array_ro/int16"; }
+  typedef int16_t minimumUserType;
+};
+
+struct RegSomeUInt16ArrayRO : ArrayDefaultsRO<UA_UInt16> {
+  std::string path() override { return "Dummy/array_ro/uint16"; }
+  typedef uint16_t minimumUserType;
+};
+
+struct RegSomeFloatArrayRO : ArrayDefaultsRO<UA_Float> {
+  std::string path() override { return "Dummy/array_ro/float"; }
+  typedef float minimumUserType;
+};
+
+struct RegSomeDoubleArrayRO : ArrayDefaultsRO<UA_Double> {
+  std::string path() override { return "Dummy/array_ro/double"; }
+  typedef double minimumUserType;
+};
+
+struct RegSomeStringArrayRO : ArrayDefaultsRO<UA_String> {
+  std::string path() override { return "Dummy/array_ro/string"; }
+  typedef std::string minimumUserType;
+};
+
 // use test fixture suite to have access to the fixture class members
 BOOST_FIXTURE_TEST_SUITE(s, OPCUALauncher)
 BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
@@ -408,7 +512,25 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
                  .addRegister<RegSomeUInt64Array>()
                  .addRegister<RegSomeFloatArray>()
                  .addRegister<RegSomeDoubleArray>()
-                 .addRegister<RegSomeStringArray>();
+                 .addRegister<RegSomeStringArray>()
+                 .addRegister<RegSomeInt16RO>()
+                 .addRegister<RegSomeUInt16RO>()
+                 .addRegister<RegSomeInt32RO>()
+                 .addRegister<RegSomeUInt32RO>()
+                 .addRegister<RegSomeInt64RO>()
+                 .addRegister<RegSomeUInt64RO>()
+                 .addRegister<RegSomeFloatRO>()
+                 .addRegister<RegSomeDoubleRO>()
+                 .addRegister<RegSomeStringRO>()
+                 .addRegister<RegSomeInt16ArrayRO>()
+                 .addRegister<RegSomeUInt16ArrayRO>()
+                 .addRegister<RegSomeInt32ArrayRO>()
+                 .addRegister<RegSomeUInt32ArrayRO>()
+                 .addRegister<RegSomeInt64ArrayRO>()
+                 .addRegister<RegSomeUInt64ArrayRO>()
+                 .addRegister<RegSomeFloatArrayRO>()
+                 .addRegister<RegSomeDoubleArrayRO>()
+                 .addRegister<RegSomeStringArrayRO>();
 //  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeStringArray>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
