@@ -12,8 +12,8 @@
 #include <mutex>
 #include <chrono>
 #include <ChimeraTK/VersionNumber.h>
-#include <open62541.h>
 
+#include <open62541/types.h>
 
 using timePoint_t = std::chrono::time_point<std::chrono::system_clock,std::chrono::duration<int64_t,std::nano> > ;
 

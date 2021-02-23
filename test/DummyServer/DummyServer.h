@@ -7,7 +7,10 @@
 
 #pragma once
 
-#include "open62541.h"
+#include <open62541/types.h>
+#include <open62541/server.h>
+#include <open62541/plugin/network.h>
+
 
 #include <thread>
 #include <chrono>
@@ -41,9 +44,8 @@ struct OPCUAServer{
 
   ~OPCUAServer();
 
-  UA_ServerConfig _config;
   UA_Server *_server;
-  UA_ServerNetworkLayer _nl;
+
   uint _port;
 
   UA_Boolean running{true};

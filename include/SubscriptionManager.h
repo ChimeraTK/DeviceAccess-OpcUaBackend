@@ -14,11 +14,12 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
-#include "open62541.h"
 #include <iostream>
 
 #include "OPC-UA-Backend.h"
 #include "OPC-UA-Connection.h"
+
+#include <open62541/plugin/log_stdout.h>
 
 namespace ChimeraTK{
   class OpcUABackendRegisterAccessorBase;
@@ -52,6 +53,12 @@ namespace ChimeraTK{
     OPCUASubscriptionManager(std::shared_ptr<OPCUAConnection> connection);
     ~OPCUASubscriptionManager();
 
+
+    static void
+    deleteSubscriptionCallback(UA_Client *client, UA_UInt32 subscriptionId, void *subscriptionContext) {
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Subscription Id %u was deleted", subscriptionId);
+    }
     /**
      * Enable pushing values to the TransferElement future queue in the OPC UA callback function.
      */
@@ -90,14 +97,10 @@ namespace ChimeraTK{
 
     void resetClient();
 
-    /**
-     * Check if client is up and subscriptions are valid
-     */
-    bool isActive();
-
     /// callback function for the client
 //    template <typename UAType>
-    static void responseHandler(UA_UInt32 monId, UA_DataValue *value, void *monContext);
+    static void responseHandler(UA_Client *client, UA_UInt32 subId, void *subContext,
+        UA_UInt32 monId, void *monContext, UA_DataValue *value);
 
     bool isRunning(){return _run;}
 

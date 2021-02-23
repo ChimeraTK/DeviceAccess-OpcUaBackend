@@ -15,6 +15,8 @@
 #include "SubscriptionManager.h"
 #include "VersionMapper.h"
 
+#include <open62541/plugin/log_stdout.h>
+
 #include <sstream>
 
 #include <boost/fusion/container/map.hpp>

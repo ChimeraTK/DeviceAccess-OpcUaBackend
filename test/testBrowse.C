@@ -1,25 +1,13 @@
-#ifdef UA_NO_AMALGAMATION
-# include "ua_types.h"
-# include "ua_client.h"
-# include "ua_client_highlevel.h"
-# include "ua_nodeids.h"
-# include "ua_network_tcp.h"
-# include "ua_config_standard.h"
-#else
-# include "open62541.h"
-# include <string.h>
-# include <stdlib.h>
+#include <open62541/client_highlevel.h>
+#include <open62541/client_config_default.h>
+
+#include <string.h>
+#include <stdlib.h>
 #include <string>
 #include <set>
 #include <iterator>
-#endif
 
 #include <stdio.h>
-
-static void
-handler_TheAnswerChanged(UA_UInt32 monId, UA_DataValue *value, void *context) {
-    printf("The Answer has changed!\n");
-}
 
 static UA_StatusCode
 nodeIter(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId referenceTypeId, void *handle) {
@@ -105,8 +93,8 @@ browseRecursive(UA_Client *client, UA_NodeId startingNode, UA_UInt32 nodeClassMa
 }
 
 int main(int argc, char *argv[]) {
-    UA_Client *client = UA_Client_new(UA_ClientConfig_standard);
-
+    UA_Client *client = UA_Client_new();
+    UA_ClientConfig *cc = UA_Client_getConfig(client);
     /* Listing endpoints */
     UA_EndpointDescription* endpointArray = NULL;
     size_t endpointArraySize = 0;

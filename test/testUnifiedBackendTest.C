@@ -9,7 +9,7 @@
 #include <cstddef>
 
 #include "DummyServer.h"
-#include "open62541.h"
+#include <open62541/plugin/log_stdout.h>
 
 #define BOOST_TEST_MODULE testUnifiedBackendTest
 #include <boost/test/included/unit_test.hpp>

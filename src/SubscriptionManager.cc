@@ -10,6 +10,8 @@
 #include <chrono>
 #include "OPC-UA-BackendRegisterAccessor.h"
 
+#include <open62541/client_subscriptions.h>
+
 namespace ChimeraTK{
 
 OPCUASubscriptionManager::~OPCUASubscriptionManager(){
@@ -60,11 +62,10 @@ void OPCUASubscriptionManager::runClient(){
         _run = false;
         return;
       }
-      ret = UA_Client_Subscriptions_manuallySendPublishRequest(_connection->client.get());
-      auto state = UA_Client_getConnectionState(_connection->client.get());
-      if(state != UA_CONNECTION_ESTABLISHED){
+      if(_connection->sessionState != UA_SESSIONSTATE_ACTIVATED || _connection->channelState != UA_SECURECHANNELSTATE_OPEN){
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Stopped sending publish requests. Connection state: %u ", state);
+                    "Stopped sending publish requests. Channel state: %u Session state: %u",
+                    _connection->channelState, _connection->sessionState);
         break;
       }
     }
@@ -119,7 +120,7 @@ void OPCUASubscriptionManager::deactivate(){
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                 "Why the client is already reset?");
     } else {
-      if(!UA_Client_Subscriptions_remove(_connection->client.get(), _subscriptionID)){
+      if(!UA_Client_Subscriptions_deleteSingle(_connection->client.get(), _subscriptionID)){
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
             "Subscriptions sucessfully removed.");
       }
@@ -133,7 +134,8 @@ void OPCUASubscriptionManager::deactivateAllAndPushException(){
   deactivate();
 }
 
-void OPCUASubscriptionManager::responseHandler(UA_UInt32 monId, UA_DataValue *value, void *monContext){
+void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subId, void *subContext,
+    UA_UInt32 monId, void *monContext, UA_DataValue *value){
   UA_DateTime sourceTime = value->sourceTimestamp;
   UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime);
   UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -158,10 +160,11 @@ void OPCUASubscriptionManager::createSubscription(){
   if(!_connection->client)
     return;
   /* Create the subscription with default configuration. */
-  auto config = UA_SubscriptionSettings_standard;
-  config.requestedPublishingInterval = _connection->publishingInterval;
-  UA_StatusCode retval = UA_Client_Subscriptions_new(_connection->client.get(), config, &_subscriptionID);
-  if(retval == UA_STATUSCODE_GOOD){
+  UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
+  request.requestedPublishingInterval = _connection->publishingInterval;
+  UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(_connection->client.get(), request, NULL, NULL, deleteSubscriptionCallback);
+  if(response.responseHeader.serviceResult == UA_STATUSCODE_GOOD){
+    _subscriptionID = response.subscriptionId;
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
       "Create subscription succeeded, id %u", _subscriptionID);
     _subscriptionActive = true;
@@ -181,11 +184,14 @@ void OPCUASubscriptionManager::addMonitoredItems(){
     if(!item._isMonitored){
       // create monitored item
       // pass object as context to the callback function. This allows to use individual subscriptionMaps for each manager!
-      UA_StatusCode retval = UA_Client_Subscriptions_addMonitoredItem(_connection->client.get(),_subscriptionID,
-          item._node,UA_ATTRIBUTEID_VALUE, &OPCUASubscriptionManager::responseHandler, this,&item._id);
+      UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(item._node);
+      UA_MonitoredItemCreateResult monResponse = UA_Client_MonitoredItems_createDataChange(_connection->client.get(),
+          _subscriptionID, UA_TIMESTAMPSTORETURN_BOTH, monRequest,
+          this, &OPCUASubscriptionManager::responseHandler, NULL);
 
       /* Check server response to adding the item to be monitored. */
-      if(retval == UA_STATUSCODE_GOOD){
+      if(monResponse.statusCode == UA_STATUSCODE_GOOD){
+        item._id = monResponse.monitoredItemId;
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
             "Monitoring id %u (%s) for pv: %s", item._id, _connection->serverAddress.c_str(), item._browseName.c_str());
           subscriptionMap[item._id] = &item;
@@ -253,7 +259,11 @@ void OPCUASubscriptionManager::resetMonitoredItems(){
 }
 
 void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor){
-  std::lock_guard<std::mutex> lock(_mutex);
+  // get clinet lock first. This is required because OPCUASubscriptionManager::runClient also gets client lock first and after the mutex lock
+  // The mutex lock is retrieved indirect via OPCUASubscriptionManager::responseHandler that is triggered by
+  // UA_Client_Subscriptions_manuallySendPublishRequest in OPCUASubscriptionManager::runClient
+  std::lock_guard<std::mutex> connection_lock(_connection->client_lock);
+  std::lock_guard<std::mutex> item_lock(_mutex);
   // client pointer might be reset already when closing the device - in this case nothing to do here
   auto it = std::find(_items.begin(), _items.end(), browseName);
   // in case the asyncread was activated but no variables were subscribed - unsubscribe is called by RegisterAccessor destructor
@@ -267,9 +277,8 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
     // find map item
     for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it_map){
       if(it_map->second->_browseName == browseName){
-        std::lock_guard<std::mutex> lock(_connection->client_lock);
         // try to unsubscribe
-        if(_connection->client && !UA_Client_Subscriptions_removeMonitoredItem(_connection->client.get(), _subscriptionID, it_map->first)){
+        if(_connection->client && !UA_Client_MonitoredItems_deleteSingle(_connection->client.get(), _subscriptionID, it_map->first)){
           UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Monitored item removed for: %s", browseName.c_str());
         } else {
@@ -289,23 +298,6 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
 //        "Subscriptions sucessfully removed.");
 //  }
 //  OPCUASubscriptionManager::subscriptionMap.clear();
-}
-
-bool OPCUASubscriptionManager::isActive(){
-  // If the subscriptions is broken the thread will set _run to false
-//  return _run;
-  std::lock_guard<std::mutex> lock(_connection->client_lock);
-  // update client state
-  UA_Client_Subscriptions_manuallySendPublishRequest(_connection->client.get());
-  // check connection
-  auto connection = UA_Client_getConnectionState(_connection->client.get());
-  // \ToDo: Check also subscription state!
-  if(connection != UA_CONNECTION_ESTABLISHED)
-    return false;
-  auto state = UA_Client_getState(_connection->client.get());
-  if(state != UA_CLIENTSTATE_CONNECTED)
-    return false;
-  return true;
 }
 
 void OPCUASubscriptionManager::handleException(const std::string &message){

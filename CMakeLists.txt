@@ -44,7 +44,7 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   add_executable(testClient ${CMAKE_SOURCE_DIR}/test/testClient.C )
   target_link_libraries(testClient  ${ChimeraTK-DeviceAccess_LIBRARIES}
                                     ${ChimeraTK-ControlSystemAdapter-OPCUAAdapter_LIBRARIES}
-                                    ${open62541_LIBRARIES}
+                                    open62541
                                     ${Boost_LIBRARIES}
                                     ${PROJECT_NAME})
   add_test(testClient testSoftwareMasterBackend)
@@ -53,20 +53,20 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   #set_property(SOURCE ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C PROPERTY COMPILE_FLAGS "-std=c99")
   #SET_SOURCE_FILES_PROPERTIES( ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C  PROPERTIES LANGUAGE C )  
   add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
-  target_link_libraries( testSimpleServer ${open62541_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  target_link_libraries( testSimpleServer open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   add_test(testClient testSimpleServer)
   
   add_executable(testBrowse ${CMAKE_SOURCE_DIR}/test/testBrowse.C )
-  target_link_libraries( testBrowse ${open62541_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  target_link_libraries( testBrowse open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   add_test(testBrowse testBrowse)
   
   add_executable(testSubscription ${CMAKE_SOURCE_DIR}/test/testSubscription.C )
-  target_link_libraries( testSubscription ${open62541_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  target_link_libraries( testSubscription open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   
   add_executable(testUnifiedBackendTest ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testUnifiedBackendTest.C )
   # force linking against the backend library
   set_target_properties(testUnifiedBackendTest PROPERTIES LINK_FLAGS "-Wl,--no-as-needed")
-  target_link_libraries( testUnifiedBackendTest ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${ChimeraTK-DeviceAccess_LIBRARIES} ${open62541_LIBRARIES})
+  target_link_libraries( testUnifiedBackendTest ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${ChimeraTK-DeviceAccess_LIBRARIES} open62541)
   target_include_directories(testUnifiedBackendTest PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
   add_test(testUnifiedBackendTest testUnifiedBackendTest)
 #  add_executable(simpleRead ${CMAKE_SOURCE_DIR}/test/simpleRead.C )

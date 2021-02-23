@@ -9,6 +9,9 @@
 #include "OPC-UA-BackendRegisterAccessor.h"
 #include "SubscriptionManager.h"
 
+#include <open62541/client_config_default.h>
+#include <open62541/plugin/log_stdout.h>
+
 #include <ChimeraTK/BackendFactory.h>
 #include <ChimeraTK/DeviceAccessVersion.h>
 
@@ -33,6 +36,40 @@ extern "C"{
 
 namespace ChimeraTK{
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
+  std::map<UA_Client*, OpcUABackend*> OpcUABackend::backendClients;
+
+  void OpcUABackend::stateCallback(UA_Client *client, UA_SecureChannelState channelState,
+              UA_SessionState sessionState, UA_StatusCode recoveryStatus) {
+    std::lock_guard<std::mutex> lock(OpcUABackend::backendClients[client]->_connection->client_lock);
+    OpcUABackend::backendClients[client]->_connection->channelState = channelState;
+    OpcUABackend::backendClients[client]->_connection->sessionState = sessionState;
+    switch(channelState) {
+    case UA_SECURECHANNELSTATE_CLOSED:
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
+      break;
+    case UA_SECURECHANNELSTATE_HEL_SENT:
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ack");
+      break;
+    case UA_SECURECHANNELSTATE_OPN_SENT:
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
+      break;
+    case UA_SECURECHANNELSTATE_OPEN:
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
+      break;
+    default:
+      break;
+    }
+    switch(sessionState) {
+    case UA_SESSIONSTATE_ACTIVATED:
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activated");
+      break;
+    case UA_SESSIONSTATE_CLOSED:
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session disconnected");
+      break;
+    default:
+      break;
+    }
+  }
 
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile, const unsigned long &subscriptonPublishingInterval):
       _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile){
@@ -41,7 +78,6 @@ namespace ChimeraTK{
     _connection->port = port;
     _connection->username = username;
     _connection->password = password;
-    _connection->config = UA_ClientConfig_standard;
     _connection->publishingInterval = subscriptonPublishingInterval;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
     /* Registers are added before open() is called in ApplicationCore.
@@ -280,15 +316,11 @@ namespace ChimeraTK{
      * was detected by the Backend (i.e. an exception was thrown
      * by one of the RegisterAccessors).
      */
-    UA_ConnectionState state;
-    {
-      std::lock_guard<std::mutex> lock(_connection->client_lock);
-      state = UA_Client_getConnectionState(_connection->client.get());
-    }
+
     // if an error was seen by the accessor the error is in the queue but as long as no read happened setException is not called
-    // but in the tests the the device is reset without calling read in between -> so we need to check the connection here
-    // -> to make sure the Subscription intgernal thread is stopped.
-    if(!_isFunctional || state != UA_CONNECTION_ESTABLISHED){
+    // but in the tests the device is reset without calling read in between -> so we need to check the connection here
+    // -> to make sure the Subscription internal thread is stopped.
+    if(!_isFunctional || _connection->sessionState != UA_SESSIONSTATE_ACTIVATED || _connection->channelState != UA_SECURECHANNELSTATE_OPEN){
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Opening the device: %s" , _connection->serverAddress.c_str());
       connect();
@@ -321,12 +353,13 @@ namespace ChimeraTK{
       UA_StatusCode retval;
       {
         std::lock_guard<std::mutex> lock(_connection->client_lock);
-        _connection->client.reset(UA_Client_new(_connection->config));
-        /** Connect **/
-        if(UA_Client_getState(_connection->client.get()) != UA_CLIENTSTATE_READY){
-          deleteClient();
-          throw ChimeraTK::runtime_error("Failed to set up OPC-UA client");
+        if(_connection->client){
+          OpcUABackend::backendClients.erase(_connection->client.get());
         }
+        _connection->client.reset(UA_Client_new());
+        _connection->config = UA_Client_getConfig(_connection->client.get());
+        OpcUABackend::backendClients[_connection->client.get()] = this;
+        /** Connect **/
         if(_connection->username.empty() || _connection->password.empty()){
           retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
         } else {

@@ -12,7 +12,6 @@
 
 #include <boost/enable_shared_from_this.hpp>
 
-#include "open62541.h"
 #include "OPC-UA-Connection.h"
 #include "SubscriptionManager.h"
 
@@ -96,6 +95,10 @@ namespace ChimeraTK {
   public:
     ~OpcUABackend();
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
+
+    static void
+    stateCallback(UA_Client *client, UA_SecureChannelState channelState,
+                  UA_SessionState sessionState, UA_StatusCode recoveryStatus);
   protected:
     OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "", const std::string &mapfile = "", const unsigned long &subscriptonPublishingInterval = 500);
 
@@ -142,6 +145,7 @@ namespace ChimeraTK {
         BackendRegisterer();
     };
     static BackendRegisterer backendRegisterer;
+    static std::map<UA_Client*, OpcUABackend*> backendClients;
 
 
     template<typename UAType, typename CTKType>

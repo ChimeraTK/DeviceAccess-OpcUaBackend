@@ -9,6 +9,11 @@
 #include <vector>
 
 
+#include <open62541/plugin/log_stdout.h>
+#include <open62541/server_config_default.h>
+#include <open62541/network_tcp.h>
+#include <open62541/client_config_default.h>
+
 #include <boost/fusion/include/for_each.hpp>
 #include <boost/fusion/include/at_key.hpp>
 
@@ -138,7 +143,7 @@ struct VariableAttacher{
 
 };
 
-OPCUAServer::OPCUAServer(): _config(UA_ServerConfig_standard), _server(nullptr){
+OPCUAServer::OPCUAServer(): _server(UA_Server_new()){
   std::random_device rd;
   std::uniform_int_distribution<uint> dist(20000, 22000);
   _port = dist(rd);
@@ -147,14 +152,10 @@ OPCUAServer::OPCUAServer(): _config(UA_ServerConfig_standard), _server(nullptr){
 
 OPCUAServer::~OPCUAServer(){
   UA_Server_delete(_server);
-  _nl.deleteMembers(&_nl);
 }
 
 void OPCUAServer::start(){
-  _nl = UA_ServerNetworkLayerTCP(UA_ConnectionConfig_standard, _port);
-  _config.networkLayers = &_nl;
-  _config.networkLayersSize = 1;
-  _server = UA_Server_new(_config);
+  UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
   running = true;
 
   addVariables();
@@ -221,7 +222,8 @@ ThreadedOPCUAServer::~ThreadedOPCUAServer(){
 }
 
 bool ThreadedOPCUAServer::checkConnection(const ServerState &state){
-  UA_Client* client = UA_Client_new(UA_ClientConfig_standard);
+  UA_Client* client = UA_Client_new();
+  UA_Client_getConfig(client);
   /** Connect **/
   UA_StatusCode retval;
   std::string serverAddress("opc.tcp://localhost:"+std::to_string(_server._port));

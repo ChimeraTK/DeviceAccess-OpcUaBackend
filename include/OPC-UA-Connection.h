@@ -11,7 +11,7 @@
 #include <memory>
 #include <mutex>
 
-#include "open62541.h"
+#include <open62541/client_highlevel.h>
 
 namespace ChimeraTK{
 
@@ -27,8 +27,11 @@ struct OPCUAConnection{
   // Can not be a shared pointer because the struct is only defined in the source file...
 
   std::unique_ptr<UA_Client, UAClientDeleter> client;
-  UA_ClientConfig config;
+  UA_ClientConfig* config;
   std::string serverAddress;
+
+  UA_SecureChannelState channelState;
+  UA_SessionState sessionState;
 
   /**
    * This is used since async access is not supported by OPC-UA.
