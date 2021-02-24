@@ -46,7 +46,7 @@ class VersionMapper {
   std::mutex _mapMutex;
   std::map<UA_DateTime, ChimeraTK::VersionNumber> _versionMap{};
 
-  int _localTimeOffset{0}; ///< Offest to be applied from UTC to local time [s]
+  int64_t _localTimeOffset{0}; ///< Offest to be applied from UTC to local time [s]
 
   constexpr static size_t maxSizeEventIdMap = 2000;
 };

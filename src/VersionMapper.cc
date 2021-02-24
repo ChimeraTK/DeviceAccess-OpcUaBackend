@@ -16,7 +16,8 @@ VersionMapper::VersionMapper(){
   const int gm_time = gmtime(&epoch_plus_11h)->tm_hour;
   // get the difference [-11,12]h
   const int tz_diff = local_time - gm_time;
-  _localTimeOffset = tz_diff*3600;
+  // scale [1h] to [100ns] like used with OPC UA
+  _localTimeOffset = tz_diff*3600*1e7;
 }
 
 timePoint_t VersionMapper::convertToTimePoint(const UA_DateTime& timeStamp){
