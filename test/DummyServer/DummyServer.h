@@ -5,7 +5,10 @@
  *      Author: Klaus Zenker (HZDR)
  */
 
-#pragma once
+//#pragma once
+
+#ifndef DUMMY_SERVER_H_
+#define DUMMY_SERVER_H_
 
 #include "open62541.h"
 
@@ -29,7 +32,8 @@ typedef fusion::map<
   , fusion::pair<UA_Float, std::pair<std::string,UA_DataType> >
   , fusion::pair<UA_String, std::pair<std::string,UA_DataType> >
   , fusion::pair<UA_SByte, std::pair<std::string,UA_DataType> >
-  , fusion::pair<UA_Byte, std::pair<std::string,UA_DataType> > > TypeMapWithName;
+  , fusion::pair<UA_Byte, std::pair<std::string,UA_DataType> >
+  , fusion::pair<UA_Boolean, std::pair<std::string,UA_DataType> > > TypeMapWithName;
 
 extern TypeMapWithName dummyMap;
 
@@ -73,6 +77,9 @@ struct OPCUAServer{
   template <typename UAType>
   void setValue(std::string nodeName, const std::vector<UAType> &t, const size_t &length = 1);
 
+  void setValue(std::string nodeName, const std::vector<UA_Boolean> &t, const size_t &length = 1);
+
+
   UA_Variant* getValue(std::string nodeName);
 
 };
@@ -108,3 +115,5 @@ public:
 
   OPCUAServer _server;
 };
+
+#endif /* DUMMY_SERVER_H_ */

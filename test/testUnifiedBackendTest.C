@@ -176,8 +176,61 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults{
 
 };
 
+
 template <>
 struct ScalarDefaultsRO<UA_String> : ScalarDefaults<UA_String>{
+  bool isWriteable() override {return false;};
+};
+
+template <>
+struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults{
+  using AllRegisterDefaults::AllRegisterDefaults;
+  size_t nElementsPerChannel() { return 1; }
+  virtual std::string path() = 0;
+
+  // \ToDo: Is that needed for OPC UA?
+//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+
+  UA_Boolean* data;
+
+  template<typename UserType>
+  std::vector<std::vector<UserType> > getRemoteValue(){
+    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    data = (UA_Boolean*)variant->data;
+    // convert to int
+    int idata = *data;
+    auto d = ChimeraTK::numericToUserType<UserType>(idata);
+    UA_Variant_delete(variant);
+    return {{d}};
+  }
+
+  void setRemoteValue(){
+    std::vector<UA_Boolean> value;
+    value.push_back(generateValue<int>().at(0).at(0));
+    std::stringstream ss;
+    ss << value.at(0);
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Setting value:   %s", ss.str().c_str());
+    OPCUALauncher::threadedServer->_server.setValue(path(),value);
+  }
+
+  template<typename UserType>
+  std::vector<std::vector<UserType> > generateValue(){
+    UserType increment(1);
+    auto currentData = getRemoteValue<UserType>();
+    if(currentData.at(0).at(0) > 0 ){
+      UserType data = currentData.at(0).at(0) - increment;
+      return {{data}};
+    } else {
+      UserType data = currentData.at(0).at(0) + increment;
+      return {{data}};
+    }
+  }
+
+};
+
+template <>
+struct ScalarDefaultsRO<UA_Boolean> : ScalarDefaults<UA_Boolean>{
   bool isWriteable() override {return false;};
 };
 
@@ -310,6 +363,69 @@ struct ArrayDefaultsRO<UA_String> : ArrayDefaults<UA_String>{
  bool isWriteable() override {return false;}
 };
 
+template <>
+struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults{
+  using AllRegisterDefaults::AllRegisterDefaults;
+  size_t nElementsPerChannel() { return 5; }
+  virtual std::string path() = 0;
+  UA_Boolean* data;
+
+  // \ToDo: Is that needed for OPC UA?
+//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+
+  template<typename UserType>
+  std::vector<std::vector<UserType> > getRemoteValue(){
+    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    data = (UA_Boolean*)variant->data;
+    // convert to int
+    int idata;
+    std::vector<UserType> d;
+    for(size_t i = 0; i < nElementsPerChannel(); ++i){
+      idata = data[i];
+      d.push_back(ChimeraTK::numericToUserType<UserType>(idata));
+    }
+    return {d};
+  }
+
+  void setRemoteValue(){
+    std::vector<UA_Boolean> values;
+    //\ToDo: Should this be UserType instead of UAType?
+    auto v = generateValue<int>().at(0);
+    std::stringstream ss;
+    for(auto &t : v){
+      values.push_back(t);
+      ss << " " << t;
+    }
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Setting array:   %s", ss.str().c_str());
+    OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
+  }
+
+  template<typename UserType>
+  std::vector<std::vector<UserType> > generateValue(){
+    auto currentData = getRemoteValue<UserType>();
+    UserType increment(1);
+    std::vector<UserType> val;
+    for(size_t i =0; i < nElementsPerChannel(); ++i){
+      if(currentData.at(0).at(i) > 0)
+        val.push_back(currentData.at(0).at(i) - increment);
+      else
+        val.push_back(currentData.at(0).at(i) + increment);
+    }
+    return {val};
+  }
+};
+
+template <>
+struct ArrayDefaultsRO<UA_Boolean> : ArrayDefaults<UA_Boolean>{
+ bool isWriteable() override {return false;}
+};
+
+struct RegSomeBool : ScalarDefaults<UA_Boolean> {
+  std::string path() override { return "Dummy/scalar/bool"; }
+  typedef uint16_t minimumUserType;
+};
+
 struct RegSomeInt64 : ScalarDefaults<UA_Int64> {
   std::string path() override { return "Dummy/scalar/int64"; }
   typedef int64_t minimumUserType;
@@ -354,6 +470,12 @@ struct RegSomeString : ScalarDefaults<UA_String> {
   std::string path() override { return "Dummy/scalar/string"; }
   typedef std::string minimumUserType;
 };
+
+struct RegSomeBoolArray : ArrayDefaults<UA_Boolean> {
+  std::string path() override { return "Dummy/array/bool"; }
+  typedef uint16_t minimumUserType;
+};
+
 
 struct RegSomeInt64Array : ArrayDefaults<UA_Int64> {
   std::string path() override { return "Dummy/array/int64"; }
@@ -401,6 +523,11 @@ struct RegSomeStringArray : ArrayDefaults<UA_String> {
 };
 
 // read only part
+struct RegSomeBoolRO : ScalarDefaultsRO<UA_Boolean> {
+  std::string path() override { return "Dummy/scalar_ro/bool"; }
+  typedef uint16_t minimumUserType;
+};
+
 struct RegSomeInt64RO : ScalarDefaultsRO<UA_Int64> {
   std::string path() override { return "Dummy/scalar_ro/int64"; }
   typedef int64_t minimumUserType;
@@ -444,6 +571,11 @@ struct RegSomeDoubleRO : ScalarDefaultsRO<UA_Double> {
 struct RegSomeStringRO : ScalarDefaultsRO<UA_String> {
   std::string path() override { return "Dummy/scalar_ro/string"; }
   typedef std::string minimumUserType;
+};
+
+struct RegSomeBoolArrayRO : ArrayDefaultsRO<UA_Boolean> {
+  std::string path() override { return "Dummy/array_ro/bool"; }
+  typedef uint16_t minimumUserType;
 };
 
 struct RegSomeInt64ArrayRO : ArrayDefaultsRO<UA_Int64> {
@@ -495,42 +627,46 @@ struct RegSomeStringArrayRO : ArrayDefaultsRO<UA_String> {
 BOOST_FIXTURE_TEST_SUITE(s, OPCUALauncher)
 BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   auto ubt = ChimeraTK::UnifiedBackendTest<>()
-                 .addRegister<RegSomeInt16>()
-                 .addRegister<RegSomeUInt16>()
-                 .addRegister<RegSomeInt32>()
-                 .addRegister<RegSomeUInt32>()
-                 .addRegister<RegSomeInt64>()
-                 .addRegister<RegSomeUInt64>()
-                 .addRegister<RegSomeFloat>()
-                 .addRegister<RegSomeDouble>()
-                 .addRegister<RegSomeString>()
-                 .addRegister<RegSomeInt16Array>()
-                 .addRegister<RegSomeUInt16Array>()
-                 .addRegister<RegSomeInt32Array>()
-                 .addRegister<RegSomeUInt32Array>()
-                 .addRegister<RegSomeInt64Array>()
-                 .addRegister<RegSomeUInt64Array>()
-                 .addRegister<RegSomeFloatArray>()
-                 .addRegister<RegSomeDoubleArray>()
-                 .addRegister<RegSomeStringArray>()
-                 .addRegister<RegSomeInt16RO>()
-                 .addRegister<RegSomeUInt16RO>()
-                 .addRegister<RegSomeInt32RO>()
-                 .addRegister<RegSomeUInt32RO>()
-                 .addRegister<RegSomeInt64RO>()
-                 .addRegister<RegSomeUInt64RO>()
-                 .addRegister<RegSomeFloatRO>()
-                 .addRegister<RegSomeDoubleRO>()
-                 .addRegister<RegSomeStringRO>()
-                 .addRegister<RegSomeInt16ArrayRO>()
-                 .addRegister<RegSomeUInt16ArrayRO>()
-                 .addRegister<RegSomeInt32ArrayRO>()
-                 .addRegister<RegSomeUInt32ArrayRO>()
-                 .addRegister<RegSomeInt64ArrayRO>()
-                 .addRegister<RegSomeUInt64ArrayRO>()
-                 .addRegister<RegSomeFloatArrayRO>()
-                 .addRegister<RegSomeDoubleArrayRO>()
-                 .addRegister<RegSomeStringArrayRO>();
+                     .addRegister<RegSomeInt16>();
+//                 .addRegister<RegSomeBool>()
+//                 .addRegister<RegSomeUInt16>()
+//                 .addRegister<RegSomeInt32>()
+//                 .addRegister<RegSomeUInt32>()
+//                 .addRegister<RegSomeInt64>()
+//                 .addRegister<RegSomeUInt64>()
+//                 .addRegister<RegSomeFloat>()
+//                 .addRegister<RegSomeDouble>()
+//                 .addRegister<RegSomeString>()
+//                 .addRegister<RegSomeBoolArray>()
+//                 .addRegister<RegSomeInt16Array>()
+//                 .addRegister<RegSomeUInt16Array>()
+//                 .addRegister<RegSomeInt32Array>()
+//                 .addRegister<RegSomeUInt32Array>()
+//                 .addRegister<RegSomeInt64Array>()
+//                 .addRegister<RegSomeUInt64Array>()
+//                 .addRegister<RegSomeFloatArray>()
+//                 .addRegister<RegSomeDoubleArray>()
+//                 .addRegister<RegSomeStringArray>()
+//                 .addRegister<RegSomeBoolRO>()
+//                 .addRegister<RegSomeInt16RO>()
+//                 .addRegister<RegSomeUInt16RO>()
+//                 .addRegister<RegSomeInt32RO>()
+//                 .addRegister<RegSomeUInt32RO>()
+//                 .addRegister<RegSomeInt64RO>()
+//                 .addRegister<RegSomeUInt64RO>()
+//                 .addRegister<RegSomeFloatRO>()
+//                 .addRegister<RegSomeDoubleRO>()
+//                 .addRegister<RegSomeStringRO>()
+//                .addRegister<RegSomeBoolArrayRO>()
+//                 .addRegister<RegSomeInt16ArrayRO>()
+//                 .addRegister<RegSomeUInt16ArrayRO>()
+//                 .addRegister<RegSomeInt32ArrayRO>()
+//                 .addRegister<RegSomeUInt32ArrayRO>()
+//                 .addRegister<RegSomeInt64ArrayRO>()
+//                 .addRegister<RegSomeUInt64ArrayRO>()
+//                 .addRegister<RegSomeFloatArrayRO>()
+//                 .addRegister<RegSomeDoubleArrayRO>()
+//                 .addRegister<RegSomeStringArrayRO>();
 //  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeStringArray>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -538,7 +674,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   // minimum publishing interval on the server is 100ms
   ss << "(" << path << "?port=" << port << "&publishingInterval=100)";
 
-  ubt.runTests(ss.str(),"");
+  ubt.runTests(ss.str());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

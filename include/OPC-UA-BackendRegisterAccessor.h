@@ -51,7 +51,8 @@ namespace ChimeraTK {
     , fusion::pair<UA_Float, UA_DataType>
     , fusion::pair<UA_String, UA_DataType>
     , fusion::pair<UA_SByte, UA_DataType>
-    , fusion::pair<UA_Byte, UA_DataType>> myMap;
+    , fusion::pair<UA_Byte, UA_DataType>
+    , fusion::pair<UA_Boolean, UA_DataType>> myMap;
 
   template <typename DestType, typename SourceType>
   class RangeCheckingDataConverter{
@@ -159,7 +160,8 @@ namespace ChimeraTK {
         fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]),
         fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]),
         fusion::make_pair<UA_SByte>(UA_TYPES[UA_TYPES_SBYTE]),
-        fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE])};
+        fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE]),
+        fusion::make_pair<UA_Boolean>(UA_TYPES[UA_TYPES_BOOLEAN])};
     /**
      * Convert the actual UA_DataValue to a VersionNumber.
      * The VersionNumeber is constructed from the source time stamp.
@@ -313,15 +315,16 @@ namespace ChimeraTK {
     }
     std::lock_guard<std::mutex> lock(_backend->_connection->client_lock);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    std::vector<UAType> v(this->getNumberOfSamples());
+    auto arr = UA_Array_new(this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
     for(size_t i = 0; i < this->getNumberOfSamples(); i++){
-      v[i] = toOpcUA.convert(this->accessData(i));
+      ((UAType*)arr)[i] = toOpcUA.convert(this->accessData(i));
     }
     if(_numberOfWords == 1){
-      UA_Variant_setScalarCopy(val->var, &v[0], &fusion::at_key<UAType>(m));
+      UA_Variant_setScalarCopy(val->var, arr, &fusion::at_key<UAType>(m));
     } else {
-      UA_Variant_setArrayCopy(val->var, &v[0], _numberOfWords,  &fusion::at_key<UAType>(m));
+      UA_Variant_setArrayCopy(val->var, arr, _numberOfWords,  &fusion::at_key<UAType>(m));
     }
+    UA_Array_delete(arr, this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
     UA_StatusCode retval = UA_Client_writeValueAttribute(_backend->_connection->client.get(), _info->_id, val->var);
     _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){

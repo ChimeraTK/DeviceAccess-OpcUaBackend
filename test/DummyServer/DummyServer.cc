@@ -27,7 +27,8 @@ TypeMapWithName dummyMap(
     fusion::make_pair<UA_Float>(std::make_pair("float",UA_TYPES[UA_TYPES_FLOAT])),
     fusion::make_pair<UA_String>(std::make_pair("string",UA_TYPES[UA_TYPES_STRING])),
     fusion::make_pair<UA_SByte>(std::make_pair("int8",UA_TYPES[UA_TYPES_SBYTE])),
-    fusion::make_pair<UA_Byte>(std::make_pair("uint8",UA_TYPES[UA_TYPES_BYTE])));
+    fusion::make_pair<UA_Byte>(std::make_pair("uint8",UA_TYPES[UA_TYPES_BYTE])),
+    fusion::make_pair<UA_Boolean>(std::make_pair("bool",UA_TYPES[UA_TYPES_BOOLEAN])));
 
 
 
@@ -91,50 +92,97 @@ struct VariableAttacher{
 
   void operator()(fusion::pair<UA_String, std::pair<std::string,UA_DataType> >& pair) const{
 //      auto mypair = fusion::at_key<UA_String>(m);
-      auto mypair = pair.second;
-      /* Define the attribute of the myInteger variable node */
-      UA_VariableAttributes attr;
-      UA_VariableAttributes_init(&attr);
-      std::string strData = "42";
-      std::vector<UA_String> v = {UA_STRING("42"), UA_STRING("42"),UA_STRING("42"),UA_STRING("42"),UA_STRING("42")};
-      UA_String data = UA_STRING((char*)strData.c_str());
-      std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
-      name = name + "/" + mypair.first;
-      if (_isArray){
-        // passing mypair.second directly does not work!
-        UA_Variant_setArray(&attr.value, &v[0], 5,  &UA_TYPES[mypair.second.typeIndex]);
-        attr.valueRank = 1;
-        UA_UInt32 myArrayDimensions[1] = {5};
-        attr.arrayDimensions = myArrayDimensions;
-        attr.arrayDimensionsSize = 1;
-      } else {
-        // passing mypair.second directly does not work!
-        UA_Variant_setScalar(&attr.value, &data, &UA_TYPES[mypair.second.typeIndex]);
-        attr.valueRank = -1;
-      }
-
-      attr.description = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
-      attr.displayName = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
-      attr.dataType = mypair.second.typeId;
-      attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
-      attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
-      if(_readOnly){
-        attr.accessLevel = 1;
-        attr.userAccessLevel = 1;
-      } else {
-        attr.accessLevel = 3;
-        attr.userAccessLevel = 3;
-      }
-
-      /* Add the variable node to the information model */
-      UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, &name[0]);
-      UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-      UA_Server_addVariableNode(_server, myIntegerNodeId, _parent,
-          UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myIntegerName,
-                                UA_NODEID_NULL, attr, NULL, NULL);
-      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                        "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
+    auto mypair = pair.second;
+    /* Define the attribute of the myInteger variable node */
+    UA_VariableAttributes attr;
+    UA_VariableAttributes_init(&attr);
+    std::string strData = "42";
+    std::vector<UA_String> v = {UA_STRING("42"), UA_STRING("42"),UA_STRING("42"),UA_STRING("42"),UA_STRING("42")};
+    UA_String data = UA_STRING((char*)strData.c_str());
+    std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
+    name = name + "/" + mypair.first;
+    if (_isArray){
+      // passing mypair.second directly does not work!
+      UA_Variant_setArray(&attr.value, &v[0], 5,  &UA_TYPES[mypair.second.typeIndex]);
+      attr.valueRank = 1;
+      UA_UInt32 myArrayDimensions[1] = {5};
+      attr.arrayDimensions = myArrayDimensions;
+      attr.arrayDimensionsSize = 1;
+    } else {
+      // passing mypair.second directly does not work!
+      UA_Variant_setScalar(&attr.value, &data, &UA_TYPES[mypair.second.typeIndex]);
+      attr.valueRank = -1;
     }
+
+    attr.description = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+    attr.displayName = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+    attr.dataType = mypair.second.typeId;
+    attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
+    attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
+    if(_readOnly){
+      attr.accessLevel = 1;
+      attr.userAccessLevel = 1;
+    } else {
+      attr.accessLevel = 3;
+      attr.userAccessLevel = 3;
+    }
+
+    /* Add the variable node to the information model */
+    UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, &name[0]);
+    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
+    UA_Server_addVariableNode(_server, myIntegerNodeId, _parent,
+        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myIntegerName,
+                              UA_NODEID_NULL, attr, NULL, NULL);
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
+  }
+
+  void operator()(fusion::pair<UA_Boolean, std::pair<std::string,UA_DataType> >& pair) const{
+  //      auto mypair = fusion::at_key<UA_String>(m);
+    auto mypair = pair.second;
+    /* Define the attribute of the myInteger variable node */
+    UA_VariableAttributes attr;
+    UA_VariableAttributes_init(&attr);
+    UA_Boolean data = true;
+    bool p[5] = {true,true,true,true,true};
+    std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
+    name = name + "/" + mypair.first;
+    if (_isArray){
+      // passing mypair.second directly does not work!
+//      UA_Variant_setArray(&attr.value, &boolVector.data(), 5,  &UA_TYPES[mypair.second.typeIndex]);
+      UA_Variant_setArray(&attr.value, &p[0], 5,  &UA_TYPES[mypair.second.typeIndex]);
+      attr.valueRank = 1;
+      UA_UInt32 myArrayDimensions[1] = {5};
+      attr.arrayDimensions = myArrayDimensions;
+      attr.arrayDimensionsSize = 1;
+    } else {
+      // passing mypair.second directly does not work!
+      UA_Variant_setScalar(&attr.value, &data, &UA_TYPES[mypair.second.typeIndex]);
+      attr.valueRank = -1;
+    }
+
+    attr.description = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+    attr.displayName = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+    attr.dataType = mypair.second.typeId;
+    attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
+    attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
+    if(_readOnly){
+      attr.accessLevel = 1;
+      attr.userAccessLevel = 1;
+    } else {
+      attr.accessLevel = 3;
+      attr.userAccessLevel = 3;
+    }
+
+    /* Add the variable node to the information model */
+    UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, &name[0]);
+    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
+    UA_Server_addVariableNode(_server, myIntegerNodeId, _parent,
+        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myIntegerName,
+                              UA_NODEID_NULL, attr, NULL, NULL);
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
+  }
 
 };
 
@@ -203,6 +251,28 @@ UA_Variant* OPCUAServer::getValue(std::string nodeName){
   UA_Variant* data = UA_Variant_new();
   UA_Server_readValue(_server, UA_NODEID_STRING(1, &nodeName[0]), data);
   return data;
+}
+
+void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean> &t, const size_t &length){
+  UA_Variant* data = UA_Variant_new();
+  if (t.size() > 100){
+    throw std::runtime_error("Vector size is too big");
+  }
+  bool p[100];
+  for(size_t i = 0; i < 100; ++i){
+    p[i] = t[i];
+  }
+
+  if(t.size() == 1){
+    UA_Variant_setScalarCopy(data,&p[0], &UA_TYPES[UA_TYPES_BOOLEAN]);
+  } else {
+    UA_Variant_setArrayCopy(data, &p[0], length, &UA_TYPES[UA_TYPES_BOOLEAN]);
+  }
+  UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
+  UA_Variant_delete(data);
+  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result.
+  std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
 }
 
 void ThreadedOPCUAServer::start(){
