@@ -101,7 +101,7 @@ namespace ChimeraTK {
   class RangeCheckingDataConverter<UA_String,std::string>{
   public:
     UA_String convert(std::string& x){
-      return UA_STRING((char*)x.c_str());
+      return UA_String_fromChars(x.c_str());
     }
   };
 
@@ -275,6 +275,7 @@ namespace ChimeraTK {
       _backend->_subscriptionManager->subscribe(_info->_nodeBrowseName, _info->_id, this);
       _subscribed = true;
     }
+    NDRegisterAccessor<CTKType>::_exceptionBackend = backend;
   }
 
 
@@ -315,17 +316,17 @@ namespace ChimeraTK {
     }
     std::lock_guard<std::mutex> lock(_backend->_connection->client_lock);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    auto arr = UA_Array_new(this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
+    UAType* arr = (UAType*)UA_Array_new(this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
     for(size_t i = 0; i < this->getNumberOfSamples(); i++){
-      ((UAType*)arr)[i] = toOpcUA.convert(this->accessData(i));
+      arr[i] = toOpcUA.convert(this->accessData(i));
     }
     if(_numberOfWords == 1){
       UA_Variant_setScalarCopy(val->var, arr, &fusion::at_key<UAType>(m));
     } else {
       UA_Variant_setArrayCopy(val->var, arr, _numberOfWords,  &fusion::at_key<UAType>(m));
     }
-    UA_Array_delete(arr, this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
     UA_StatusCode retval = UA_Client_writeValueAttribute(_backend->_connection->client.get(), _info->_id, val->var);
+    UA_Array_delete(arr, this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
     _currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD){
       return true;
