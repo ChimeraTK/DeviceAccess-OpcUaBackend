@@ -74,7 +74,7 @@ void OPCUASubscriptionManager::runClient(){
 
       break;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    std::this_thread::sleep_for(std::chrono::milliseconds(_connection->publishingInterval));
   }
   //Inform all accessors that are subscribed
   if(_run)
