@@ -246,6 +246,7 @@ namespace ChimeraTK {
    size_t _offsetWords; ///< Requested offset for arrays.
    RangeCheckingDataConverter<UAType, CTKType> toOpcUA;
    RangeCheckingDataConverter<CTKType, UAType> toCTK;
+   bool _isPartial{false};
 
   private:
 
@@ -268,13 +269,14 @@ namespace ChimeraTK {
       // Create notification queue.
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) { this->_data = data; }, std::launch::deferred);
-//      std::cerr << "Subscriptions are not yet supported by the backend." << std::endl;
       // needs to be called after the notifications queue is created!
       if(!_backend->_subscriptionManager)
         _backend->activateSubscriptionSupport();
       _backend->_subscriptionManager->subscribe(_info->_nodeBrowseName, _info->_id, this);
       _subscribed = true;
     }
+    if(_info->_arrayLength != numberOfWords)
+      _isPartial = true;
     NDRegisterAccessor<CTKType>::_exceptionBackend = backend;
   }
 
@@ -314,16 +316,27 @@ namespace ChimeraTK {
     if(!_backend->isFunctional()) {
       throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
     }
+    UAType* arr;
+    if(_isPartial){
+      // read array first before changing only relevant parts of it
+      OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferSynchronously();
+    }
     std::lock_guard<std::mutex> lock(_backend->_connection->client_lock);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    UAType* arr = (UAType*)UA_Array_new(this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
-    for(size_t i = 0; i < this->getNumberOfSamples(); i++){
-      arr[i] = toOpcUA.convert(this->accessData(i));
+
+    if(_isPartial){
+      arr = (UAType*)(_data.value.data);
+    } else {
+      // create empty array
+      arr = (UAType*)UA_Array_new(this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
+    }
+    for(size_t i = 0; i < _numberOfWords; i++){
+      arr[_offsetWords + i] = toOpcUA.convert(this->accessData(i));
     }
     if(_numberOfWords == 1){
       UA_Variant_setScalarCopy(val->var, arr, &fusion::at_key<UAType>(m));
     } else {
-      UA_Variant_setArrayCopy(val->var, arr, _numberOfWords,  &fusion::at_key<UAType>(m));
+      UA_Variant_setArrayCopy(val->var, arr, _info->_arrayLength,  &fusion::at_key<UAType>(m));
     }
     UA_StatusCode retval = UA_Client_writeValueAttribute(_backend->_connection->client.get(), _info->_id, val->var);
     UA_Array_delete(arr, this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
