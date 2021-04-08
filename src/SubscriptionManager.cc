@@ -22,7 +22,7 @@ void OPCUASubscriptionManager::start(){
   if(_subscriptionActive){
     _run = true;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                  "Starting subscription thread.");
+                  "Starting subscription thread with publishing interval of %dms.", _connection->publishingInterval);
     int retry = 10;
     int i = 0;
     while(_opcuaThread){
@@ -74,7 +74,7 @@ void OPCUASubscriptionManager::runClient(){
 
       break;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(_connection->publishingInterval));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   //Inform all accessors that are subscribed
   if(_run)
