@@ -101,8 +101,8 @@ namespace ChimeraTK{
         size_t nTokens = std::distance(tok.begin(), tok.end());
         if (!(nTokens == 2 || nTokens == 3)){
           UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Wrong number of tokens (%s) in opcua mapfile %s line (-> line is ignored): \n %s",
-                    std::to_string(nTokens), _mapfile.c_str(), line.c_str());
+                    "Wrong number of tokens (%zu) in opcua mapfile %s line (-> line is ignored): \n %s",
+                    nTokens, _mapfile.c_str(), line.c_str());
           continue;
         }
         auto it = tok.begin();
