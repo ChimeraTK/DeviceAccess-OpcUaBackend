@@ -6,6 +6,9 @@ set(${PROJECT_NAME}_MINOR_VERSION 05)
 set(${PROJECT_NAME}_PATCH_VERSION 03)
 include(cmake/set_version_numbers.cmake)
 
+include(cmake/set_default_build_to_release.cmake)
+include(cmake/set_default_flags.cmake)
+
 # Options
 option(WithCSA-OPCUA "Test against ControlsystemAdapter-OPC-UA")
 
