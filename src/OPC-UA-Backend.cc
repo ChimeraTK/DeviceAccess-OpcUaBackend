@@ -413,7 +413,7 @@ namespace ChimeraTK{
     if(numberOfWords + wordOffsetInRegister > info->_arrayLength ||
        (numberOfWords == 0 && wordOffsetInRegister > 0)){
       std::stringstream ss;
-      ss << "Requested number of words/elements ( " << numberOfWords << ") with offset " + std::to_string(wordOffsetInRegister) << " exceeds the number of available words/elements: " << info->_arrayLength;
+      ss << "Requested number of words/elements ( " << numberOfWords << ") with offset " << wordOffsetInRegister << " exceeds the number of available words/elements: " << info->_arrayLength;
       throw ChimeraTK::logic_error(ss.str());
     }
 
