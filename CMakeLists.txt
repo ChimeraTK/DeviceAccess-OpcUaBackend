@@ -6,20 +6,9 @@ set(${PROJECT_NAME}_MINOR_VERSION 04)
 set(${PROJECT_NAME}_PATCH_VERSION 02)
 include(cmake/set_version_numbers.cmake)
 
-# Options
-option(WithCSA-OPCUA "Test against ControlsystemAdapter-OPC-UA")
-
-
 include(cmake/add_dependency.cmake)
 add_dependency(ChimeraTK-DeviceAccess 02.00 REQUIRED)
 add_dependency(open62541 01.02 REQUIRED)
-
-if(WithCSA-OPCUA)
-  add_dependency(ChimeraTK-ControlSystemAdapter-OPCUAAdapter 01.05 REQUIRED)
-  # Needed by ControlsystemAdapter-OPC-UA-Adapter in the tests
-  find_package(LibXml2 REQUIRED)
-  include_directories(SYSTEM ${LIBXML2_INCLUDE_DIR})
-endif(WithCSA-OPCUA)
 
 # add support for latest C++ standard to compiler flags
 include(cmake/enable_latest_cxx_support.cmake)
@@ -39,16 +28,6 @@ FIND_PACKAGE(Boost COMPONENTS unit_test_framework system)
 
 if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   ENABLE_TESTING()
-  if(WithCSA-OPCUA)
-  FILE( COPY ${CMAKE_SOURCE_DIR}/test/test_mapping.xml DESTINATION ${PROJECT_BINARY_DIR})
-  add_executable(testClient ${CMAKE_SOURCE_DIR}/test/testClient.C )
-  target_link_libraries(testClient  ${ChimeraTK-DeviceAccess_LIBRARIES}
-                                    ${ChimeraTK-ControlSystemAdapter-OPCUAAdapter_LIBRARIES}
-                                    open62541
-                                    ${Boost_LIBRARIES}
-                                    ${PROJECT_NAME})
-  add_test(testClient testSoftwareMasterBackend)
-  endif(WithCSA-OPCUA)
 
   #set_property(SOURCE ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C PROPERTY COMPILE_FLAGS "-std=c99")
   #SET_SOURCE_FILES_PROPERTIES( ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C  PROPERTIES LANGUAGE C )  
