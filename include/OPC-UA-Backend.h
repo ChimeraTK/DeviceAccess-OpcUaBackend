@@ -9,6 +9,7 @@
 #define OPC_UA_BACKEND_H_
 
 #include <ChimeraTK/DeviceBackendImpl.h>
+#include <ChimeraTK/RegisterPath.h>
 
 #include <boost/enable_shared_from_this.hpp>
 
@@ -82,10 +83,10 @@ namespace ChimeraTK {
       std::string _nodeBrowseName;
       std::string _description;
       std::string _unit;
-      UA_UInt32 _dataType;
+      UA_UInt32 _dataType{0};
       RegisterInfo::DataDescriptor dataDescriptor;
-      bool _isReadonly;
-      size_t _arrayLength;
+      bool _isReadonly{true};
+      size_t _arrayLength{0};
       AccessModeFlags _accessModes{};
       UA_NodeId _id;
 
