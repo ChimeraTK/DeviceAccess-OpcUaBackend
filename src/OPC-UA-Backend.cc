@@ -13,11 +13,13 @@
 #include <open62541/plugin/log_stdout.h>
 
 #include <ChimeraTK/BackendFactory.h>
+#include <ChimeraTK/RegisterInfo.h>
 #include <ChimeraTK/DeviceAccessVersion.h>
-
+#include <ChimeraTK/Exception.h>
 #include <string>
 #include <fstream>
 
+#include <boost/make_shared.hpp>
 #include <boost/tokenizer.hpp>
 typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
 
@@ -121,8 +123,8 @@ namespace ChimeraTK{
         }
     }
     bd->nodeId = UA_NODEID_NULL;
-    UA_BrowseRequest_deleteMembers(&browseRequest);
-    UA_BrowseResponse_deleteMembers(&brp);
+    UA_BrowseRequest_clear(&browseRequest);
+    UA_BrowseResponse_clear(&brp);
   }
 
   void OpcUABackend::getNodesFromMapfile(){
@@ -138,7 +140,7 @@ namespace ChimeraTK{
         if (!(nTokens == 2 || nTokens == 3)){
           UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Wrong number of tokens (%s) in opcua mapfile %s line (-> line is ignored): \n %s",
-                    std::to_string(nTokens), _mapfile.c_str(), line.c_str());
+                    std::to_string(nTokens).c_str(), _mapfile.c_str(), line.c_str());
           continue;
         }
         auto it = tok.begin();
@@ -228,14 +230,14 @@ namespace ChimeraTK{
     UA_LocalizedText* text = UA_LocalizedText_new();
     retval = UA_Client_readDescriptionAttribute(_connection->client.get(),node,text);
     if(retval != UA_STATUSCODE_GOOD){
-      UA_LocalizedText_deleteMembers(text);
+      UA_LocalizedText_clear(text);
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
           "Failed to read data description from variable: %s with reason: %s. Variable is not added to the catalog."
           , entry->_nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
     }
     entry->_description =  std::string((char*)text->text.data, text->text.length);
-    UA_LocalizedText_deleteMembers(text);
+    UA_LocalizedText_clear(text);
 
     UA_Variant *val = UA_Variant_new();
     retval = UA_Client_readValueAttribute(_connection->client.get(), node, val);
@@ -357,13 +359,14 @@ namespace ChimeraTK{
           OpcUABackend::backendClients.erase(_connection->client.get());
         }
         _connection->client.reset(UA_Client_new());
+        UA_ClientConfig_setDefault(UA_Client_getConfig(_connection->client.get()));
         _connection->config = UA_Client_getConfig(_connection->client.get());
         OpcUABackend::backendClients[_connection->client.get()] = this;
         /** Connect **/
         if(_connection->username.empty() || _connection->password.empty()){
           retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
         } else {
-          retval = UA_Client_connect_username(_connection->client.get(), _connection->serverAddress.c_str(), _connection->username.c_str(), _connection->password.c_str());
+          retval = UA_Client_connectUsername(_connection->client.get(), _connection->serverAddress.c_str(), _connection->username.c_str(), _connection->password.c_str());
         }
       }
       if(retval != UA_STATUSCODE_GOOD) {
