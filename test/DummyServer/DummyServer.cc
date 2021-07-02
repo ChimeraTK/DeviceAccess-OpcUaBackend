@@ -51,8 +51,7 @@ struct VariableAttacher{
     typedef typename PAIR::first_type UAType;
     auto mypair = pair.second;
     /* Define the attribute of the myInteger variable node */
-    UA_VariableAttributes attr;
-    UA_VariableAttributes_init(&attr);
+    UA_VariableAttributes attr = UA_VariableAttributes_default;
     UAType data = 42;
     std::vector<UAType> v = {42,42,42,42,42};
     std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
@@ -71,8 +70,8 @@ struct VariableAttacher{
       attr.valueRank = -1;
 
     }
-    attr.description = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
-    attr.displayName = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+    attr.description = UA_LOCALIZEDTEXT_ALLOC("en_US",&mypair.first[0]);
+    attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US",&mypair.first[0]);
     attr.dataType = mypair.second.typeId;
     attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
     attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
@@ -89,19 +88,18 @@ struct VariableAttacher{
     UA_QualifiedName nodeName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
     UA_Server_addVariableNode(_server, nodeId, _parent,
         UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), nodeName,
-                              UA_NODEID_NULL, attr, NULL, NULL);
+        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
+                      "Trying to add node:  %s with name: %s" , name.c_str(), mypair.first.c_str());
   }
 
   void operator()(fusion::pair<UA_String, std::pair<std::string,UA_DataType> >& pair) const{
 //      auto mypair = fusion::at_key<UA_String>(m);
       auto mypair = pair.second;
       /* Define the attribute of the myInteger variable node */
-      UA_VariableAttributes attr;
-      UA_VariableAttributes_init(&attr);
+      UA_VariableAttributes attr = UA_VariableAttributes_default;
       std::string strData = "42";
-      std::vector<UA_String> v = {UA_STRING("42"), UA_STRING("42"),UA_STRING("42"),UA_STRING("42"),UA_STRING("42")};
+      std::vector<UA_String> v = {UA_String_fromChars("42"), UA_String_fromChars("42"),UA_String_fromChars("42"),UA_String_fromChars("42"),UA_String_fromChars("42")};
       UA_String data = UA_STRING((char*)strData.c_str());
       std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
       name = name + "/" + mypair.first;
@@ -118,27 +116,27 @@ struct VariableAttacher{
         attr.valueRank = -1;
       }
 
-      attr.description = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
-      attr.displayName = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+      attr.description = UA_LOCALIZEDTEXT_ALLOC("en_US",&mypair.first[0]);
+      attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US",&mypair.first[0]);
       attr.dataType = mypair.second.typeId;
       attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
       attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
       if(_readOnly){
-        attr.accessLevel = 1;
-        attr.userAccessLevel = 1;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        attr.userAccessLevel = UA_ACCESSLEVELMASK_READ;
       } else {
-        attr.accessLevel = 3;
-        attr.userAccessLevel = 3;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+        attr.userAccessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;;
       }
 
       /* Add the variable node to the information model */
-      UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, &name[0]);
-      UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-      UA_Server_addVariableNode(_server, myIntegerNodeId, _parent,
-          UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myIntegerName,
-                                UA_NODEID_NULL, attr, NULL, NULL);
+      UA_NodeId myNodeId = UA_NODEID_STRING(1, &name[0]);
+      UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
+      UA_Server_addVariableNode(_server, myNodeId, _parent,
+          UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
+          UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                        "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
+                        "Trying to add node:  %s with name: %s" , name.c_str(), mypair.first.c_str());
     }
 
 };
@@ -165,10 +163,9 @@ void OPCUAServer::start(){
 
 void OPCUAServer::addFolder(std::string name, UA_NodeId parent){
   std::string displayName = name.substr(name.find_last_of("/")+1,name.size());
-  UA_ObjectAttributes attrObj;
-  UA_ObjectAttributes_init(&attrObj);
-  attrObj.description = UA_LOCALIZEDTEXT("en_US",&displayName[0]);
-  attrObj.displayName = UA_LOCALIZEDTEXT("en_US",&displayName[0]);
+  UA_ObjectAttributes attrObj = UA_ObjectAttributes_default;
+  attrObj.description = UA_LOCALIZEDTEXT_ALLOC("en_US",&displayName[0]);
+  attrObj.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US",&displayName[0]);
   UA_QualifiedName qname = UA_QUALIFIEDNAME(1, &displayName[0]);
   UA_NodeId objNode = UA_NODEID_STRING(1, &name[0]);
   UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
@@ -179,24 +176,22 @@ void OPCUAServer::addFolder(std::string name, UA_NodeId parent){
 void OPCUAServer::addVariables(){
   /* Add object node */
   // Create our toplevel instance
-  UA_ObjectAttributes oAttr;
-  UA_ObjectAttributes_init(&oAttr);
-  // Classcast to prevent Warnings
-  oAttr.displayName = UA_LOCALIZEDTEXT((char*)"en_US", "Dummy");
-  oAttr.description = UA_LOCALIZEDTEXT((char*)"en_US", "Dummy");
-  UA_Server_addObjectNode(_server, UA_NODEID_STRING(1, "Dummy"),
+  UA_ObjectAttributes oAttr = UA_ObjectAttributes_default;
+  oAttr.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US", "Dummy");
+  oAttr.description = UA_LOCALIZEDTEXT_ALLOC("en_US", "Dummy");
+  UA_Server_addObjectNode(_server, UA_NODEID("ns=1;s=Dummy"),
       UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
                           UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-                          UA_QUALIFIEDNAME(1, "Dummy"),
-                          UA_NODEID_NULL, oAttr, NULL, NULL);
-  addFolder("Dummy/scalar", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar"), _server, false, false));
-  addFolder("Dummy/array", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array"), _server, true, false));
-  addFolder("Dummy/scalar_ro", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar_ro"), _server, false, true));
-  addFolder("Dummy/array_ro", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array_ro"), _server, true, true));
+                          UA_QUALIFIEDNAME_ALLOC(1, "Dummy"),
+                          UA_NODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), oAttr, NULL, NULL);
+  addFolder("Dummy/scalar", UA_NODEID("ns=1;s=Dummy"));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar"), _server, false, false));
+  addFolder("Dummy/array", UA_NODEID("ns=1;s=Dummy"));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/array"), _server, true, false));
+  addFolder("Dummy/scalar_ro", UA_NODEID("ns=1;s=Dummy"));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar_ro"), _server, false, true));
+  addFolder("Dummy/array_ro", UA_NODEID("ns=1;s=Dummy"));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/array_ro"), _server, true, true));
 
 }
 
