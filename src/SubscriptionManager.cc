@@ -11,6 +11,7 @@
 #include "OPC-UA-BackendRegisterAccessor.h"
 
 #include <open62541/client_subscriptions.h>
+#include <open62541/client.h>
 
 namespace ChimeraTK{
 
@@ -58,7 +59,7 @@ void OPCUASubscriptionManager::runClient(){
       std::lock_guard<std::mutex> lock(_connection->client_lock);
       if(!_connection->client){
         UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Client point was removed by the subscription manager.");
+                    "Client pointer was removed by the subscription manager.");
         _run = false;
         return;
       }
@@ -69,13 +70,14 @@ void OPCUASubscriptionManager::runClient(){
         break;
       }
     }
+    ret = UA_Client_run_iterate(_connection->client.get(),20);
     if(ret != UA_STATUSCODE_GOOD){
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Stopped sending publish requests. OPC UA message: %s", UA_StatusCode_name(ret));
 
       break;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+//    std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   //Inform all accessors that are subscribed
   if(_run)
@@ -308,7 +310,7 @@ void OPCUASubscriptionManager::handleException(const std::string &message){
     } catch(...) {
       if(item.second->_active && !item.second->_hasException){
         item.second->_hasException = true;
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                            "Sending exception to %u accessors for node %s", item.second->_accessors.size(), item.second->_browseName.c_str());
         for(auto &accessor : item.second->_accessors){
           accessor->_notifications.push_overwrite_exception(std::current_exception());
