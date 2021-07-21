@@ -37,7 +37,7 @@ void readValue(UA_String node, UA_Client *_client){
     } else if (retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
       val->type == &UA_TYPES[UA_TYPES_STRING]){
       UA_String str = *(UA_String*)val->data;
-      printf("the value is: %-16.*s\n", str.length, str.data);
+      printf("the value is: %-16.*s\n", (int)str.length, str.data);
     }
     UA_Variant_delete(val);
 }
@@ -88,13 +88,14 @@ browseRecursive(UA_Client *client, UA_NodeId startingNode, UA_UInt32 nodeClassMa
         }
     }
     bd->nodeId = UA_NODEID_NULL;
-    UA_BrowseRequest_deleteMembers(&browseRequest);
-    UA_BrowseResponse_deleteMembers(&brp);
+    UA_BrowseRequest_clear(&browseRequest);
+    UA_BrowseResponse_clear(&brp);
 }
 
 int main(int argc, char *argv[]) {
     UA_Client *client = UA_Client_new();
-    UA_ClientConfig *cc = UA_Client_getConfig(client);
+    UA_ClientConfig_setDefault(UA_Client_getConfig(client));
+//    UA_ClientConfig *cc = UA_Client_getConfig(client);
     /* Listing endpoints */
     UA_EndpointDescription* endpointArray = NULL;
     size_t endpointArraySize = 0;
@@ -147,10 +148,10 @@ int main(int argc, char *argv[]) {
 
           UA_LocalizedText* text = UA_LocalizedText_new();
           UA_Client_readDescriptionAttribute(client,referenceDescription[i].nodeId.nodeId,text);
-          printf("%-9d \t %-16.*s", idd->identifier.numeric, text->text.length, text->text.data);
-          UA_LocalizedText_deleteMembers(text);
+          printf("%-9d \t %-16.*s", idd->identifier.numeric, (int)text->text.length, text->text.data);
+          UA_LocalizedText_clear(text);
         }
-        UA_ReferenceDescription_deleteMembers(&referenceDescription[i]);
+        UA_ReferenceDescription_clear(&referenceDescription[i]);
     }
     UA_UInt32_delete(resultCounter);
     UA_free(referenceDescription);
