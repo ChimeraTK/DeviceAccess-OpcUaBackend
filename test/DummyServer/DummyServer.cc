@@ -142,23 +142,34 @@ struct VariableAttacher{
 };
 
 OPCUAServer::OPCUAServer(): _server(UA_Server_new()){
+  /**
+   *  A single random port will be used for all tests.
+   *  This protects against problems when running the unit tests on the same machine multiple times.
+   */
   std::random_device rd;
   std::uniform_int_distribution<uint> dist(20000, 22000);
   _port = dist(rd);
-//  _port = 4848;
+  _configured = false;
 }
 
 OPCUAServer::~OPCUAServer(){
   UA_Server_delete(_server);
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                            "Destroyed OPCUAServer object.");
+
 }
 
 void OPCUAServer::start(){
-  UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
   running = true;
-
-  addVariables();
-
+  if(!_configured){
+    UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
+    addVariables();
+  }
+  _configured = true;
   UA_Server_run(_server, &running);
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                            "Finished running the server.");
+
 }
 
 void OPCUAServer::addFolder(std::string name, UA_NodeId parent){
@@ -204,6 +215,9 @@ UA_Variant* OPCUAServer::getValue(std::string nodeName){
 void ThreadedOPCUAServer::start(){
   if(_serverThread.joinable())
     _serverThread.join();
+//  auto port = _server->_port;
+//  _server.reset(new OPCUAServer());
+//  _server->_port = port;
   _serverThread = std::thread{&OPCUAServer::start, &_server};
   if(!checkConnection(ServerState::On))
     throw std::runtime_error("Failed to connect to the test server!");
@@ -218,7 +232,7 @@ ThreadedOPCUAServer::~ThreadedOPCUAServer(){
 
 bool ThreadedOPCUAServer::checkConnection(const ServerState &state){
   UA_Client* client = UA_Client_new();
-  UA_Client_getConfig(client);
+  UA_ClientConfig_setDefault(UA_Client_getConfig(client));
   /** Connect **/
   UA_StatusCode retval;
   std::string serverAddress("opc.tcp://localhost:"+std::to_string(_server._port));

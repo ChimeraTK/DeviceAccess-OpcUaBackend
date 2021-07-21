@@ -46,7 +46,9 @@ struct OPCUAServer{
 
   UA_Server *_server;
 
-  uint _port;
+  uint _port{0};
+
+  bool _configured{false};
 
   UA_Boolean running{true};
 
