@@ -42,7 +42,7 @@ namespace ChimeraTK{
 
   void OpcUABackend::stateCallback(UA_Client *client, UA_SecureChannelState channelState,
               UA_SessionState sessionState, UA_StatusCode recoveryStatus) {
-    std::lock_guard<std::mutex> lock(OpcUABackend::backendClients[client]->_connection->client_lock);
+//    std::lock_guard<std::mutex> lock(OpcUABackend::backendClients[client]->_connection->client_lock);
     OpcUABackend::backendClients[client]->_connection->channelState = channelState;
     OpcUABackend::backendClients[client]->_connection->sessionState = sessionState;
     switch(channelState) {
@@ -359,8 +359,10 @@ namespace ChimeraTK{
           OpcUABackend::backendClients.erase(_connection->client.get());
         }
         _connection->client.reset(UA_Client_new());
-        UA_ClientConfig_setDefault(UA_Client_getConfig(_connection->client.get()));
         _connection->config = UA_Client_getConfig(_connection->client.get());
+        UA_ClientConfig_setDefault(_connection->config);
+        _connection->config->stateCallback = stateCallback;
+
         OpcUABackend::backendClients[_connection->client.get()] = this;
         /** Connect **/
         if(_connection->username.empty() || _connection->password.empty()){
