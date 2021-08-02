@@ -48,15 +48,19 @@ namespace ChimeraTK{
     switch(channelState) {
     case UA_SECURECHANNELSTATE_CLOSED:
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
+      OpcUABackend::backendClients[client]->_isFunctional = false;
       break;
     case UA_SECURECHANNELSTATE_HEL_SENT:
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ack");
+      OpcUABackend::backendClients[client]->_isFunctional = false;
       break;
     case UA_SECURECHANNELSTATE_OPN_SENT:
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
+      OpcUABackend::backendClients[client]->_isFunctional = false;
       break;
     case UA_SECURECHANNELSTATE_OPEN:
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
+      OpcUABackend::backendClients[client]->_isFunctional = true;
       break;
     default:
       break;
