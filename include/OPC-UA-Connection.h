@@ -30,8 +30,8 @@ struct OPCUAConnection{
   UA_ClientConfig* config;
   std::string serverAddress;
 
-  UA_SecureChannelState channelState;
-  UA_SessionState sessionState;
+  std::atomic<UA_SecureChannelState> channelState;
+  std::atomic<UA_SessionState> sessionState;
 
   /**
    * This is used since async access is not supported by OPC-UA.
