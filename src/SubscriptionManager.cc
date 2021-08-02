@@ -55,6 +55,12 @@ void OPCUASubscriptionManager::runClient(){
   while(_run){
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Sending subscription request.");
+    if(_connection->sessionState != UA_SESSIONSTATE_ACTIVATED || _connection->channelState != UA_SECURECHANNELSTATE_OPEN){
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                  "Stopped sending publish requests. Channel state: %u Session state: %u",
+                  _connection->channelState.load(), _connection->sessionState.load());
+      break;
+    }
     {
       std::lock_guard<std::mutex> lock(_connection->client_lock);
       if(!_connection->client){
@@ -63,21 +69,15 @@ void OPCUASubscriptionManager::runClient(){
         _run = false;
         return;
       }
-      if(_connection->sessionState != UA_SESSIONSTATE_ACTIVATED || _connection->channelState != UA_SECURECHANNELSTATE_OPEN){
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Stopped sending publish requests. Channel state: %u Session state: %u",
-                    _connection->channelState, _connection->sessionState);
-        break;
-      }
+      ret = UA_Client_run_iterate(_connection->client.get(),20);
     }
-    ret = UA_Client_run_iterate(_connection->client.get(),20);
     if(ret != UA_STATUSCODE_GOOD){
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Stopped sending publish requests. OPC UA message: %s", UA_StatusCode_name(ret));
 
       break;
     }
-//    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   //Inform all accessors that are subscribed
   if(_run)
@@ -148,8 +148,9 @@ void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subI
 
   auto base = reinterpret_cast<OPCUASubscriptionManager*>(monContext);
 
-  std::lock_guard<std::mutex> lock(base->_mutex);
   if(base->subscriptionMap[monId]->_active){
+    // only lock the mutex if active. This is used when unsubscribing to avoid dead locks
+    std::lock_guard<std::mutex> lock(base->_mutex);
     base->subscriptionMap[monId]->_hasException = false;
     for(auto &accessor : base->subscriptionMap[monId]->_accessors){
       accessor->_notifications.push_overwrite(data);
@@ -261,7 +262,7 @@ void OPCUASubscriptionManager::resetMonitoredItems(){
 }
 
 void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor){
-  // get clinet lock first. This is required because OPCUASubscriptionManager::runClient also gets client lock first and after the mutex lock
+  // get client lock first. This is required because OPCUASubscriptionManager::runClient also gets client lock first and after the mutex lock
   // The mutex lock is retrieved indirect via OPCUASubscriptionManager::responseHandler that is triggered by
   // UA_Client_Subscriptions_manuallySendPublishRequest in OPCUASubscriptionManager::runClient
   std::lock_guard<std::mutex> connection_lock(_connection->client_lock);
@@ -279,6 +280,9 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
     // find map item
     for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it_map){
       if(it_map->second->_browseName == browseName){
+        // UA_Client_MonitoredItems_deleteSingle tries to update the latest value which triggers responseHandler
+        // In the response Handler the _mutex locked if subscription is active
+        it_map->second->_active = false;
         // try to unsubscribe
         if(_connection->client && !UA_Client_MonitoredItems_deleteSingle(_connection->client.get(), _subscriptionID, it_map->first)){
           UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -311,7 +315,7 @@ void OPCUASubscriptionManager::handleException(const std::string &message){
       if(item.second->_active && !item.second->_hasException){
         item.second->_hasException = true;
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                           "Sending exception to %u accessors for node %s", item.second->_accessors.size(), item.second->_browseName.c_str());
+                           "Sending exception to %lu accessors for node %s", item.second->_accessors.size(), item.second->_browseName.c_str());
         for(auto &accessor : item.second->_accessors){
           accessor->_notifications.push_overwrite_exception(std::current_exception());
         }
