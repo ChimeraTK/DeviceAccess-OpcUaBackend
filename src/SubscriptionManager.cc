@@ -55,12 +55,12 @@ void OPCUASubscriptionManager::runClient(){
   while(_run){
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Sending subscription request.");
-    if(_connection->sessionState != UA_SESSIONSTATE_ACTIVATED || _connection->channelState != UA_SECURECHANNELSTATE_OPEN){
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                  "Stopped sending publish requests. Channel state: %u Session state: %u",
-                  _connection->channelState.load(), _connection->sessionState.load());
-      break;
-    }
+//    if(_connection->sessionState != UA_SESSIONSTATE_ACTIVATED || _connection->channelState != UA_SECURECHANNELSTATE_OPEN){
+//      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+//                  "Stopped sending publish requests. Channel state: %u Session state: %u",
+//                  _connection->channelState.load(), _connection->sessionState.load());
+//      break;
+//    }
     {
       std::lock_guard<std::mutex> lock(_connection->client_lock);
       if(!_connection->client){
@@ -80,8 +80,8 @@ void OPCUASubscriptionManager::runClient(){
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   //Inform all accessors that are subscribed
-  if(_run)
-    handleException("OPC UA connection lost.");
+//  if(_run)
+//    handleException("OPC UA connection lost.");
   _run = false;
 }
 
@@ -110,25 +110,31 @@ void OPCUASubscriptionManager::deactivate(){
   }
   if(_run == true)
     _run = false;
-  if(_opcuaThread && _opcuaThread->joinable()){
-    _opcuaThread->join();
-    _opcuaThread.reset(nullptr);
-  }
+//  if(_opcuaThread && _opcuaThread->joinable()){
+//    _opcuaThread->join();
+//    _opcuaThread.reset(nullptr);
+//  }
   if(_subscriptionActive){
     // set active false first to protect other threads from using an empty client pointer
     _subscriptionActive = false;
-    std::lock_guard<std::mutex> lock(_connection->client_lock);
+    // lock is hold in runClient and this method is called in the callback
+//    std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(!_connection->client){
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                 "Why the client is already reset?");
     } else {
-      if(!UA_Client_Subscriptions_deleteSingle(_connection->client.get(), _subscriptionID)){
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-            "Subscriptions sucessfully removed.");
-      }
+      removeSubscription();
     }
   }
   _asyncReadActive = false;
+}
+
+void OPCUASubscriptionManager::removeSubscription(){
+  if(!UA_Client_Subscriptions_deleteSingle(_connection->client.get(), _subscriptionID)){
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        "Subscriptions sucessfully removed old subscription.");
+  }
+
 }
 
 void OPCUASubscriptionManager::deactivateAllAndPushException(){
@@ -170,6 +176,12 @@ void OPCUASubscriptionManager::createSubscription(){
     _subscriptionID = response.subscriptionId;
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
       "Create subscription succeeded, id %u", _subscriptionID);
+    if(response.revisedPublishingInterval != _connection->publishingInterval){
+      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+            "Publishing interval was changed from %ldms to %fms", _connection->publishingInterval, response.revisedPublishingInterval);
+      // replace publishing interval with revised publishing interval as it will be used to set the sampling interval of monitored items
+      _connection->publishingInterval = response.revisedPublishingInterval;
+    }
     _subscriptionActive = true;
   } else {
     throw ChimeraTK::runtime_error("Failed to set up subscription.");
@@ -188,6 +200,8 @@ void OPCUASubscriptionManager::addMonitoredItems(){
       // create monitored item
       // pass object as context to the callback function. This allows to use individual subscriptionMaps for each manager!
       UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(item._node);
+      // sampling interval equal to the publishing interval set for the subscription
+      monRequest.requestedParameters.samplingInterval = _connection->publishingInterval;
       UA_MonitoredItemCreateResult monResponse = UA_Client_MonitoredItems_createDataChange(_connection->client.get(),
           _subscriptionID, UA_TIMESTAMPSTORETURN_BOTH, monRequest,
           this, &OPCUASubscriptionManager::responseHandler, NULL);
@@ -197,8 +211,12 @@ void OPCUASubscriptionManager::addMonitoredItems(){
         item._id = monResponse.monitoredItemId;
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
             "Monitoring id %u (%s) for pv: %s", item._id, _connection->serverAddress.c_str(), item._browseName.c_str());
-          subscriptionMap[item._id] = &item;
-          item._isMonitored = true;
+        if(monResponse.revisedSamplingInterval != _connection->publishingInterval){
+          UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Publishing interval was changed from %ldms to %fms", _connection->publishingInterval, monResponse.revisedSamplingInterval);
+        }
+        subscriptionMap[item._id] = &item;
+        item._isMonitored = true;
       } else {
         handleException("Failed to add monitored item for node: " + (*item._accessors.begin())->_info->getRegisterPath());
       }

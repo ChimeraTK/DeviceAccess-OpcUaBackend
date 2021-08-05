@@ -78,6 +78,11 @@ namespace ChimeraTK{
      */
     void deactivateAllAndPushException();
 
+    /**
+     * Remove a the current subscription.
+     */
+    void removeSubscription();
+
 //    template<typename UAType, typename CTKType>
 //    void subscribe(const UA_NodeId& id, OpcUABackendRegisterAccessor<UAType, CTKType>* accessor);
 
