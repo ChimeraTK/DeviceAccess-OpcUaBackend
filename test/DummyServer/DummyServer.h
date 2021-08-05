@@ -100,7 +100,7 @@ class ThreadedOPCUAServer {
 public:
   std::thread _serverThread;
 
-  ThreadedOPCUAServer(){ }
+  ThreadedOPCUAServer();
   ~ThreadedOPCUAServer();
 
   void start();
@@ -111,4 +111,6 @@ public:
   bool checkConnection(const ServerState &state = ServerState::On);
 
   OPCUAServer _server;
+private:
+  UA_Client* _client;
 };

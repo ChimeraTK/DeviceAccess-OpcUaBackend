@@ -141,7 +141,7 @@ struct VariableAttacher{
 
 };
 
-OPCUAServer::OPCUAServer(): _server(UA_Server_new()){
+OPCUAServer::OPCUAServer(): _server(nullptr){
   /**
    *  A single random port will be used for all tests.
    *  This protects against problems when running the unit tests on the same machine multiple times.
@@ -160,12 +160,19 @@ OPCUAServer::~OPCUAServer(){
 }
 
 void OPCUAServer::start(){
-  running = true;
-  if(!_configured){
-    UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
-    addVariables();
+  // delete server if it was used already before
+  if(_configured){
+    UA_Server_delete(_server);
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                              "Destroyed OPCUAServer object.");
   }
+  // set up the server
+  _server = UA_Server_new();
+  UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
+  addVariables();
   _configured = true;
+  running = true;
+  // run the server
   UA_Server_run(_server, &running);
   UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                             "Finished running the server.");
@@ -225,20 +232,23 @@ void ThreadedOPCUAServer::start(){
                           "Test server is set up and running.");
 }
 
+ThreadedOPCUAServer::ThreadedOPCUAServer():_client(UA_Client_new()){
+  UA_ClientConfig_setDefault(UA_Client_getConfig(_client));
+}
+
 ThreadedOPCUAServer::~ThreadedOPCUAServer(){
+  UA_Client_delete(_client); /* Disconnects the client internally */
   _server.stop();
   _serverThread.join();
 }
 
 bool ThreadedOPCUAServer::checkConnection(const ServerState &state){
-  UA_Client* client = UA_Client_new();
-  UA_ClientConfig_setDefault(UA_Client_getConfig(client));
   /** Connect **/
   UA_StatusCode retval;
   std::string serverAddress("opc.tcp://localhost:"+std::to_string(_server._port));
   uint time = 0;
   while(retval != UA_STATUSCODE_GOOD){
-    retval = UA_Client_connect(client, serverAddress.c_str());
+    retval = UA_Client_connect(_client, serverAddress.c_str());
     if(state == ServerState::On){
       if(retval == UA_STATUSCODE_GOOD)
         break;
@@ -254,6 +264,5 @@ bool ThreadedOPCUAServer::checkConnection(const ServerState &state){
       return false;
     }
   }
-  UA_Client_delete(client); /* Disconnects the client internally */
   return true;
 }
