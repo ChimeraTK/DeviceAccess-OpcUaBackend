@@ -46,34 +46,72 @@ namespace ChimeraTK{
     OpcUABackend::backendClients[client]->_connection->channelState = channelState;
     OpcUABackend::backendClients[client]->_connection->sessionState = sessionState;
     switch(channelState) {
-    case UA_SECURECHANNELSTATE_CLOSED:
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
-      OpcUABackend::backendClients[client]->_isFunctional = false;
-      break;
-    case UA_SECURECHANNELSTATE_HEL_SENT:
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ack");
-      OpcUABackend::backendClients[client]->_isFunctional = false;
-      break;
-    case UA_SECURECHANNELSTATE_OPN_SENT:
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
-      OpcUABackend::backendClients[client]->_isFunctional = false;
-      break;
-    case UA_SECURECHANNELSTATE_OPEN:
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
-      OpcUABackend::backendClients[client]->_isFunctional = true;
-      break;
-    default:
-      break;
+      case UA_SECURECHANNELSTATE_CLOSED:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
+        OpcUABackend::backendClients[client]->_isFunctional = false;
+        break;
+      case UA_SECURECHANNELSTATE_HEL_SENT:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for HEL");
+        OpcUABackend::backendClients[client]->_isFunctional = false;
+        break;
+      case UA_SECURECHANNELSTATE_OPN_SENT:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
+        OpcUABackend::backendClients[client]->_isFunctional = false;
+        break;
+      case UA_SECURECHANNELSTATE_OPEN:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
+        OpcUABackend::backendClients[client]->_isFunctional = true;
+        break;
+      case UA_SECURECHANNELSTATE_FRESH:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "SecureChannel state: fresh");
+        OpcUABackend::backendClients[client]->_isFunctional = true;
+        break;
+      case UA_SECURECHANNELSTATE_HEL_RECEIVED:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Hel received");
+        OpcUABackend::backendClients[client]->_isFunctional = true;
+        break;
+      case UA_SECURECHANNELSTATE_ACK_SENT:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ACK");
+        OpcUABackend::backendClients[client]->_isFunctional = true;
+        break;
+      case UA_SECURECHANNELSTATE_ACK_RECEIVED:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "ACK received");
+        OpcUABackend::backendClients[client]->_isFunctional = true;
+        break;
+      case UA_SECURECHANNELSTATE_CLOSING:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing secure channel");
+        OpcUABackend::backendClients[client]->_isFunctional = true;
+        break;
+      default:
+        break;
     }
     switch(sessionState) {
-    case UA_SESSIONSTATE_ACTIVATED:
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activated");
-      break;
-    case UA_SESSIONSTATE_CLOSED:
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session disconnected");
-      break;
-    default:
-      break;
+      case UA_SESSIONSTATE_ACTIVATED:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activated.");
+        break;
+      case UA_SESSIONSTATE_CLOSED:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session disconnected.");
+        break;
+      case UA_SESSIONSTATE_CLOSING:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session is closing...");
+        break;
+      case UA_SESSIONSTATE_CREATE_REQUESTED:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session create requested.");
+        break;
+      case UA_SESSIONSTATE_ACTIVATE_REQUESTED:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activate requested.");
+        break;
+      case UA_SESSIONSTATE_CREATED:
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session created.");
+        break;
+
+      default:
+        break;
+    }
+
+    if(!OpcUABackend::backendClients[client]->_isFunctional && OpcUABackend::backendClients[client]->_subscriptionManager){
+      if (OpcUABackend::backendClients[client]->_subscriptionManager->isRunning())
+        OpcUABackend::backendClients[client]->_subscriptionManager->deactivateAllAndPushException();
     }
   }
 
@@ -329,6 +367,12 @@ namespace ChimeraTK{
     if(!_isFunctional || _connection->sessionState != UA_SESSIONSTATE_ACTIVATED || _connection->channelState != UA_SECURECHANNELSTATE_OPEN){
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Opening the device: %s" , _connection->serverAddress.c_str());
+      if(_subscriptionManager){
+        if(_subscriptionManager->_opcuaThread && _subscriptionManager->_opcuaThread->joinable()){
+          _subscriptionManager->_opcuaThread->join();
+          _subscriptionManager->_opcuaThread.reset(nullptr);
+        }
+      }
       connect();
     }
 
@@ -337,7 +381,8 @@ namespace ChimeraTK{
       _catalogue_filled = true;
     }
     _opened = true;
-    _isFunctional = true;
+    // this is set in the callback function
+//    _isFunctional = true;
   }
 
   void OpcUABackend::close() {
