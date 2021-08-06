@@ -16,7 +16,12 @@
 namespace ChimeraTK{
 
 OPCUASubscriptionManager::~OPCUASubscriptionManager(){
+  // already called when closing the device...
   deactivate();
+  if(_opcuaThread && _opcuaThread->joinable()){
+    _opcuaThread->join();
+    _opcuaThread.reset(nullptr);
+  }
 }
 
 
