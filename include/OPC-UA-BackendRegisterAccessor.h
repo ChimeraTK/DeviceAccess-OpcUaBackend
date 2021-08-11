@@ -298,7 +298,7 @@ namespace ChimeraTK {
   template<typename UAType, typename CTKType>
   void OpcUABackendRegisterAccessor<UAType, CTKType>::doPostRead(TransferType, bool hasNewData) {
     if(!hasNewData) return;
-    if(!_data.status){
+    if(_data.status){
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                         "Data status error for node: %s Error: %s", _info->_nodeBrowseName.c_str(),  UA_StatusCode_name(_data.status));
       this->setDataValidity(DataValidity::faulty);
