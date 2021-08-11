@@ -12,6 +12,8 @@
 #include <mutex>
 
 #include <open62541/client_highlevel.h>
+#include <open62541/client_config_default.h>
+#include <open62541/plugin/log_stdout.h>
 
 namespace ChimeraTK{
 
@@ -41,17 +43,24 @@ struct OPCUAConnection{
    */
   std::mutex client_lock;
 
-  /**
-   * This lock is used during setting up the connection to protect against multiple Device::Open() calls while the
-   * connection is set up.
-   */
-  std::mutex connection_lock;
-
   std::string username;
   std::string password;
 
   unsigned long port;
   unsigned long publishingInterval;
+
+  OPCUAConnection(const std::string &address, const std::string &username, const std::string &password, unsigned long port, unsigned long publishingInterval):
+    client(UA_Client_new()), config(UA_Client_getConfig(client.get())), serverAddress(address), channelState(UA_SECURECHANNELSTATE_FRESH),
+    sessionState(UA_SESSIONSTATE_CLOSED), username(username), password(password), port(port), publishingInterval(publishingInterval)
+  {UA_ClientConfig_setDefault(config);};
+
+  void close(){
+    if(!UA_Client_disconnect(client.get())){
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        "Failed to disconnect from server when closing the device.");
+    }
+  }
+
 };
 
 }
