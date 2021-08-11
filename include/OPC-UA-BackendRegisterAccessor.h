@@ -301,11 +301,18 @@ namespace ChimeraTK {
   template<typename UAType, typename CTKType>
   void OpcUABackendRegisterAccessor<UAType, CTKType>::doPostRead(TransferType, bool hasNewData) {
     if(!hasNewData) return;
-    UAType* tmp = (UAType*)(_data.value.data);
-    for(size_t i = 0; i < _numberOfWords; i++){
-      UAType value = tmp[_offsetWords+i];
-      // Fill the NDRegisterAccessor buffer
-      this->accessData(i) = toCTK.convert(value);
+    if(!_data.status){
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                        "Data status error for node: %s Error: %s", _info->_nodeBrowseName.c_str(),  UA_StatusCode_name(_data.status));
+      setDataValidity(DataValidity::faulty);
+    } else {
+      UAType* tmp = (UAType*)(_data.value.data);
+      for(size_t i = 0; i < _numberOfWords; i++){
+        UAType value = tmp[_offsetWords+i];
+        // Fill the NDRegisterAccessor buffer
+        accessData(i) = toCTK.convert(value);
+      }
+      setDataValidity(DataValidity::ok);
     }
     _currentVersion = VersionMapper::getInstance().getVersion(_data.sourceTimestamp);
     TransferElement::_versionNumber = _currentVersion;
