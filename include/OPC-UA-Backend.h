@@ -181,10 +181,9 @@ namespace ChimeraTK {
     void connect();
 
     /**
-     * Delete the client connection and set the client pointer
-     * to nullptr
+     * Reset subscription.
      */
-    void deleteClient();
+    void resetClient();
 
     /**
      * Read the following node information:
@@ -220,6 +219,9 @@ namespace ChimeraTK {
      *  myname2     123                1
      */
     void getNodesFromMapfile();
+
+    // Check connection state set by the callback function.
+    bool isConnected() const;
 
   };
 }

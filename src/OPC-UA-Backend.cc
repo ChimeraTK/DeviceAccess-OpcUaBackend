@@ -117,20 +117,15 @@ namespace ChimeraTK{
 
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile, const unsigned long &subscriptonPublishingInterval):
       _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile){
-    _connection = std::make_unique<OPCUAConnection>();
-    _connection->serverAddress = fileAddress;
-    _connection->port = port;
-    _connection->username = username;
-    _connection->password = password;
-    _connection->publishingInterval = subscriptonPublishingInterval;
+    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, port, subscriptonPublishingInterval);
+    _connection->config->stateCallback = stateCallback;
+
+    OpcUABackend::backendClients[_connection->client.get()] = this;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
     /* Registers are added before open() is called in ApplicationCore.
      * Since in the registration the catalog is needed we connect already
      * here and create the catalog.
      */
-    //\ToDo: When using open62541 v1.1 set up callback function here to receive callback on state change.
-//    _config->stateCallback = ...
-    std::lock_guard<std::mutex> lock(_connection->connection_lock);
     connect();
     fillCatalogue();
     _catalogue_filled = true;
@@ -346,15 +341,18 @@ namespace ChimeraTK{
 
   }
 
-  void OpcUABackend::deleteClient(){
-    if(_connection->client && _subscriptionManager)
+  void OpcUABackend::resetClient(){
+    if(_subscriptionManager){
       _subscriptionManager->deactivate();
-    std::lock_guard<std::mutex> lock(_connection->client_lock);
-    _connection->client.reset();/* Disconnects the client internally */
-    _isFunctional = false;
+      _subscriptionManager->resetMonitoredItems();
+    }
   }
+
+  bool OpcUABackend::isConnected() const{
+    return (_connection->sessionState == UA_SESSIONSTATE_ACTIVATED && _connection->channelState == UA_SECURECHANNELSTATE_OPEN);
+  }
+
   void OpcUABackend::open() {
-    std::lock_guard<std::mutex> lock(_connection->connection_lock);
     /* Normally client is already connected in the constructor.
      * But open() is also called by ApplicationCore in case an error
      * was detected by the Backend (i.e. an exception was thrown
@@ -364,7 +362,7 @@ namespace ChimeraTK{
     // if an error was seen by the accessor the error is in the queue but as long as no read happened setException is not called
     // but in the tests the device is reset without calling read in between -> so we need to check the connection here
     // -> to make sure the Subscription internal thread is stopped.
-    if(!_isFunctional || _connection->sessionState != UA_SESSIONSTATE_ACTIVATED || _connection->channelState != UA_SECURECHANNELSTATE_OPEN){
+    if(!_isFunctional || !isConnected()){
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Opening the device: %s" , _connection->serverAddress.c_str());
       if(_subscriptionManager){
@@ -381,71 +379,64 @@ namespace ChimeraTK{
       _catalogue_filled = true;
     }
     _opened = true;
-    // this is set in the callback function
-//    _isFunctional = true;
+    // wait at maximum 100ms for the client to come up
+    uint i = 0;
+    while(!isConnected()){
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      ++i;
+      if(i>4)
+        throw ChimeraTK::runtime_error("Connection could not be established.");
+    }
+    _isFunctional = true;
   }
 
   void OpcUABackend::close() {
     //ToDo: What to do with the subscription manager?
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Closing the device: %s" , _connection->serverAddress.c_str());
-    deleteClient();
+    resetClient();
+    if(_subscriptionManager)
+      _subscriptionManager->removeMonitoredItems();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
 //    _catalogue_mutable = RegisterCatalogue();
 //    _catalogue_filled = false;
+    _connection->close();
     _opened = false;
     _isFunctional = false;
   }
 
   void OpcUABackend::connect(){
-//    if(_client == nullptr || getConnectionState() != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
-      if(_connection->client)
-        deleteClient();
-      UA_StatusCode retval;
-      {
-        std::lock_guard<std::mutex> lock(_connection->client_lock);
-        if(_connection->client){
-          OpcUABackend::backendClients.erase(_connection->client.get());
-        }
-        _connection->client.reset(UA_Client_new());
-        _connection->config = UA_Client_getConfig(_connection->client.get());
-        UA_ClientConfig_setDefault(_connection->config);
-        _connection->config->stateCallback = stateCallback;
-
-        OpcUABackend::backendClients[_connection->client.get()] = this;
-        /** Connect **/
-        if(_connection->username.empty() || _connection->password.empty()){
-          retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
-        } else {
-          retval = UA_Client_connectUsername(_connection->client.get(), _connection->serverAddress.c_str(), _connection->username.c_str(), _connection->password.c_str());
-        }
-      }
-      if(retval != UA_STATUSCODE_GOOD) {
-        deleteClient();
-        std::stringstream ss;
-        ss << "Failed to connect to opc server: " <<  _connection->serverAddress << " with reason: " << UA_StatusCode_name(retval);
-        throw ChimeraTK::runtime_error(ss.str());
+    resetClient();
+    UA_StatusCode retval;
+    {
+      std::lock_guard<std::mutex> lock(_connection->client_lock);
+      /** Connect **/
+      if(_connection->username.empty() || _connection->password.empty()){
+        retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
       } else {
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Connection established:  %s " , _connection->serverAddress.c_str());
+        retval = UA_Client_connectUsername(_connection->client.get(), _connection->serverAddress.c_str(), _connection->username.c_str(), _connection->password.c_str());
       }
-      // if already setup subscriptions where used
-      if(_subscriptionManager)
-        _subscriptionManager->resetClient();
-//    }
+    }
+    if(retval != UA_STATUSCODE_GOOD) {
+      std::stringstream ss;
+      ss << "Failed to connect to opc server: " <<  _connection->serverAddress << " with reason: " << UA_StatusCode_name(retval);
+      throw ChimeraTK::runtime_error(ss.str());
+    } else {
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                  "Connection established:  %s " , _connection->serverAddress.c_str());
+    }
+    // if already setup subscriptions where used
+    if(_subscriptionManager)
+      _subscriptionManager->prepare();
+
   }
 
   bool OpcUABackend::isFunctional() const {
-    //\ToDo: Check why connection is not accessable here and why UA_Client_getState(_client) is not working...
-    // \ToDo: Use stateCallback with version 1.1
-//    if(_client->connection->state != UA_CONNECTION_ESTABLISHED)
-//      return false;
-//    else
-//      return true;
-    if (!_connection->client || !_isFunctional){
-      return false;
-    } else {
+    // isFunctional is also set by setException!
+    if (isConnected() && _isFunctional){
       return true;
+    } else {
+      return false;
     }
   }
 
@@ -473,7 +464,6 @@ namespace ChimeraTK{
     _isFunctional = false;
     if(_subscriptionManager)
       _subscriptionManager->deactivateAllAndPushException();
-    deleteClient();
   }
 
   template<typename UserType>
@@ -570,6 +560,5 @@ namespace ChimeraTK{
   }
 
   OpcUABackend::~OpcUABackend(){
-    deleteClient();
   }
 }
