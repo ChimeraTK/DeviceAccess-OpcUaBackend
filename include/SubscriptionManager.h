@@ -100,7 +100,7 @@ namespace ChimeraTK{
 
     void runClient();
 
-    void resetClient();
+    void prepare();
 
     /// callback function for the client
 //    template <typename UAType>
@@ -119,6 +119,22 @@ namespace ChimeraTK{
      *  to call UA_run_iterate all the time, which is done in this thread.
      */
     std::unique_ptr<std::thread> _opcuaThread{nullptr};
+
+    /*
+     *  This is necessary if the client connection is reset.
+     *  It will clear the subscription map and reset the MonitorItem status,
+     *  such that they will be added as monitored items again when calling addMonitoredItems.
+     */
+
+    void resetMonitoredItems();
+
+    /**
+     * Clear list of monitored items.
+     *
+     * Use this to make sure the corresponding items are not activated any more. This is important if the accessors do not
+     * exist anymore when calling activate again.
+     */
+    void removeMonitoredItems(){_items.clear();}
   private:
 
     /**
@@ -151,13 +167,6 @@ namespace ChimeraTK{
     // Send exception to all accesors via the future queue
     void handleException(const std::string &msg);
 
-    /*
-     *  This is necessary if the client connection is reset.
-     *  It will clear the subscription map and reset the MonitorItem status,
-     *  such that they will be added as monitored items again when calling addMonitoredItems.
-     */
-
-    void resetMonitoredItems();
   };
 }
 

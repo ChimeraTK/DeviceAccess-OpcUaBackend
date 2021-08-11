@@ -49,14 +49,10 @@ void OPCUASubscriptionManager::start(){
 }
 
 void OPCUASubscriptionManager::runClient(){
-  if(!_connection->client){
-//    throw ChimeraTK::logic_error("No client pointer available in runClient.");
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                "No client pointer available in runClient.");
-    _run = false;
-    return;
-  }
   UA_StatusCode ret;
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Starting client iterate loop.");
+  uint64_t i = 0;
   while(_run){
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Sending subscription request.");
@@ -68,12 +64,6 @@ void OPCUASubscriptionManager::runClient(){
 //    }
     {
       std::lock_guard<std::mutex> lock(_connection->client_lock);
-      if(!_connection->client){
-        UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Client pointer was removed by the subscription manager.");
-        _run = false;
-        return;
-      }
       ret = UA_Client_run_iterate(_connection->client.get(),20);
     }
     if(ret != UA_STATUSCODE_GOOD){
@@ -82,8 +72,15 @@ void OPCUASubscriptionManager::runClient(){
 
       break;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+//    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    ++i;
+    if(i%50 == 0)
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                          "Still running client iterate loop.");
   }
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Stopped client iterate loop.");
+
   //Inform all accessors that are subscribed
 //  if(_run)
 //    handleException("OPC UA connection lost.");
@@ -124,12 +121,7 @@ void OPCUASubscriptionManager::deactivate(){
     _subscriptionActive = false;
     // lock is hold in runClient and this method is called in the callback
 //    std::lock_guard<std::mutex> lock(_connection->client_lock);
-    if(!_connection->client){
-      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                "Why the client is already reset?");
-    } else {
-      removeSubscription();
-    }
+    removeSubscription();
   }
   _asyncReadActive = false;
 }
@@ -151,7 +143,7 @@ void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subI
     UA_UInt32 monId, void *monContext, UA_DataValue *value){
   UA_DateTime sourceTime = value->sourceTimestamp;
   UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime);
-  UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
   "Subscription handler called.\nSource time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u, ",
                  dts.day, dts.month, dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
   UA_DataValue data;
@@ -170,13 +162,14 @@ void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subI
 }
 
 void OPCUASubscriptionManager::createSubscription(){
-  std::lock_guard<std::mutex> lock(_connection->client_lock);
-  if(!_connection->client)
-    return;
   /* Create the subscription with default configuration. */
   UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
   request.requestedPublishingInterval = _connection->publishingInterval;
-  UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(_connection->client.get(), request, NULL, NULL, deleteSubscriptionCallback);
+  UA_CreateSubscriptionResponse response;
+  {
+    std::lock_guard<std::mutex> lock(_connection->client_lock);
+    response = UA_Client_Subscriptions_create(_connection->client.get(), request, NULL, NULL, deleteSubscriptionCallback);
+  }
   if(response.responseHeader.serviceResult == UA_STATUSCODE_GOOD){
     _subscriptionID = response.subscriptionId;
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -194,10 +187,6 @@ void OPCUASubscriptionManager::createSubscription(){
 }
 
 void OPCUASubscriptionManager::addMonitoredItems(){
-  std::lock_guard<std::mutex> lock(_connection->client_lock);
-  if(!_connection->client){
-    throw ChimeraTK::logic_error("No client pointer available in runClient.");
-  }
   for(auto &item : _items){
     if(_asyncReadActive)
       item._active = true;
@@ -207,10 +196,13 @@ void OPCUASubscriptionManager::addMonitoredItems(){
       UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(item._node);
       // sampling interval equal to the publishing interval set for the subscription
       monRequest.requestedParameters.samplingInterval = _connection->publishingInterval;
-      UA_MonitoredItemCreateResult monResponse = UA_Client_MonitoredItems_createDataChange(_connection->client.get(),
+      UA_MonitoredItemCreateResult monResponse;
+      {
+        std::lock_guard<std::mutex> lock(_connection->client_lock);
+        monResponse = UA_Client_MonitoredItems_createDataChange(_connection->client.get(),
           _subscriptionID, UA_TIMESTAMPSTORETURN_BOTH, monRequest,
           this, &OPCUASubscriptionManager::responseHandler, NULL);
-
+      }
       /* Check server response to adding the item to be monitored. */
       if(monResponse.statusCode == UA_STATUSCODE_GOOD){
         item._id = monResponse.monitoredItemId;
@@ -229,24 +221,30 @@ void OPCUASubscriptionManager::addMonitoredItems(){
   }
 }
 
-void OPCUASubscriptionManager::resetClient(){
-  resetMonitoredItems();
+void OPCUASubscriptionManager::prepare(){
   createSubscription();
   addMonitoredItems();
 }
 
 void  OPCUASubscriptionManager::subscribe(const std::string &browseName, const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor){
   //\ToDo: Check if already monitored based on node using the NodeStore?!
-  auto it = std::find(_items.begin(), _items.end(), browseName);
-  std::lock_guard<std::mutex> lock(_mutex);
+  std::deque<MonitorItem>::iterator it;
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+    it = std::find(_items.begin(), _items.end(), browseName);
+  }
+
   if(it == _items.end()){
     /* Request monitoring for the node of interest. */
     MonitorItem item(browseName, node, accessor);
-
-    _items.push_back(item);
+    {
+      std::lock_guard<std::mutex> lock(_mutex);
+      _items.push_back(item);
+    }
 
     // check if device was already opened
     if(_subscriptionActive){
+      // addMonitoredItems potentially also locks _mutex!
       addMonitoredItems();
     }
   } else {
@@ -265,7 +263,6 @@ void  OPCUASubscriptionManager::subscribe(const std::string &browseName, const U
 
 OPCUASubscriptionManager::OPCUASubscriptionManager(std::shared_ptr<OPCUAConnection> connection):
   _connection(connection), _subscriptionActive(false), _asyncReadActive(false), _run(true), _subscriptionID(0){
-  createSubscription();
 }
 
 void OPCUASubscriptionManager::resetMonitoredItems(){
