@@ -267,14 +267,14 @@ namespace ChimeraTK{
     UA_LocalizedText* text = UA_LocalizedText_new();
     retval = UA_Client_readDescriptionAttribute(_connection->client.get(),node,text);
     if(retval != UA_STATUSCODE_GOOD){
-      UA_LocalizedText_clear(text);
+      UA_LocalizedText_delete(text);
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
           "Failed to read data description from variable: %s with reason: %s. Variable is not added to the catalog."
           , entry->_nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
     }
     entry->_description =  std::string((char*)text->text.data, text->text.length);
-    UA_LocalizedText_clear(text);
+    UA_LocalizedText_delete(text);
 
     UA_Variant *val = UA_Variant_new();
     retval = UA_Client_readValueAttribute(_connection->client.get(), node, val);
@@ -289,6 +289,7 @@ namespace ChimeraTK{
     if(UA_Variant_isScalar(val)){
       entry->_arrayLength = 1;
     } else if(val->arrayLength == 0){
+      UA_Variant_delete(val);
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
           "Array length of variable: %s  is 0!. Variable is not added to the catalog."
           , entry->_nodeBrowseName.c_str());
@@ -296,7 +297,7 @@ namespace ChimeraTK{
     } else {
       entry->_arrayLength = val->arrayLength;
     }
-
+    UA_Variant_delete(val);
     UA_NodeId_copy(&node,&entry->_id);
 
     if((entry->_dataType == 3 /*BYTE*/) ||
@@ -557,8 +558,5 @@ namespace ChimeraTK{
     if(!parameters["publishingInterval"].empty())
       publishingInterval = std::stoul(parameters["publishingInterval"]);
     return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["map"], publishingInterval));
-  }
-
-  OpcUABackend::~OpcUABackend(){
   }
 }

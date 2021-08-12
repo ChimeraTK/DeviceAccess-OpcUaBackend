@@ -60,7 +60,6 @@ struct OPCUAConnection{
         "Failed to disconnect from server when closing the device.");
     }
   }
-
 };
 
 }

@@ -58,7 +58,7 @@ namespace ChimeraTK {
         path = RegisterPath(serverAddress)/RegisterPath(node_browseName);
       }
 
-      virtual ~OpcUABackendRegisterInfo() {}
+      virtual ~OpcUABackendRegisterInfo() {UA_NodeId_clear(&_id);}
 
       RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
 
@@ -94,7 +94,7 @@ namespace ChimeraTK {
 
   class OpcUABackend : public DeviceBackendImpl{
   public:
-    ~OpcUABackend();
+    ~OpcUABackend() = default;
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
 
     static void
