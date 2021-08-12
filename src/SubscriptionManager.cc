@@ -215,7 +215,7 @@ void OPCUASubscriptionManager::addMonitoredItems(){
         subscriptionMap[item._id] = &item;
         item._isMonitored = true;
       } else {
-        handleException("Failed to add monitored item for node: " + (*item._accessors.begin())->_info->getRegisterPath());
+        handleException(std::string("Failed to add monitored item for node: ") + item._browseName + " Error: " + UA_StatusCode_name(monResponse.statusCode));
       }
     }
   }
