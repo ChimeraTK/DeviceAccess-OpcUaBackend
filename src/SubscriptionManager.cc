@@ -50,7 +50,7 @@ void OPCUASubscriptionManager::start(){
 
 void OPCUASubscriptionManager::runClient(){
   UA_StatusCode ret;
-  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+  UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Starting client iterate loop.");
   uint64_t i = 0;
   while(_run){
@@ -75,7 +75,7 @@ void OPCUASubscriptionManager::runClient(){
 //    std::this_thread::sleep_for(std::chrono::milliseconds(20));
     ++i;
     if(i%50 == 0)
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                           "Still running client iterate loop.");
   }
   UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -143,7 +143,7 @@ void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subI
     UA_UInt32 monId, void *monContext, UA_DataValue *value){
   UA_DateTime sourceTime = value->sourceTimestamp;
   UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime);
-  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+  UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
   "Subscription handler called.\nSource time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u, ",
                  dts.day, dts.month, dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
   UA_DataValue data;

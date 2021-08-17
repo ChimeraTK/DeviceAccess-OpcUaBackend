@@ -47,39 +47,39 @@ namespace ChimeraTK{
     OpcUABackend::backendClients[client]->_connection->sessionState = sessionState;
     switch(channelState) {
       case UA_SECURECHANNELSTATE_CLOSED:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
         OpcUABackend::backendClients[client]->_isFunctional = false;
         break;
       case UA_SECURECHANNELSTATE_HEL_SENT:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for HEL");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for HEL");
         OpcUABackend::backendClients[client]->_isFunctional = false;
         break;
       case UA_SECURECHANNELSTATE_OPN_SENT:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
         OpcUABackend::backendClients[client]->_isFunctional = false;
         break;
       case UA_SECURECHANNELSTATE_OPEN:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
         OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_FRESH:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "SecureChannel state: fresh");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "SecureChannel state: fresh");
         OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_HEL_RECEIVED:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Hel received");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Hel received");
         OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_ACK_SENT:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ACK");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ACK");
         OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_ACK_RECEIVED:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "ACK received");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "ACK received");
         OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_CLOSING:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing secure channel");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing secure channel");
         OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       default:
@@ -87,22 +87,22 @@ namespace ChimeraTK{
     }
     switch(sessionState) {
       case UA_SESSIONSTATE_ACTIVATED:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activated.");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activated.");
         break;
       case UA_SESSIONSTATE_CLOSED:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session disconnected.");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session disconnected.");
         break;
       case UA_SESSIONSTATE_CLOSING:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session is closing...");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session is closing...");
         break;
       case UA_SESSIONSTATE_CREATE_REQUESTED:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session create requested.");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session create requested.");
         break;
       case UA_SESSIONSTATE_ACTIVATE_REQUESTED:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activate requested.");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activate requested.");
         break;
       case UA_SESSIONSTATE_CREATED:
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session created.");
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session created.");
         break;
 
       default:
