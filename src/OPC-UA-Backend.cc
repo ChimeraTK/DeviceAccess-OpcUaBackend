@@ -300,7 +300,8 @@ namespace ChimeraTK{
     UA_Variant_delete(val);
     UA_NodeId_copy(&node,&entry->_id);
 
-    if((entry->_dataType == 3 /*BYTE*/) ||
+    if((entry->_dataType == 1 /*BOOL*/) ||
+       (entry->_dataType == 3 /*BYTE*/) ||
        (entry->_dataType == 5 /*UInt16*/) ||
        (entry->_dataType == 7 /*UInt32*/) ||
        (entry->_dataType == 9 /*UInt64*/)){
