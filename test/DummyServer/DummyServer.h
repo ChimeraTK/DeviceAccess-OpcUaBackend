@@ -32,7 +32,8 @@ typedef fusion::map<
   , fusion::pair<UA_Float, std::pair<std::string,UA_DataType> >
   , fusion::pair<UA_String, std::pair<std::string,UA_DataType> >
   , fusion::pair<UA_SByte, std::pair<std::string,UA_DataType> >
-  , fusion::pair<UA_Byte, std::pair<std::string,UA_DataType> > > TypeMapWithName;
+  , fusion::pair<UA_Byte, std::pair<std::string,UA_DataType> >
+  , fusion::pair<UA_Boolean, std::pair<std::string,UA_DataType> > > TypeMapWithName;
 
 extern TypeMapWithName dummyMap;
 
@@ -77,6 +78,10 @@ struct OPCUAServer{
   template <typename UAType>
   void setValue(std::string nodeName, const std::vector<UAType> &t, const size_t &length = 1);
 
+  // This is needed because std::vector<bool> is a special vector in the stl!
+  void setValue(std::string nodeName, const std::vector<UA_Boolean> &t, const size_t &length = 1);
+
+
   UA_Variant* getValue(std::string nodeName);
 
 };
@@ -91,8 +96,8 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UAType> &t, c
   }
   UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   UA_Variant_delete(data);
-  // in the test the publish interval is set 100ms. However the sampling interval for monitored items is 250ms.  So after 300ms the handler should have been called/the server should have published the result.
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result.
+  std::this_thread::sleep_for(std::chrono::milliseconds(150));
 
 }
 
