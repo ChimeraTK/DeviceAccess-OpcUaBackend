@@ -48,39 +48,30 @@ namespace ChimeraTK{
     switch(channelState) {
       case UA_SECURECHANNELSTATE_CLOSED:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
-        OpcUABackend::backendClients[client]->_isFunctional = false;
         break;
       case UA_SECURECHANNELSTATE_HEL_SENT:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for HEL");
-        OpcUABackend::backendClients[client]->_isFunctional = false;
         break;
       case UA_SECURECHANNELSTATE_OPN_SENT:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
-        OpcUABackend::backendClients[client]->_isFunctional = false;
         break;
       case UA_SECURECHANNELSTATE_OPEN:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
-        OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_FRESH:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "SecureChannel state: fresh");
-        OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_HEL_RECEIVED:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Hel received");
-        OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_ACK_SENT:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ACK");
-        OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_ACK_RECEIVED:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "ACK received");
-        OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       case UA_SECURECHANNELSTATE_CLOSING:
         UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing secure channel");
-        OpcUABackend::backendClients[client]->_isFunctional = true;
         break;
       default:
         break;
@@ -108,6 +99,10 @@ namespace ChimeraTK{
       default:
         break;
     }
+    if(sessionState == UA_SESSIONSTATE_ACTIVATED && channelState == UA_SECURECHANNELSTATE_OPEN)
+      OpcUABackend::backendClients[client]->_isFunctional = true;
+    else
+      OpcUABackend::backendClients[client]->_isFunctional = false;
 
     if(!OpcUABackend::backendClients[client]->_isFunctional && OpcUABackend::backendClients[client]->_subscriptionManager){
       if (OpcUABackend::backendClients[client]->_subscriptionManager->isRunning())
