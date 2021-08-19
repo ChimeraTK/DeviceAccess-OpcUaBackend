@@ -30,7 +30,7 @@ void OPCUASubscriptionManager::start(){
   if(_subscriptionActive){
     _run = true;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                  "Starting subscription thread.");
+                  "Starting subscription thread with publishing interval of %ldms.", _connection->publishingInterval);
     int retry = 10;
     int i = 0;
     while(_opcuaThread){
