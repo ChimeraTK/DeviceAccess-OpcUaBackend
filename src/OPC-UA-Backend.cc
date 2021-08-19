@@ -538,8 +538,7 @@ namespace ChimeraTK{
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map", "publishingInterval"});
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                "BackendRegisterer: registered backend type opcua");
+    std::cout << "BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
   const RegisterCatalogue& OpcUABackend::getRegisterCatalogue() const {
