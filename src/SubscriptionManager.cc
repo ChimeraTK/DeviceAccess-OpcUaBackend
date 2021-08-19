@@ -117,9 +117,8 @@ void OPCUASubscriptionManager::deactivate(){
 //    _opcuaThread.reset(nullptr);
 //  }
   if(_subscriptionActive){
-    // set active false first to protect other threads from using an empty client pointer
     _subscriptionActive = false;
-    // lock is hold in runClient and this method is called in the callback
+    // lock is hold in runClient and this method is called in the state callback
 //    std::lock_guard<std::mutex> lock(_connection->client_lock);
     removeSubscription();
   }
