@@ -175,6 +175,15 @@ namespace ChimeraTK {
     std::string _mapfile;
 
     /**
+     * Protect against multiple calles of activateAsyncRead().
+     *
+     * This was observed for multiple LogicalNameMapping devices that reference the same device.
+     * In the end PCUASubscriptionManager::start() was called multiple times because the new thread was not yet created when testing
+     * the thread in activateAsyncRead().
+     */
+    std::mutex _asyncReadLock;
+
+    /**
      * Connect the client. If called after client is connected the connection is checked
      * and if it is ok no new connection is established.
      */

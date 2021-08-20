@@ -438,6 +438,7 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::activateAsyncRead()noexcept{
+    std::lock_guard<std::mutex> lock(_asyncReadLock);
     if(!_opened || !_isFunctional)
       return;
     if(!_subscriptionManager)
@@ -445,7 +446,7 @@ namespace ChimeraTK{
     _subscriptionManager->activate();
 
     //Check if thread is already running-> happens if a second logicalNameMappingBackend is calling activateAsyncRead after a first one called activateAsyncRead already
-    if(!_subscriptionManager->_opcuaThread){
+    if(_subscriptionManager->_opcuaThread == nullptr){
       _subscriptionManager->start();
       // sleep twice the publishing interval to make sure intital values are written
       std::this_thread::sleep_for(std::chrono::milliseconds(2*_connection->publishingInterval));
