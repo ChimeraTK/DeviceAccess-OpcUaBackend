@@ -31,15 +31,6 @@ void OPCUASubscriptionManager::start(){
     _run = true;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Starting subscription thread with publishing interval of %ldms.", _connection->publishingInterval);
-    int retry = 10;
-    int i = 0;
-    while(_opcuaThread){
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      i++;
-      std::cout << "Waiting for the thread to finish..." << std::endl;
-      if (i > retry)
-        throw ChimeraTK::runtime_error("Thread is still running.");
-    }
     _opcuaThread.reset(new std::thread{&OPCUASubscriptionManager::runClient,this});
   } else {
     _run = false;
