@@ -92,9 +92,15 @@ namespace ChimeraTK {
 
   };
 
+  /**
+   * \remark Closing the an application using SIGINT will trigger closing the session. Thus, the state handler will trigger
+   * OPCUASubscriptionManager::deactivateAllAndPushException. At the same time, in the destructor of the Accessors the monitored
+   * items will be removed. This includes UA_Client_MonitoredItems_deleteSingle, which uses a timeout. Since both methods use the
+   * subscription manager mutex shutting down the application takes some time.
+   */
   class OpcUABackend : public DeviceBackendImpl{
   public:
-    ~OpcUABackend() = default;
+    ~OpcUABackend() {close();};
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
 
     static void
@@ -178,7 +184,7 @@ namespace ChimeraTK {
      * Protect against multiple calles of activateAsyncRead().
      *
      * This was observed for multiple LogicalNameMapping devices that reference the same device.
-     * In the end PCUASubscriptionManager::start() was called multiple times because the new thread was not yet created when testing
+     * In the end OPCUASubscriptionManager::start() was called multiple times because the new thread was not yet created when testing
      * the thread in activateAsyncRead().
      */
     std::mutex _asyncReadLock;
@@ -228,9 +234,6 @@ namespace ChimeraTK {
      *  myname2     123                1
      */
     void getNodesFromMapfile();
-
-    // Check connection state set by the callback function.
-    bool isConnected() const;
 
   };
 }

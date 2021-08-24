@@ -104,9 +104,12 @@ namespace ChimeraTK{
     else
       OpcUABackend::backendClients[client]->_isFunctional = false;
 
-    if(!OpcUABackend::backendClients[client]->_isFunctional && OpcUABackend::backendClients[client]->_subscriptionManager){
-      if (OpcUABackend::backendClients[client]->_subscriptionManager->isRunning())
-        OpcUABackend::backendClients[client]->_subscriptionManager->deactivateAllAndPushException();
+    // when closing the device this does not need to be done
+    if(OpcUABackend::backendClients[client]->_opened){
+      if(!OpcUABackend::backendClients[client]->_isFunctional && OpcUABackend::backendClients[client]->_subscriptionManager){
+        if (OpcUABackend::backendClients[client]->_subscriptionManager->isRunning())
+          OpcUABackend::backendClients[client]->_subscriptionManager->deactivateAllAndPushException("Client session is not open any more.");
+      }
     }
   }
 
@@ -345,10 +348,6 @@ namespace ChimeraTK{
     }
   }
 
-  bool OpcUABackend::isConnected() const{
-    return (_connection->sessionState == UA_SESSIONSTATE_ACTIVATED && _connection->channelState == UA_SECURECHANNELSTATE_OPEN);
-  }
-
   void OpcUABackend::open() {
     /* Normally client is already connected in the constructor.
      * But open() is also called by ApplicationCore in case an error
@@ -389,7 +388,8 @@ namespace ChimeraTK{
 
   void OpcUABackend::close() {
     //ToDo: What to do with the subscription manager?
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Closing the device: %s" , _connection->serverAddress.c_str());
     resetClient();
     if(_subscriptionManager)
@@ -397,9 +397,9 @@ namespace ChimeraTK{
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
 //    _catalogue_mutable = RegisterCatalogue();
 //    _catalogue_filled = false;
-    _connection->close();
     _opened = false;
     _isFunctional = false;
+    _connection->close();
   }
 
   void OpcUABackend::connect(){
@@ -430,7 +430,7 @@ namespace ChimeraTK{
 
   bool OpcUABackend::isFunctional() const {
     // isFunctional is also set by setException!
-    if (isConnected() && _isFunctional){
+    if (_connection->isConnected() && _isFunctional){
       return true;
     } else {
       return false;

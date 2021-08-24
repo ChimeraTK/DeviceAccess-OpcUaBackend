@@ -55,10 +55,17 @@ struct OPCUAConnection{
   {UA_ClientConfig_setDefault(config);};
 
   void close(){
-    if(!UA_Client_disconnect(client.get())){
+    auto ret = UA_Client_disconnect(client.get());
+    if(ret != UA_STATUSCODE_GOOD){
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-        "Failed to disconnect from server when closing the device.");
+        "Failed to disconnect from server when closing the device. Error: %s", UA_StatusCode_name(ret));
     }
+  }
+
+
+  // Check connection state set by the callback function.
+  bool isConnected() const{
+    return (sessionState == UA_SESSIONSTATE_ACTIVATED && channelState == UA_SECURECHANNELSTATE_OPEN);
   }
 };
 
