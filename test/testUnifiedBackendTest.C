@@ -666,7 +666,8 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
 //                 .addRegister<RegSomeFloatArrayRO>()
 //                 .addRegister<RegSomeDoubleArrayRO>()
 //                 .addRegister<RegSomeStringArrayRO>();
-  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeBoolArray>().addRegister<RegSomeBool>().addRegister<RegSomeBoolArrayRO>().addRegister<RegSomeBoolRO>();
+//  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeBoolArray>().addRegister<RegSomeBool>().addRegister<RegSomeBoolArrayRO>().addRegister<RegSomeBoolRO>();
+  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeUInt32>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
