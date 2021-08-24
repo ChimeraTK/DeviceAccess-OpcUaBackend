@@ -100,7 +100,7 @@ namespace ChimeraTK {
    */
   class OpcUABackend : public DeviceBackendImpl{
   public:
-    ~OpcUABackend() {close();};
+    ~OpcUABackend();
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
 
     static void

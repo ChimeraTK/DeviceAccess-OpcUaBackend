@@ -60,6 +60,8 @@ namespace ChimeraTK{
     }
     /**
      * Enable pushing values to the TransferElement future queue in the OPC UA callback function.
+     *
+     * \remark Holds item lock.
      */
     void activate();
 
@@ -67,13 +69,18 @@ namespace ChimeraTK{
      * Disable pushing values to the TransferElement future queue in the OPC UA callback function.
      * \ToDo: Should the following actions really be part of that method?
      * Unsubscribe all PVs from the OPC UA subscription.
-     * Reset client pointer.
+     * Stop the runClient loop in case it was acitve.
      * To work again a resetClient is required.
+     *
+     * \remark This method is called when holding the client lock
      */
     void deactivate();
 
     /**
      * Push exception to the TransferElement future queue and call deactivate(True) keeping the _item list.
+     * This is used in the responseHandler and when calling setException.
+     *
+     * \remark This method is called when holding the client lock
      */
     void deactivateAllAndPushException(std::string message = "Exception reported by another accessor.");
 
@@ -90,13 +97,23 @@ namespace ChimeraTK{
      * In case the subscription is already created (device was opened) monitored items are added to the subscription.
      * In case asyncRead was already activated in the Device also activate is called and pushing to the TransferElement
      * future queue is enabled.
+     *
+     *  \remark Holds item lock.
      */
     void subscribe(const std::string &browseName, const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor);
 
     void unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor);
 
+    /**
+     * Start the thread that updates data of accessors.
+     */
     void start();
 
+    /**
+     * Listen on the network and update accessors via the responseHandler. It is launched in a separate thread in start().
+     *
+     * \remark This method is called when holding the client lock
+     */
     void runClient();
 
     void prepare();
@@ -123,6 +140,8 @@ namespace ChimeraTK{
      *  This is necessary if the client connection is reset.
      *  It will clear the subscription map and reset the MonitorItem status,
      *  such that they will be added as monitored items again when calling addMonitoredItems.
+     *
+     *  \remark Holds item lock.
      */
 
     void resetMonitoredItems();
@@ -132,20 +151,26 @@ namespace ChimeraTK{
      *
      * Use this to make sure the corresponding items are not activated any more. This is important if the accessors do not
      * exist anymore when calling activate again.
+     *
+     *  \remark Holds item lock.
      */
-    void removeMonitoredItems(){_items.clear();}
+    void removeMonitoredItems();
   private:
 
     /**
      * Here the items are registered to the server by the client.
      * This is to be called after the client is set up.
      * Called in activateAsyncRead()
+     *
+     * \remark It holds the client lock and item lock.
      */
     void addMonitoredItems();
 
     /**
      * Set up the subscription.
      * It is called by setClient().
+     *
+     * \remark This method holds the client lock.
      */
     void createSubscription();
 
@@ -169,7 +194,10 @@ namespace ChimeraTK{
      */
     std::map<UA_UInt32, MonitorItem*> subscriptionMap;
 
-    // Send exception to all accesors via the future queue
+    /*
+     *  Send exception to all accesors via the future queue.
+     * \remark Holds item lock.
+     */
     void handleException(const std::string &msg);
 
   };

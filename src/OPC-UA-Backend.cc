@@ -42,7 +42,10 @@ namespace ChimeraTK{
 
   void OpcUABackend::stateCallback(UA_Client *client, UA_SecureChannelState channelState,
               UA_SessionState sessionState, UA_StatusCode recoveryStatus) {
-//    std::lock_guard<std::mutex> lock(OpcUABackend::backendClients[client]->_connection->client_lock);
+    if(OpcUABackend::backendClients.count(client) == 0){
+      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "No client found in the stateCallback.");
+      return;
+    }
     OpcUABackend::backendClients[client]->_connection->channelState = channelState;
     OpcUABackend::backendClients[client]->_connection->sessionState = sessionState;
     switch(channelState) {
@@ -130,6 +133,11 @@ namespace ChimeraTK{
     _isFunctional = true;
   }
 
+  OpcUABackend::~OpcUABackend() {
+    if(_opened)
+      close();
+    OpcUABackend::backendClients.erase(_connection->client.get());
+  };
   void OpcUABackend::browseRecursive(UA_NodeId startingNode) {
     // connection is locked in fillCatalogue
     UA_BrowseDescription *bd = UA_BrowseDescription_new();
@@ -343,7 +351,10 @@ namespace ChimeraTK{
 
   void OpcUABackend::resetClient(){
     if(_subscriptionManager){
-      _subscriptionManager->deactivate();
+      {
+        std::lock_guard<std::mutex> lock(_connection->client_lock);
+        _subscriptionManager->deactivate();
+      }
       _subscriptionManager->resetMonitoredItems();
     }
   }
@@ -387,18 +398,17 @@ namespace ChimeraTK{
   }
 
   void OpcUABackend::close() {
-    //ToDo: What to do with the subscription manager?
-
+    _opened = false;
+    _isFunctional = false;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Closing the device: %s" , _connection->serverAddress.c_str());
     resetClient();
-    if(_subscriptionManager)
+    if(_subscriptionManager){
       _subscriptionManager->removeMonitoredItems();
+    }
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
 //    _catalogue_mutable = RegisterCatalogue();
 //    _catalogue_filled = false;
-    _opened = false;
-    _isFunctional = false;
     _connection->close();
   }
 
@@ -460,6 +470,7 @@ namespace ChimeraTK{
 
   void OpcUABackend::setException(){
     _isFunctional = false;
+    std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(_subscriptionManager)
       _subscriptionManager->deactivateAllAndPushException();
   }
