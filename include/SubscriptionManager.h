@@ -157,10 +157,16 @@ namespace ChimeraTK{
 
     UA_UInt32 _subscriptionID;
 
-    // List of subscriptions (not OPC UA subscriptions)
+    // List of items to be monitored
     std::deque<MonitorItem> _items;
 
-    /// map of ctk subscriptions (not OPC UA subscriptions)
+    /*
+     *  map that links a monitoredItemId to the corresponding MonitoredItem in _items.
+     *  This is needed because when adding MonitorItems to _items the monitoredItemIds are not known.
+     *  Only after activate is called the monitoredItemIds are known. A map is used to allow fast
+     *  access in the responseHandler. Else one would have to search in _items for the item with the correct
+     *  monitoredItemId.
+     */
     std::map<UA_UInt32, MonitorItem*> subscriptionMap;
 
     // Send exception to all accesors via the future queue
