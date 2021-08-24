@@ -41,7 +41,6 @@ namespace ChimeraTK{
     bool operator==(const std::string& other){return _browseName == other;}
   };
 
-
   /**
    * Class handling the OPC UA subscriptions and monitored items.
    *
@@ -76,7 +75,7 @@ namespace ChimeraTK{
     /**
      * Push exception to the TransferElement future queue and call deactivate(True) keeping the _item list.
      */
-    void deactivateAllAndPushException();
+    void deactivateAllAndPushException(std::string message = "Exception reported by another accessor.");
 
     /**
      * Remove a the current subscription.

@@ -55,7 +55,7 @@ void OPCUASubscriptionManager::runClient(){
 //    }
     {
       std::lock_guard<std::mutex> lock(_connection->client_lock);
-      ret = UA_Client_run_iterate(_connection->client.get(),20);
+      ret = UA_Client_run_iterate(_connection->client.get(),1);
     }
     if(ret != UA_STATUSCODE_GOOD){
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -119,13 +119,13 @@ void OPCUASubscriptionManager::deactivate(){
 void OPCUASubscriptionManager::removeSubscription(){
   if(!UA_Client_Subscriptions_deleteSingle(_connection->client.get(), _subscriptionID)){
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-        "Subscriptions sucessfully removed old subscription.");
+        "Sucessfully removed old subscription.");
   }
 
 }
 
-void OPCUASubscriptionManager::deactivateAllAndPushException(){
-  handleException("Exception reported by another accessor.");
+void OPCUASubscriptionManager::deactivateAllAndPushException(std::string message){
+  handleException(message);
   deactivate();
 }
 
@@ -272,10 +272,6 @@ void OPCUASubscriptionManager::resetMonitoredItems(){
 }
 
 void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor){
-  // get client lock first. This is required because OPCUASubscriptionManager::runClient also gets client lock first and after the mutex lock
-  // The mutex lock is retrieved indirect via OPCUASubscriptionManager::responseHandler that is triggered by
-  // UA_Client_Subscriptions_manuallySendPublishRequest in OPCUASubscriptionManager::runClient
-  std::lock_guard<std::mutex> connection_lock(_connection->client_lock);
   std::lock_guard<std::mutex> item_lock(_mutex);
   // client pointer might be reset already when closing the device - in this case nothing to do here
   auto it = std::find(_items.begin(), _items.end(), browseName);
@@ -286,7 +282,7 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
     // only remove accessor if still other accessors are using that subscription
     it->_accessors.erase(std::find(it->_accessors.begin(), it->_accessors.end(), accessor));
   } else {
-    // remove subscription
+    // remove monitored item
     // find map item
     for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it_map){
       if(it_map->second->_browseName == browseName){
@@ -294,12 +290,20 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
         // In the response Handler the _mutex locked if subscription is active
         it_map->second->_active = false;
         // try to unsubscribe
-        if(_connection->client && !UA_Client_MonitoredItems_deleteSingle(_connection->client.get(), _subscriptionID, it_map->first)){
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                  "Monitored item removed for: %s", browseName.c_str());
-        } else {
-          UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                            "Failed to unsubscribe item (no client alive): %s", browseName.c_str());
+        if(_connection->isConnected()){
+          UA_StatusCode ret;
+          {
+  //          std::lock_guard<std::mutex> connection_lock(_connection->client_lock);
+            ret = UA_Client_MonitoredItems_deleteSingle(_connection->client.get(), _subscriptionID, it_map->first);
+          }
+
+          if(!ret){
+            UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Monitored item removed for: %s", browseName.c_str());
+          } else {
+            UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                              "Failed to unsubscribe item (no client alive): %s Error: %s", browseName.c_str(), UA_StatusCode_name(ret));
+          }
         }
         subscriptionMap.erase(it_map);
         _items.erase(it);
@@ -318,6 +322,8 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
 
 void OPCUASubscriptionManager::handleException(const std::string &message){
   std::lock_guard<std::mutex> lock(_mutex);
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                             "Handling error: %s", message.c_str());
   for(auto &item : subscriptionMap){
     try {
       throw ChimeraTK::runtime_error(message);
@@ -325,7 +331,7 @@ void OPCUASubscriptionManager::handleException(const std::string &message){
       if(item.second->_active && !item.second->_hasException){
         item.second->_hasException = true;
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                           "Sending exception to %lu accessors for node %s", item.second->_accessors.size(), item.second->_browseName.c_str());
+                           "Sending exception to %lu accessors for node %s.", item.second->_accessors.size(), item.second->_browseName.c_str());
         for(auto &accessor : item.second->_accessors){
           accessor->_notifications.push_overwrite_exception(std::current_exception());
         }
