@@ -272,52 +272,50 @@ void OPCUASubscriptionManager::resetMonitoredItems(){
 }
 
 void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor){
-  std::lock_guard<std::mutex> item_lock(_mutex);
-  // client pointer might be reset already when closing the device - in this case nothing to do here
-  auto it = std::find(_items.begin(), _items.end(), browseName);
-  // in case the asyncread was activated but no variables were subscribed - unsubscribe is called by RegisterAccessor destructor
-  if(it == _items.end())
-    return;
-  if(it->_accessors.size() > 1){
-    // only remove accessor if still other accessors are using that subscription
-    it->_accessors.erase(std::find(it->_accessors.begin(), it->_accessors.end(), accessor));
-  } else {
-    // remove monitored item
-    // find map item
-    for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it_map){
-      if(it_map->second->_browseName == browseName){
-        // UA_Client_MonitoredItems_deleteSingle tries to update the latest value which triggers responseHandler
-        // In the response Handler the _mutex locked if subscription is active
-        it_map->second->_active = false;
-        // try to unsubscribe
-        if(_connection->isConnected()){
-          UA_StatusCode ret;
-          {
-  //          std::lock_guard<std::mutex> connection_lock(_connection->client_lock);
-            ret = UA_Client_MonitoredItems_deleteSingle(_connection->client.get(), _subscriptionID, it_map->first);
-          }
-
-          if(!ret){
-            UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Monitored item removed for: %s", browseName.c_str());
-          } else {
-            UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                              "Failed to unsubscribe item (no client alive): %s Error: %s", browseName.c_str(), UA_StatusCode_name(ret));
-          }
+  // If the id is set an item is to be removed from the client. Before the _mutex lock is released.
+  UA_UInt32 id{0};
+  {
+    std::lock_guard<std::mutex> item_lock(_mutex);
+    // client pointer might be reset already when closing the device - in this case nothing to do here
+    auto it = std::find(_items.begin(), _items.end(), browseName);
+    // in case the asyncread was activated but no variables were subscribed - unsubscribe is called by RegisterAccessor destructor
+    if(it == _items.end())
+      return;
+    if(it->_accessors.size() > 1){
+      // only remove accessor if still other accessors are using that subscription
+      it->_accessors.erase(std::find(it->_accessors.begin(), it->_accessors.end(), accessor));
+    } else {
+      // remove monitored item
+      // find map item
+      for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it_map){
+        if(it_map->second->_browseName == browseName){
+          // UA_Client_MonitoredItems_deleteSingle tries to update the latest value which triggers responseHandler
+          // In the response Handler the _mutex locked if subscription is active
+          it_map->second->_active = false;
+          subscriptionMap.erase(it_map);
+          _items.erase(it);
+          break;
         }
-        subscriptionMap.erase(it_map);
-        _items.erase(it);
-        break;
       }
+
+    }
+  }
+  // try to unsubscribe
+  if(id != 0 && _connection->isConnected()){
+    UA_StatusCode ret;
+    {
+//          std::lock_guard<std::mutex> connection_lock(_connection->client_lock);
+      ret = UA_Client_MonitoredItems_deleteSingle(_connection->client.get(), _subscriptionID, id);
     }
 
+    if(!ret){
+      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+              "Monitored item removed for: %s", browseName.c_str());
+    } else {
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                        "Failed to unsubscribe item (no client alive): %s Error: %s", browseName.c_str(), UA_StatusCode_name(ret));
+    }
   }
-
-//  if(!UA_Client_Subscriptions_remove(_client, id)){
-//    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-//        "Subscriptions sucessfully removed.");
-//  }
-//  OPCUASubscriptionManager::subscriptionMap.clear();
 }
 
 void OPCUASubscriptionManager::handleException(const std::string &message){
