@@ -114,6 +114,7 @@ stateCallback(UA_Client *client, UA_SecureChannelState channelState,
 int main(){
   UA_Client *client = UA_Client_new();
   UA_ClientConfig *cc = UA_Client_getConfig(client);
+  UA_ClientConfig_setDefault(cc);
   cc->stateCallback = stateCallback;
   cc->subscriptionInactivityCallback = subscriptionInactivityCallback;
   /* Connect to a server */
@@ -137,9 +138,9 @@ int main(){
 
   changed = false;
   while(!changed){
-    UA_Client_run_iterate(client, 1000);
+    UA_Client_run_iterate(client, 0);
   }
-  UA_Client_disconnect(client);
+
   UA_Client_delete(client);
 }
 
