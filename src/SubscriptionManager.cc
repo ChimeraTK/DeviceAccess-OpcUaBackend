@@ -49,7 +49,7 @@ void OPCUASubscriptionManager::runClient(){
                   "Sending subscription request.");
     {
       std::lock_guard<std::mutex> lock(_connection->client_lock);
-      ret = UA_Client_run_iterate(_connection->client.get(),1);
+      ret = UA_Client_run_iterate(_connection->client.get(),0);
     }
     if(ret != UA_STATUSCODE_GOOD){
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
@@ -57,7 +57,8 @@ void OPCUASubscriptionManager::runClient(){
 
       break;
     }
-//    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    // sleep for half the publishing interval - should be fine to catch up all updates
+    std::this_thread::sleep_for(std::chrono::milliseconds(_connection->publishingInterval/2));
     ++i;
     if(i%50 == 0)
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
