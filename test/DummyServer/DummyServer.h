@@ -96,8 +96,8 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UAType> &t, c
   }
   UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   UA_Variant_delete(data);
-  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result.
-  std::this_thread::sleep_for(std::chrono::milliseconds(150));
+  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result. Nevertheless problems were observed so use 300ms.
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
 }
 
