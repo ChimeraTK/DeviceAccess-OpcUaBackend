@@ -176,7 +176,7 @@ namespace ChimeraTK{
     std::ifstream mapfile (_mapfile);
     if (mapfile.is_open()) {
       while (std::getline(mapfile,line)) {
-        if(line.empty())
+        if(line.empty() || line[0] == '#')
           continue;
         tokenizer tok{line, sep};
         size_t nTokens = std::distance(tok.begin(), tok.end());
@@ -222,6 +222,8 @@ namespace ChimeraTK{
       }
       mapfile.close();
     } else {
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Failed reading opcua mapfile: %s", _mapfile.c_str());
       ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
     }
   }
