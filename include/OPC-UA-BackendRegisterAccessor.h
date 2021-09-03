@@ -137,7 +137,14 @@ namespace ChimeraTK {
    */
   class OpcUABackendRegisterAccessorBase {
   public:
-    OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend, OpcUABackendRegisterInfo* info):_backend(backend), _info(info){}
+    OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend, OpcUABackendRegisterInfo* info):_backend(backend), _info(info){
+      UA_DataValue_init(&_data);
+    }
+
+    ~OpcUABackendRegisterAccessorBase(){
+      UA_DataValue_deleteMembers(&_data);
+    }
+
     // future_queue used to notify the TransferFuture about completed transfers
     cppext::future_queue<UA_DataValue> _notifications;
 
@@ -270,6 +277,7 @@ namespace ChimeraTK {
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) {
 //        this->_data = data;
+        UA_DataValue_deleteMembers(&this->_data);
         UA_DataValue_copy(&data, &this->_data);
         UA_DataValue_deleteMembers(&data);
         }, std::launch::deferred);
@@ -298,6 +306,7 @@ namespace ChimeraTK {
     }
 
     // Write data to  the internal data buffer
+    UA_DataValue_deleteMembers(&this->_data);
     UA_Variant_copy(val->var, &_data.value);
     _data.sourceTimestamp = UA_DateTime_now();
   }
@@ -311,13 +320,18 @@ namespace ChimeraTK {
       this->setDataValidity(DataValidity::faulty);
     } else {
       UAType* tmp = (UAType*)(_data.value.data);
-      for(size_t i = 0; i < _numberOfWords; i++){
-        // Fill the NDRegisterAccessor buffer
-        this->accessData(i) = toCTK.convert(tmp[_offsetWords+i]);
+      if(tmp == nullptr){
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                                "No Data in doPostRead for node: %s", _info->_nodeBrowseName.c_str(),  UA_StatusCode_name(_data.status));
+        this->setDataValidity(DataValidity::faulty);
+      } else {
+        for(size_t i = 0; i < _numberOfWords; i++){
+          // Fill the NDRegisterAccessor buffer
+          this->accessData(i) = toCTK.convert(tmp[_offsetWords+i]);
+        }
+        this->setDataValidity(DataValidity::ok);
       }
-      this->setDataValidity(DataValidity::ok);
     }
-    UA_DataValue_deleteMembers(&this->_data);
     _currentVersion = VersionMapper::getInstance().getVersion(_data.sourceTimestamp);
     TransferElement::_versionNumber = _currentVersion;
   }

@@ -139,8 +139,6 @@ void OPCUASubscriptionManager::responseHandler(UA_UInt32 monId, UA_DataValue *va
   UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
   "Subscription handler called.\nSource time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u, ",
                  dts.day, dts.month, dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
-  UA_DataValue data;
-  UA_DataValue_copy(value, &data);
 
   auto base = reinterpret_cast<OPCUASubscriptionManager*>(monContext);
 
@@ -148,7 +146,9 @@ void OPCUASubscriptionManager::responseHandler(UA_UInt32 monId, UA_DataValue *va
   if(base->subscriptionMap[monId]->_active){
     base->subscriptionMap[monId]->_hasException = false;
     for(auto &accessor : base->subscriptionMap[monId]->_accessors){
-      accessor->_notifications.push_overwrite(data);
+      UA_DataValue data;
+      UA_DataValue_copy(value, &data);
+      accessor->_notifications.push_overwrite(std::move(data));
     }
   }
 }
@@ -226,7 +226,10 @@ void  OPCUASubscriptionManager::subscribe(const std::string &browseName, const U
       // if already active add initial value
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                       "Setting intial value for accessor with existing node subscription.");
-      accessor->_notifications.push_overwrite(tmp->_data);
+      // copy data first and then move it - it will be cleared when received by the accessor
+      UA_DataValue data;
+      UA_DataValue_copy(&tmp->_data, &data);
+      accessor->_notifications.push_overwrite(std::move(data));
     }
   }
 }
