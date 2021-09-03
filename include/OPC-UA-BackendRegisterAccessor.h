@@ -268,7 +268,11 @@ namespace ChimeraTK {
                   "Adding subscription for node: %s", _info->_nodeBrowseName.c_str());
       // Create notification queue.
       _notifications = cppext::future_queue<UA_DataValue>(3);
-      _readQueue = _notifications.then<void>([this](UA_DataValue& data) { this->_data = data; }, std::launch::deferred);
+      _readQueue = _notifications.then<void>([this](UA_DataValue& data) {
+//        this->_data = data;
+        UA_DataValue_copy(&data, &this->_data);
+        UA_DataValue_deleteMembers(&data);
+        }, std::launch::deferred);
       // needs to be called after the notifications queue is created!
       if(!_backend->_subscriptionManager)
         _backend->activateSubscriptionSupport();
@@ -308,12 +312,12 @@ namespace ChimeraTK {
     } else {
       UAType* tmp = (UAType*)(_data.value.data);
       for(size_t i = 0; i < _numberOfWords; i++){
-        UAType value = tmp[_offsetWords+i];
         // Fill the NDRegisterAccessor buffer
-        this->accessData(i) = toCTK.convert(value);
+        this->accessData(i) = toCTK.convert(tmp[_offsetWords+i]);
       }
       this->setDataValidity(DataValidity::ok);
     }
+    UA_DataValue_deleteMembers(&this->_data);
     _currentVersion = VersionMapper::getInstance().getVersion(_data.sourceTimestamp);
     TransferElement::_versionNumber = _currentVersion;
   }

@@ -232,7 +232,7 @@ void  OPCUASubscriptionManager::subscribe(const std::string &browseName, const U
 }
 
 OPCUASubscriptionManager::OPCUASubscriptionManager(std::shared_ptr<OPCUAConnection> connection):
-  _connection(connection), _subscriptionActive(false), _asyncReadActive(false), _run(true), _subscriptionID(0){
+  _run(true), _subscriptionActive(false), _asyncReadActive(false), _connection(connection),  _subscriptionID(0){
   createSubscription();
 }
 
@@ -267,7 +267,7 @@ void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUAB
     // find map item
     for(auto it_map = subscriptionMap.begin(); it_map != subscriptionMap.end(); ++it_map){
       if(it_map->second->_browseName == browseName){
-        std::lock_guard<std::mutex> lock(_connection->client_lock);
+        std::lock_guard<std::mutex> clientLock(_connection->client_lock);
         // try to unsubscribe
         if(_connection->client && !UA_Client_Subscriptions_removeMonitoredItem(_connection->client.get(), _subscriptionID, it_map->first)){
           UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
