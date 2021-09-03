@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.13)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 00)
 set(${PROJECT_NAME}_MINOR_VERSION 05)
-set(${PROJECT_NAME}_PATCH_VERSION 04)
+set(${PROJECT_NAME}_PATCH_VERSION 05)
 include(cmake/set_version_numbers.cmake)
 
 include(cmake/set_default_build_to_release.cmake)
@@ -14,7 +14,7 @@ option(WithCSA-OPCUA "Test against ControlsystemAdapter-OPC-UA")
 
 
 include(cmake/add_dependency.cmake)
-add_dependency(ChimeraTK-DeviceAccess 02.00 REQUIRED)
+add_dependency(ChimeraTK-DeviceAccess 02.06 REQUIRED)
 add_dependency(open62541 00.01 REQUIRED)
 
 if(WithCSA-OPCUA)

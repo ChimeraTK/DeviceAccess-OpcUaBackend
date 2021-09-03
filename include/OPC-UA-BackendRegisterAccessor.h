@@ -76,6 +76,20 @@ namespace ChimeraTK {
     UA_String convert(SourceType& x) { return UA_STRING((char*)std::to_string(x).c_str()); }
   };
 
+  //partial specialization of conversion from void
+  template<typename DestType>
+  class RangeCheckingDataConverter<DestType, ChimeraTK::Void> {
+   public:
+    DestType convert([[maybe_unused]] ChimeraTK::Void& x) { return DestType(); } // default constructed value
+  };
+
+  //partial specialization of conversion to void
+  template<typename SourceType>
+  class RangeCheckingDataConverter<ChimeraTK::Void, SourceType> {
+   public:
+    ChimeraTK::Void convert([[maybe_unused]] SourceType& x) { return ChimeraTK::Void(); }
+  };
+
   template<typename SourceType>
   class RangeCheckingDataConverter<std::string, SourceType> {
    public:
@@ -105,6 +119,19 @@ namespace ChimeraTK {
   class RangeCheckingDataConverter<std::string, UA_String> {
    public:
     std::string convert(UA_String& x) { return std::string((char*)x.data, x.length); }
+  };
+
+  //full specialization of conversion void to string (ambiguous if not defined)
+  template<>
+  class RangeCheckingDataConverter<UA_String, ChimeraTK::Void> {
+   public:
+    UA_String convert([[maybe_unused]] ChimeraTK::Void& x) { return UA_STRING("void"); }
+  };
+  //full specialization of conversion string to void (ambiguous if not defined)
+  template<>
+  class RangeCheckingDataConverter<ChimeraTK::Void, UA_String> {
+   public:
+    ChimeraTK::Void convert([[maybe_unused]] UA_String& x) { return ChimeraTK::Void(); }
   };
 
   /**
