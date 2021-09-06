@@ -58,7 +58,7 @@ namespace ChimeraTK {
         path = RegisterPath(serverAddress)/RegisterPath(node_browseName);
       }
 
-      virtual ~OpcUABackendRegisterInfo() {}
+      ~OpcUABackendRegisterInfo() {UA_NodeId_deleteMembers(&_id);}
 
       RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
 

@@ -130,7 +130,7 @@ namespace ChimeraTK{
           } catch (std::invalid_argument &innerError){
             UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                       "Failed reading the following line from mapping file %s:\n %s", _mapfile.c_str(), line.c_str());
-          } catch (std::out_of_range &e){
+          } catch (std::out_of_range &rangeError){
             UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                       "Failed reading the following line from mapping file %s (Namespace id is out of range!):\n %s", _mapfile.c_str(), line.c_str());
           }
@@ -192,14 +192,14 @@ namespace ChimeraTK{
     UA_LocalizedText* text = UA_LocalizedText_new();
     retval = UA_Client_readDescriptionAttribute(_connection->client.get(),node,text);
     if(retval != UA_STATUSCODE_GOOD){
-      UA_LocalizedText_deleteMembers(text);
+      UA_LocalizedText_delete(text);
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
           "Failed to read data description from variable: %s with reason: %s. Variable is not added to the catalog."
           , entry->_nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
     }
     entry->_description =  std::string((char*)text->text.data, text->text.length);
-    UA_LocalizedText_deleteMembers(text);
+    UA_LocalizedText_delete(text);
 
     UA_Variant *val = UA_Variant_new();
     retval = UA_Client_readValueAttribute(_connection->client.get(), node, val);
@@ -221,8 +221,8 @@ namespace ChimeraTK{
     } else {
       entry->_arrayLength = val->arrayLength;
     }
-
     UA_NodeId_copy(&node,&entry->_id);
+    UA_Variant_delete(val);
 
     if((entry->_dataType == 1 /*BOOL*/) ||
        (entry->_dataType == 3 /*BYTE*/) ||
@@ -251,7 +251,7 @@ namespace ChimeraTK{
     entry->_accessModes.add(AccessMode::wait_for_new_data);
     //\ToDo: Test this here!!
     UA_Byte accessLevel;
-    retval = UA_Client_readAccessLevelAttribute(_connection->client.get(),node,&accessLevel);
+    retval = UA_Client_readAccessLevelAttribute(_connection->client.get(),entry->_id,&accessLevel);
     if(retval != UA_STATUSCODE_GOOD){
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                 "Failed to read access level from variable: %s with reason: %s. Variable is not added to the catalog."
@@ -275,7 +275,7 @@ namespace ChimeraTK{
     _isFunctional = false;
   }
   void OpcUABackend::open() {
-    std::lock_guard<std::mutex> lock(_connection->connection_lock);
+    std::lock_guard<std::mutex> connectionLock(_connection->connection_lock);
     /* Normally client is already connected in the constructor.
      * But open() is also called by ApplicationCore in case an error
      * was detected by the Backend (i.e. an exception was thrown
@@ -283,7 +283,7 @@ namespace ChimeraTK{
      */
     UA_ConnectionState state;
     {
-      std::lock_guard<std::mutex> lock(_connection->client_lock);
+      std::lock_guard<std::mutex> clientLock(_connection->client_lock);
       state = UA_Client_getConnectionState(_connection->client.get());
     }
     // if an error was seen by the accessor the error is in the queue but as long as no read happened setException is not called
