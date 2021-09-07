@@ -140,11 +140,7 @@ namespace ChimeraTK {
   class OpcUABackendRegisterAccessorBase {
    public:
     OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend, OpcUABackendRegisterInfo* info)
-    : _backend(backend), _info(info) {}
-  public:
-    OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend, OpcUABackendRegisterInfo* info):_backend(backend), _info(info){
-      UA_DataValue_init(&_data);
-    }
+    : _backend(backend), _info(info) {UA_DataValue_init(&_data);}
 
     ~OpcUABackendRegisterAccessorBase(){ UA_DataValue_deleteMembers(&_data); }
 
