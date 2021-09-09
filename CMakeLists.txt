@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.13)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 00)
 set(${PROJECT_NAME}_MINOR_VERSION 05)
-set(${PROJECT_NAME}_PATCH_VERSION 06)
+set(${PROJECT_NAME}_PATCH_VERSION 07)
 include(cmake/set_version_numbers.cmake)
 
 include(cmake/set_default_build_to_release.cmake)
@@ -14,7 +14,7 @@ option(WithCSA-OPCUA "Test against ControlsystemAdapter-OPC-UA")
 
 
 include(cmake/add_dependency.cmake)
-add_dependency(ChimeraTK-DeviceAccess 02.00 REQUIRED)
+add_dependency(ChimeraTK-DeviceAccess 02.06 REQUIRED)
 add_dependency(open62541 00.01 REQUIRED)
 
 if(WithCSA-OPCUA)
@@ -55,8 +55,9 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
 
   #set_property(SOURCE ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C PROPERTY COMPILE_FLAGS "-std=c99")
   #SET_SOURCE_FILES_PROPERTIES( ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C  PROPERTIES LANGUAGE C )  
-  add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
+  add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
   target_link_libraries( testSimpleServer ${open62541_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  target_include_directories(testSimpleServer PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
   add_test(testClient testSimpleServer)
   
   add_executable(testBrowse ${CMAKE_SOURCE_DIR}/test/testBrowse.C )

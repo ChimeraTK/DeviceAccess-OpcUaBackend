@@ -423,7 +423,7 @@ struct ArrayDefaultsRO<UA_Boolean> : ArrayDefaults<UA_Boolean>{
 
 struct RegSomeBool : ScalarDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/scalar/bool"; }
-  typedef uint16_t minimumUserType;
+  typedef Boolean minimumUserType;
 };
 
 struct RegSomeInt64 : ScalarDefaults<UA_Int64> {
@@ -473,7 +473,7 @@ struct RegSomeString : ScalarDefaults<UA_String> {
 
 struct RegSomeBoolArray : ArrayDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/array/bool"; }
-  typedef uint16_t minimumUserType;
+  typedef Boolean minimumUserType;
 };
 
 
@@ -525,7 +525,7 @@ struct RegSomeStringArray : ArrayDefaults<UA_String> {
 // read only part
 struct RegSomeBoolRO : ScalarDefaultsRO<UA_Boolean> {
   std::string path() override { return "Dummy/scalar_ro/bool"; }
-  typedef uint16_t minimumUserType;
+  typedef Boolean minimumUserType;
 };
 
 struct RegSomeInt64RO : ScalarDefaultsRO<UA_Int64> {
@@ -575,7 +575,7 @@ struct RegSomeStringRO : ScalarDefaultsRO<UA_String> {
 
 struct RegSomeBoolArrayRO : ArrayDefaultsRO<UA_Boolean> {
   std::string path() override { return "Dummy/array_ro/bool"; }
-  typedef uint16_t minimumUserType;
+  typedef Boolean minimumUserType;
 };
 
 struct RegSomeInt64ArrayRO : ArrayDefaultsRO<UA_Int64> {
@@ -667,13 +667,11 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
                  .addRegister<RegSomeFloatArrayRO>()
                  .addRegister<RegSomeDoubleArrayRO>()
                  .addRegister<RegSomeStringArrayRO>();
-//  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeStringArray>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
   // minimum publishing interval on the server is 100ms
   ss << "(" << path << "?port=" << port << "&publishingInterval=100)";
-
   ubt.runTests(ss.str());
 }
 
