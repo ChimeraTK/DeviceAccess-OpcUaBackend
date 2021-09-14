@@ -422,7 +422,7 @@ struct ArrayDefaultsRO<UA_Boolean> : ArrayDefaults<UA_Boolean>{
 
 struct RegSomeBool : ScalarDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/scalar/bool"; }
-  typedef uint16_t minimumUserType;
+  typedef Boolean minimumUserType;
 };
 
 struct RegSomeInt64 : ScalarDefaults<UA_Int64> {
@@ -472,7 +472,7 @@ struct RegSomeString : ScalarDefaults<UA_String> {
 
 struct RegSomeBoolArray : ArrayDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/array/bool"; }
-  typedef uint16_t minimumUserType;
+  typedef Boolean minimumUserType;
 };
 
 
@@ -524,7 +524,7 @@ struct RegSomeStringArray : ArrayDefaults<UA_String> {
 // read only part
 struct RegSomeBoolRO : ScalarDefaultsRO<UA_Boolean> {
   std::string path() override { return "Dummy/scalar_ro/bool"; }
-  typedef uint16_t minimumUserType;
+  typedef Boolean minimumUserType;
 };
 
 struct RegSomeInt64RO : ScalarDefaultsRO<UA_Int64> {
@@ -574,7 +574,7 @@ struct RegSomeStringRO : ScalarDefaultsRO<UA_String> {
 
 struct RegSomeBoolArrayRO : ArrayDefaultsRO<UA_Boolean> {
   std::string path() override { return "Dummy/array_ro/bool"; }
-  typedef uint16_t minimumUserType;
+  typedef Boolean minimumUserType;
 };
 
 struct RegSomeInt64ArrayRO : ArrayDefaultsRO<UA_Int64> {
@@ -625,49 +625,49 @@ struct RegSomeStringArrayRO : ArrayDefaultsRO<UA_String> {
 // use test fixture suite to have access to the fixture class members
 BOOST_FIXTURE_TEST_SUITE(s, OPCUALauncher)
 BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
-//  auto ubt = ChimeraTK::UnifiedBackendTest<>()
-//                 .addRegister<RegSomeInt16>()
-//                 .addRegister<RegSomeBool>()
-//                 .addRegister<RegSomeUInt16>()
-//                 .addRegister<RegSomeInt32>()
-//                 .addRegister<RegSomeUInt32>()
-//                 .addRegister<RegSomeInt64>()
-//                 .addRegister<RegSomeUInt64>()
-//                 .addRegister<RegSomeFloat>()
-//                 .addRegister<RegSomeDouble>()
-//                 .addRegister<RegSomeString>()
-//                 .addRegister<RegSomeBoolArray>()
-//                 .addRegister<RegSomeInt16Array>()
-//                 .addRegister<RegSomeUInt16Array>()
-//                 .addRegister<RegSomeInt32Array>()
-//                 .addRegister<RegSomeUInt32Array>()
-//                 .addRegister<RegSomeInt64Array>()
-//                 .addRegister<RegSomeUInt64Array>()
-//                 .addRegister<RegSomeFloatArray>()
-//                 .addRegister<RegSomeDoubleArray>()
-//                 .addRegister<RegSomeStringArray>()
-//                 .addRegister<RegSomeBoolRO>()
-//                 .addRegister<RegSomeInt16RO>()
-//                 .addRegister<RegSomeUInt16RO>()
-//                 .addRegister<RegSomeInt32RO>()
-//                 .addRegister<RegSomeUInt32RO>()
-//                 .addRegister<RegSomeInt64RO>()
-//                 .addRegister<RegSomeUInt64RO>()
-//                 .addRegister<RegSomeFloatRO>()
-//                 .addRegister<RegSomeDoubleRO>()
-//                 .addRegister<RegSomeStringRO>()
-//                 .addRegister<RegSomeBoolArrayRO>()
-//                 .addRegister<RegSomeInt16ArrayRO>()
-//                 .addRegister<RegSomeUInt16ArrayRO>()
-//                 .addRegister<RegSomeInt32ArrayRO>()
-//                 .addRegister<RegSomeUInt32ArrayRO>()
-//                 .addRegister<RegSomeInt64ArrayRO>()
-//                 .addRegister<RegSomeUInt64ArrayRO>()
-//                 .addRegister<RegSomeFloatArrayRO>()
-//                 .addRegister<RegSomeDoubleArrayRO>()
-//                 .addRegister<RegSomeStringArrayRO>();
+  auto ubt = ChimeraTK::UnifiedBackendTest<>()
+                 .addRegister<RegSomeInt16>()
+                 .addRegister<RegSomeBool>()
+                 .addRegister<RegSomeUInt16>()
+                 .addRegister<RegSomeInt32>()
+                 .addRegister<RegSomeUInt32>()
+                 .addRegister<RegSomeInt64>()
+                 .addRegister<RegSomeUInt64>()
+                 .addRegister<RegSomeFloat>()
+                 .addRegister<RegSomeDouble>()
+                 .addRegister<RegSomeString>()
+                 .addRegister<RegSomeBoolArray>()
+                 .addRegister<RegSomeInt16Array>()
+                 .addRegister<RegSomeUInt16Array>()
+                 .addRegister<RegSomeInt32Array>()
+                 .addRegister<RegSomeUInt32Array>()
+                 .addRegister<RegSomeInt64Array>()
+                 .addRegister<RegSomeUInt64Array>()
+                 .addRegister<RegSomeFloatArray>()
+                 .addRegister<RegSomeDoubleArray>()
+                 .addRegister<RegSomeStringArray>()
+                 .addRegister<RegSomeBoolRO>()
+                 .addRegister<RegSomeInt16RO>()
+                 .addRegister<RegSomeUInt16RO>()
+                 .addRegister<RegSomeInt32RO>()
+                 .addRegister<RegSomeUInt32RO>()
+                 .addRegister<RegSomeInt64RO>()
+                 .addRegister<RegSomeUInt64RO>()
+                 .addRegister<RegSomeFloatRO>()
+                 .addRegister<RegSomeDoubleRO>()
+                 .addRegister<RegSomeStringRO>()
+                 .addRegister<RegSomeBoolArrayRO>()
+                 .addRegister<RegSomeInt16ArrayRO>()
+                 .addRegister<RegSomeUInt16ArrayRO>()
+                 .addRegister<RegSomeInt32ArrayRO>()
+                 .addRegister<RegSomeUInt32ArrayRO>()
+                 .addRegister<RegSomeInt64ArrayRO>()
+                 .addRegister<RegSomeUInt64ArrayRO>()
+                 .addRegister<RegSomeFloatArrayRO>()
+                 .addRegister<RegSomeDoubleArrayRO>()
+                 .addRegister<RegSomeStringArrayRO>();
 //  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeBoolArray>().addRegister<RegSomeBool>().addRegister<RegSomeBoolArrayRO>().addRegister<RegSomeBoolRO>();
-  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeUInt32>();
+//  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeBool>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;

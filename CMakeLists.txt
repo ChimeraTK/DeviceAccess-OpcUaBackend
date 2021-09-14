@@ -7,7 +7,7 @@ set(${PROJECT_NAME}_PATCH_VERSION 02)
 include(cmake/set_version_numbers.cmake)
 
 include(cmake/add_dependency.cmake)
-add_dependency(ChimeraTK-DeviceAccess 02.00 REQUIRED)
+add_dependency(ChimeraTK-DeviceAccess 02.06 REQUIRED)
 add_dependency(open62541 01.02 REQUIRED)
 
 # add support for latest C++ standard to compiler flags

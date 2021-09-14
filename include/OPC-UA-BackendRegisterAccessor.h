@@ -88,13 +88,27 @@ namespace ChimeraTK {
       return UA_STRING((char*)std::to_string(x).c_str());
     }
   };
-
+  
   template <typename SourceType>
   class RangeCheckingDataConverter<std::string,SourceType>{
   public:
     std::string convert(SourceType& x){
       return std::to_string(x);
     }
+  };
+
+  //partial specialization of conversion from void
+  template<typename DestType>
+  class RangeCheckingDataConverter<DestType, Void> {
+   public:
+    DestType convert([[maybe_unused]] Void& x) { return DestType(); } // default constructed value
+  };
+  
+  //partial specialization of conversion to void
+  template<typename SourceType>
+  class RangeCheckingDataConverter<Void, SourceType> {
+   public:
+    Void convert([[maybe_unused]] SourceType& x) { return Void(); }
   };
 
 
@@ -132,6 +146,20 @@ namespace ChimeraTK {
     std::string convert(UA_String& x){
       return std::string((char*)x.data, x.length);
     }
+  };
+
+  //full specialization of conversion void to string (ambiguous if not defined)
+  template<>
+  class RangeCheckingDataConverter<UA_String, ChimeraTK::Void> {
+   public:
+    UA_String convert([[maybe_unused]] ChimeraTK::Void& x) { return UA_STRING("void"); }
+  };
+
+  //full specialization of conversion string to void (ambiguous if not defined)
+  template<>
+  class RangeCheckingDataConverter<ChimeraTK::Void, UA_String> {
+   public:
+    ChimeraTK::Void convert([[maybe_unused]] UA_String& x) { return ChimeraTK::Void(); }
   };
 
   /**
