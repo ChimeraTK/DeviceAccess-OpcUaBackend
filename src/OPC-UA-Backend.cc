@@ -231,6 +231,12 @@ namespace ChimeraTK{
     }
     UA_NodeId_copy(&node,&entry->_id);
     UA_Variant_delete(val);
+    
+    // Maximum number of decimal digits to display a float without loss in non-exponential display, including
+    // sign, leading 0, decimal dot and one extra digit to avoid rounding issues (hence the +4).
+    // This computation matches the one performed in the NumericAddressedBackend catalogue.
+    size_t floatMaxDigits = std::max(std::log10(std::numeric_limits<float>::max()),
+                                -std::log10(std::numeric_limits<float>::denorm_min())) + 4;
 
     switch(entry->_dataType){
       case 1: /*BOOL*/
