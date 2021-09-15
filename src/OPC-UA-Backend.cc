@@ -326,41 +326,37 @@ namespace ChimeraTK{
         entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::boolean,
                             true, true, 320, 300 );
         break;
+      case 2: /*SByte aka int8*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, true, 4, 300 );
+        break;
       case 3: /*BYTE aka uint8*/
         entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
                             true, false, 3, 300 );
-        break;
-      case 5: /*UInt16*/
-        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
-                            true, false, 6, 300 );
-        break;
-      case 7: /*UInt32*/
-        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
-                            true, false, 11, 300 );
-        break;
-      case 9: /*UInt64*/
-        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
-                            true, false, 320, 300 );
         break;
       case 4: /*Int16*/
         entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
                             true, true, 5, 300 );
         break;
+      case 5: /*UInt16*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, false, 6, 300 );
+        break;
       case 6: /*Int32*/
         entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
                             true, true, 10, 300 );
+        break;
+      case 7: /*UInt32*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, false, 11, 300 );
         break;
       case 8: /*Int64*/
         entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
                             true, true, 320, 300 );
         break;
-      case 2: /*SByte aka int8*/
+      case 9: /*UInt64*/
         entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
-                            true, true, 4, 300 );
-        break;
-      case 12: /*String*/
-        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::string,
-                            true, true, 320, 300 );
+                            true, false, 320, 300 );
         break;
       case 10: /*Float*/
         entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
@@ -369,6 +365,10 @@ namespace ChimeraTK{
       case 11: /*Double*/
         entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
                             false, true, 300, 300 );
+        break;
+      case 12: /*String*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::string,
+                            true, true, 320, 300 );
         break;
       default:
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
