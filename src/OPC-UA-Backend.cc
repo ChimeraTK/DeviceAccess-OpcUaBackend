@@ -246,6 +246,7 @@ namespace ChimeraTK{
     // connection is locked in fillCatalogue
     boost::shared_ptr<OpcUABackendRegisterInfo> entry;
     if(nodeName == nullptr){
+      // used when reading nodes from map file
       std::string localNodeName;
       if(node.identifierType == UA_NODEIDTYPE_STRING){
         localNodeName = std::string((char*)node.identifier.string.data, node.identifier.string.length);
@@ -255,8 +256,15 @@ namespace ChimeraTK{
       if(localNodeName.at(0) == '/'){
         localNodeName = localNodeName.substr(1,localNodeName.size()-1);
       }
+      // remove "Value" from node name
+      auto match = localNodeName.find("Value");
+      if(match == (localNodeName.length()-5)){
+        // remove "Value" only if it is at the end of the node name
+        localNodeName = localNodeName.substr(0, match);
+      }
       entry = boost::make_shared<OpcUABackendRegisterInfo>(_connection->serverAddress, localNodeName);
     } else {
+      // used when reading nodes from server
       entry = boost::make_shared<OpcUABackendRegisterInfo>(_connection->serverAddress, *(nodeName.get()));
     }
 
