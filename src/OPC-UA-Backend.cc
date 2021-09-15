@@ -315,31 +315,67 @@ namespace ChimeraTK{
     }
     UA_Variant_delete(val);
     UA_NodeId_copy(&node,&entry->_id);
+    // Maximum number of decimal digits to display a float without loss in non-exponential display, including
+    // sign, leading 0, decimal dot and one extra digit to avoid rounding issues (hence the +4).
+    // This computation matches the one performed in the NumericAddressedBackend catalogue.
+    size_t floatMaxDigits = std::max(std::log10(std::numeric_limits<float>::max()),
+                                -std::log10(std::numeric_limits<float>::denorm_min())) + 4;
 
-    if((entry->_dataType == 1 /*BOOL*/) ||
-       (entry->_dataType == 3 /*BYTE*/) ||
-       (entry->_dataType == 5 /*UInt16*/) ||
-       (entry->_dataType == 7 /*UInt32*/) ||
-       (entry->_dataType == 9 /*UInt64*/)){
-      entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
-                    true, false, 320, 300 );
-    } else if ((entry->_dataType == 4 /*Int16*/) ||
-        (entry->_dataType == 6 /*Int32*/) ||
-        (entry->_dataType == 8 /*Int64*/) ||
-        (entry->_dataType == 2 /*SByte*/)){
-      entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
-                          true, true, 320, 300 );
-    } else if (entry->_dataType == 12){
-      entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::string,
-                          true, true, 320, 300 );
-    } else if ((entry->_dataType == 11 /*Double*/) || (entry->_dataType == 10 /*Float*/)){
-      entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
-                          false, true, 320, 300 );
-    } else {
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                  "Failed to determine data type for node: %s  -> entry is not added to the catalogue." , entry->_nodeBrowseName.c_str());
-      return;
+    switch(entry->_dataType){
+      case 1: /*BOOL*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::boolean,
+                            true, true, 320, 300 );
+        break;
+      case 3: /*BYTE aka uint8*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, false, 3, 300 );
+        break;
+      case 5: /*UInt16*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, false, 6, 300 );
+        break;
+      case 7: /*UInt32*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, false, 11, 300 );
+        break;
+      case 9: /*UInt64*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, false, 320, 300 );
+        break;
+      case 4: /*Int16*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, true, 5, 300 );
+        break;
+      case 6: /*Int32*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, true, 10, 300 );
+        break;
+      case 8: /*Int64*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, true, 320, 300 );
+        break;
+      case 2: /*SByte aka int8*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            true, true, 4, 300 );
+        break;
+      case 12: /*String*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::string,
+                            true, true, 320, 300 );
+        break;
+      case 10: /*Float*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            false, true, floatMaxDigits, 300 );
+        break;
+      case 11: /*Double*/
+        entry->dataDescriptor = RegisterInfo::DataDescriptor( ChimeraTK::RegisterInfo::FundamentalType::numeric,
+                            false, true, 300, 300 );
+        break;
+      default:
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                          "Failed to determine data type for node: %s  -> entry is not added to the catalogue." , entry->_nodeBrowseName.c_str());
+        return;
     }
+
     entry->_accessModes.add(AccessMode::wait_for_new_data);
     //\ToDo: Test this here!!
     UA_Byte accessLevel;
