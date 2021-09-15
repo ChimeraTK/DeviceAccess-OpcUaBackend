@@ -174,10 +174,10 @@ namespace ChimeraTK{
         localNodeName = localNodeName.substr(1,localNodeName.size()-1);
       }
       // remove "Value" from node name
-      auto match = localNodeName.find_last_of("Value");
-      if(match == (localNodeName.length()-1)){
+      auto match = localNodeName.find("Value");
+      if(match == (localNodeName.length()-5)){
         // remove "Value" only if it is at the end of the node name
-        localNodeName = localNodeName.substr(0, localNodeName.length()-5);
+        localNodeName = localNodeName.substr(0, match);
       }
       entry = boost::make_shared<OpcUABackendRegisterInfo>(_connection->serverAddress, localNodeName);
     } else {
