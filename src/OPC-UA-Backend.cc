@@ -257,7 +257,7 @@ namespace ChimeraTK{
         localNodeName = localNodeName.substr(1,localNodeName.size()-1);
       }
       // remove "Value" from node name
-      auto match = localNodeName.find("Value");
+      auto match = localNodeName.rfind("Value");
       if(match == (localNodeName.length()-5)){
         // remove "Value" only if it is at the end of the node name
         localNodeName = localNodeName.substr(0, match);
