@@ -18,6 +18,8 @@ using namespace boost::unit_test_framework;
 #include <thread>
 #include <chrono>
 
+#include "DummyServer.h"
+
 UA_Boolean running = true;
 
 struct Server{
@@ -170,7 +172,6 @@ BOOST_AUTO_TEST_CASE(testWithServer) {
 
 }
 
-#include "DummyServer.h"
 BOOST_AUTO_TEST_CASE(testDummyServer){
   ThreadedOPCUAServer dummy;
   dummy.start();

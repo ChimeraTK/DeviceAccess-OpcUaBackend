@@ -31,8 +31,9 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
 
   #set_property(SOURCE ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C PROPERTY COMPILE_FLAGS "-std=c99")
   #SET_SOURCE_FILES_PROPERTIES( ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C  PROPERTIES LANGUAGE C )  
-  add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
+  add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
   target_link_libraries( testSimpleServer open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  target_include_directories(testSimpleServer PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
   add_test(testClient testSimpleServer)
   
   add_executable(testBrowse ${CMAKE_SOURCE_DIR}/test/testBrowse.C )
