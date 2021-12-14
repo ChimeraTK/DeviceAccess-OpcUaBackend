@@ -14,7 +14,7 @@
 using namespace boost::unit_test_framework;
 
 #include <signal.h>
-#include "open62541.h"
+#include <open62541/server_config_default.h>
 #include <thread>
 #include <chrono>
 
@@ -22,16 +22,12 @@ UA_Boolean running = true;
 
 struct Server{
   Server(){
-    UA_ServerConfig config = UA_ServerConfig_standard;
-    nl = UA_ServerNetworkLayerTCP(UA_ConnectionConfig_standard, 4840);
-    config.networkLayers = &nl;
-    config.networkLayersSize = 1;
-    server = UA_Server_new(config);
+    server = UA_Server_new();
+    UA_ServerConfig_setMinimal(UA_Server_getConfig(server), 4840, NULL);
   }
 
   ~Server(){
     UA_Server_delete(server);
-    nl.deleteMembers(&nl);
   }
 
   UA_Server *server;
@@ -52,27 +48,26 @@ struct Server{
 
   void addVariable() {
       /* Define the attribute of the myInteger variable node */
-      UA_VariableAttributes attr;
-      UA_VariableAttributes_init(&attr);
+      UA_VariableAttributes attr = UA_VariableAttributes_default;
       UA_Int32 myInteger = 42;
       UA_Variant_setScalar(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
-      attr.description = UA_LOCALIZEDTEXT("en_US","the answer");
-      attr.displayName = UA_LOCALIZEDTEXT("en_US","the answer");
+      attr.description = UA_LOCALIZEDTEXT_ALLOC("en_US","the answer");
+      attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US","the answer");
       attr.dataType = UA_TYPES[UA_TYPES_INT32].typeId;
 
       /* Add the variable node to the information model */
-      UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, "the.answer");
-      UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, "the answer");
+      UA_NodeId myIntegerNodeId = UA_NODEID("ns=1;s=the.answer");
+      UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(1, "the answer");
       UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
       UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
       UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,
                                 parentReferenceNodeId, myIntegerName,
-                                UA_NODEID_NULL, attr, NULL, NULL);
+                                UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
   }
 
   void
   writeVariableA() {
-      UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, "the.answer");
+      UA_NodeId myIntegerNodeId = UA_NODEID("ns1;s=the.answer");
 
       /* Write a different integer value */
       UA_Int32 myInteger = 43;
@@ -102,7 +97,7 @@ struct Server{
 
   void
   writeVariableB() {
-      UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, "the.answer");
+      UA_NodeId myIntegerNodeId = UA_NODEID("ns=1;s=the.answer");
 
       /* Write a different integer value */
       UA_Int32 myInteger = 42;
@@ -133,26 +128,46 @@ struct Server{
 
 Server* svr;
 
-void run(){
+//void run(){
+//  svr = new Server();
+//  svr->addVariable();
+//  svr->start();
+//  delete svr;
+//}
+
+void run1(){
   svr = new Server();
   svr->addVariable();
+  svr->start();
+}
+
+void run2(){
+//  svr->addVariable();
   svr->start();
   delete svr;
 }
 
+
 BOOST_AUTO_TEST_CASE(testWithServer) {
   // this thread is blocked by the server
-  std::thread t1(run);
+  std::thread t1(run1);
   // wait
-  std::this_thread::sleep_for(std::chrono::seconds(10));
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   svr->writeVariableA();
   std::this_thread::sleep_for(std::chrono::seconds(2));
   svr->writeVariableB();
-  std::this_thread::sleep_for(std::chrono::seconds(5));
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   // stop server - could also use svr->stop();
   running = false;
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   // join the server thread
   t1.join();
+
+  std::thread t2(run2);
+  std::this_thread::sleep_for(std::chrono::seconds(5));
+  running = false;
+  t2.join();
+
 }
 
 #include "DummyServer.h"

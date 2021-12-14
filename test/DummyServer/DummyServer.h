@@ -5,12 +5,12 @@
  *      Author: Klaus Zenker (HZDR)
  */
 
-//#pragma once
+#pragma once
 
-#ifndef DUMMY_SERVER_H_
-#define DUMMY_SERVER_H_
+#include <open62541/types.h>
+#include <open62541/server.h>
+#include <open62541/plugin/network.h>
 
-#include "open62541.h"
 
 #include <thread>
 #include <chrono>
@@ -45,10 +45,11 @@ struct OPCUAServer{
 
   ~OPCUAServer();
 
-  UA_ServerConfig _config;
   UA_Server *_server;
-  UA_ServerNetworkLayer _nl;
-  uint _port;
+
+  uint _port{0};
+
+  bool _configured{false};
 
   UA_Boolean running{true};
 
@@ -77,6 +78,7 @@ struct OPCUAServer{
   template <typename UAType>
   void setValue(std::string nodeName, const std::vector<UAType> &t, const size_t &length = 1);
 
+  // This is needed because std::vector<bool> is a special vector in the stl!
   void setValue(std::string nodeName, const std::vector<UA_Boolean> &t, const size_t &length = 1);
 
 
@@ -94,8 +96,8 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UAType> &t, c
   }
   UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   UA_Variant_delete(data);
-  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result.
-  std::this_thread::sleep_for(std::chrono::milliseconds(150));
+  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result. Nevertheless problems were observed so use 300ms.
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
 }
 
@@ -103,7 +105,7 @@ class ThreadedOPCUAServer {
 public:
   std::thread _serverThread;
 
-  ThreadedOPCUAServer(){ }
+  ThreadedOPCUAServer();
   ~ThreadedOPCUAServer();
 
   void start();
@@ -114,6 +116,6 @@ public:
   bool checkConnection(const ServerState &state = ServerState::On);
 
   OPCUAServer _server;
+private:
+  UA_Client* _client;
 };
-
-#endif /* DUMMY_SERVER_H_ */

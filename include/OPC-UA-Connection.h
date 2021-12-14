@@ -11,7 +11,9 @@
 #include <memory>
 #include <mutex>
 
-#include "open62541.h"
+#include <open62541/client_highlevel.h>
+#include <open62541/client_config_default.h>
+#include <open62541/plugin/log_stdout.h>
 
 namespace ChimeraTK{
 
@@ -27,8 +29,11 @@ struct OPCUAConnection{
   // Can not be a shared pointer because the struct is only defined in the source file...
 
   std::unique_ptr<UA_Client, UAClientDeleter> client;
-  UA_ClientConfig config;
+  UA_ClientConfig* config;
   std::string serverAddress;
+
+  std::atomic<UA_SecureChannelState> channelState;
+  std::atomic<UA_SessionState> sessionState;
 
   /**
    * This is used since async access is not supported by OPC-UA.
@@ -38,17 +43,30 @@ struct OPCUAConnection{
    */
   std::mutex client_lock;
 
-  /**
-   * This lock is used during setting up the connection to protect against multiple Device::Open() calls while the
-   * connection is set up.
-   */
-  std::mutex connection_lock;
-
   std::string username;
   std::string password;
 
   unsigned long port;
   unsigned long publishingInterval;
+
+  OPCUAConnection(const std::string &address, const std::string &username, const std::string &password, unsigned long port, unsigned long publishingInterval):
+    client(UA_Client_new()), config(UA_Client_getConfig(client.get())), serverAddress(address), channelState(UA_SECURECHANNELSTATE_FRESH),
+    sessionState(UA_SESSIONSTATE_CLOSED), username(username), password(password), port(port), publishingInterval(publishingInterval)
+  {UA_ClientConfig_setDefault(config);};
+
+  void close(){
+    auto ret = UA_Client_disconnect(client.get());
+    if(ret != UA_STATUSCODE_GOOD){
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        "Failed to disconnect from server when closing the device. Error: %s", UA_StatusCode_name(ret));
+    }
+  }
+
+
+  // Check connection state set by the callback function.
+  bool isConnected() const{
+    return (sessionState == UA_SESSIONSTATE_ACTIVATED && channelState == UA_SECURECHANNELSTATE_OPEN);
+  }
 };
 
 }

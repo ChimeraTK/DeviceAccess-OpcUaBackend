@@ -9,10 +9,10 @@
 #define OPC_UA_BACKEND_H_
 
 #include <ChimeraTK/DeviceBackendImpl.h>
+#include <ChimeraTK/RegisterPath.h>
 
 #include <boost/enable_shared_from_this.hpp>
 
-#include "open62541.h"
 #include "OPC-UA-Connection.h"
 #include "SubscriptionManager.h"
 
@@ -58,7 +58,7 @@ namespace ChimeraTK {
         path = RegisterPath(serverAddress)/RegisterPath(node_browseName);
       }
 
-      ~OpcUABackendRegisterInfo() {UA_NodeId_deleteMembers(&_id);}
+      virtual ~OpcUABackendRegisterInfo() {UA_NodeId_clear(&_id);}
 
       RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
 
@@ -83,19 +83,29 @@ namespace ChimeraTK {
       std::string _nodeBrowseName;
       std::string _description;
       std::string _unit;
-      UA_UInt32 _dataType;
+      UA_UInt32 _dataType{0};
       RegisterInfo::DataDescriptor dataDescriptor;
-      bool _isReadonly;
-      size_t _arrayLength;
+      bool _isReadonly{true};
+      size_t _arrayLength{0};
       AccessModeFlags _accessModes{};
       UA_NodeId _id;
 
   };
 
+  /**
+   * \remark Closing the an application using SIGINT will trigger closing the session. Thus, the state handler will trigger
+   * OPCUASubscriptionManager::deactivateAllAndPushException. At the same time, in the destructor of the Accessors the monitored
+   * items will be removed. This includes UA_Client_MonitoredItems_deleteSingle, which uses a timeout. Since both methods use the
+   * subscription manager mutex shutting down the application takes some time.
+   */
   class OpcUABackend : public DeviceBackendImpl{
   public:
     ~OpcUABackend();
     static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
+
+    static void
+    stateCallback(UA_Client *client, UA_SecureChannelState channelState,
+                  UA_SessionState sessionState, UA_StatusCode recoveryStatus);
   protected:
     OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "", const std::string &mapfile = "", const unsigned long &subscriptonPublishingInterval = 500);
 
@@ -142,6 +152,7 @@ namespace ChimeraTK {
         BackendRegisterer();
     };
     static BackendRegisterer backendRegisterer;
+    static std::map<UA_Client*, OpcUABackend*> backendClients;
 
 
     template<typename UAType, typename CTKType>
@@ -170,16 +181,24 @@ namespace ChimeraTK {
     std::string _mapfile;
 
     /**
+     * Protect against multiple calles of activateAsyncRead().
+     *
+     * This was observed for multiple LogicalNameMapping devices that reference the same device.
+     * In the end OPCUASubscriptionManager::start() was called multiple times because the new thread was not yet created when testing
+     * the thread in activateAsyncRead().
+     */
+    std::mutex _asyncReadLock;
+
+    /**
      * Connect the client. If called after client is connected the connection is checked
      * and if it is ok no new connection is established.
      */
     void connect();
 
     /**
-     * Delete the client connection and set the client pointer
-     * to nullptr
+     * Reset subscription.
      */
-    void deleteClient();
+    void resetClient();
 
     /**
      * Read the following node information:

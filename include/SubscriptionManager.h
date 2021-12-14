@@ -14,11 +14,12 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
-#include "open62541.h"
 #include <iostream>
 
 #include "OPC-UA-Backend.h"
 #include "OPC-UA-Connection.h"
+
+#include <open62541/plugin/log_stdout.h>
 
 namespace ChimeraTK{
   class OpcUABackendRegisterAccessorBase;
@@ -40,7 +41,6 @@ namespace ChimeraTK{
     bool operator==(const std::string& other){return _browseName == other;}
   };
 
-
   /**
    * Class handling the OPC UA subscriptions and monitored items.
    *
@@ -52,8 +52,16 @@ namespace ChimeraTK{
     OPCUASubscriptionManager(std::shared_ptr<OPCUAConnection> connection);
     ~OPCUASubscriptionManager();
 
+
+    static void
+    deleteSubscriptionCallback(UA_Client *client, UA_UInt32 subscriptionId, void *subscriptionContext) {
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                    "Subscription Id %u was deleted", subscriptionId);
+    }
     /**
      * Enable pushing values to the TransferElement future queue in the OPC UA callback function.
+     *
+     * \remark Holds item lock.
      */
     void activate();
 
@@ -61,15 +69,25 @@ namespace ChimeraTK{
      * Disable pushing values to the TransferElement future queue in the OPC UA callback function.
      * \ToDo: Should the following actions really be part of that method?
      * Unsubscribe all PVs from the OPC UA subscription.
-     * Reset client pointer.
+     * Stop the runClient loop in case it was acitve.
      * To work again a resetClient is required.
+     *
+     * \remark This method is called when holding the client lock
      */
     void deactivate();
 
     /**
      * Push exception to the TransferElement future queue and call deactivate(True) keeping the _item list.
+     * This is used in the responseHandler and when calling setException.
+     *
+     * \remark This method is called when holding the client lock
      */
-    void deactivateAllAndPushException();
+    void deactivateAllAndPushException(std::string message = "Exception reported by another accessor.");
+
+    /**
+     * Remove a the current subscription.
+     */
+    void removeSubscription();
 
 //    template<typename UAType, typename CTKType>
 //    void subscribe(const UA_NodeId& id, OpcUABackendRegisterAccessor<UAType, CTKType>* accessor);
@@ -79,25 +97,31 @@ namespace ChimeraTK{
      * In case the subscription is already created (device was opened) monitored items are added to the subscription.
      * In case asyncRead was already activated in the Device also activate is called and pushing to the TransferElement
      * future queue is enabled.
+     *
+     *  \remark Holds item lock.
      */
     void subscribe(const std::string &browseName, const UA_NodeId& node, OpcUABackendRegisterAccessorBase* accessor);
 
     void unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor);
 
+    /**
+     * Start the thread that updates data of accessors.
+     */
     void start();
 
+    /**
+     * Listen on the network and update accessors via the responseHandler. It is launched in a separate thread in start().
+     *
+     * \remark This method is called when holding the client lock
+     */
     void runClient();
 
-    void resetClient();
-
-    /**
-     * Check if client is up and subscriptions are valid
-     */
-    bool isActive();
+    void prepare();
 
     /// callback function for the client
 //    template <typename UAType>
-    static void responseHandler(UA_UInt32 monId, UA_DataValue *value, void *monContext);
+    static void responseHandler(UA_Client *client, UA_UInt32 subId, void *subContext,
+        UA_UInt32 monId, void *monContext, UA_DataValue *value);
 
     bool isRunning(){return _run;}
 
@@ -111,18 +135,42 @@ namespace ChimeraTK{
      *  to call UA_run_iterate all the time, which is done in this thread.
      */
     std::unique_ptr<std::thread> _opcuaThread{nullptr};
+
+    /*
+     *  This is necessary if the client connection is reset.
+     *  It will clear the subscription map and reset the MonitorItem status,
+     *  such that they will be added as monitored items again when calling addMonitoredItems.
+     *
+     *  \remark Holds item lock.
+     */
+
+    void resetMonitoredItems();
+
+    /**
+     * Clear list of monitored items.
+     *
+     * Use this to make sure the corresponding items are not activated any more. This is important if the accessors do not
+     * exist anymore when calling activate again.
+     *
+     *  \remark Holds item lock.
+     */
+    void removeMonitoredItems();
   private:
 
     /**
      * Here the items are registered to the server by the client.
      * This is to be called after the client is set up.
      * Called in activateAsyncRead()
+     *
+     * \remark It holds the client lock and item lock.
      */
     void addMonitoredItems();
 
     /**
      * Set up the subscription.
      * It is called by setClient().
+     *
+     * \remark This method holds the client lock.
      */
     void createSubscription();
 
@@ -134,22 +182,24 @@ namespace ChimeraTK{
 
     UA_UInt32 _subscriptionID;
 
-    // List of subscriptions (not OPC UA subscriptions)
+    // List of items to be monitored
     std::deque<MonitorItem> _items;
 
-    /// map of ctk subscriptions (not OPC UA subscriptions)
+    /*
+     *  map that links a monitoredItemId to the corresponding MonitoredItem in _items.
+     *  This is needed because when adding MonitorItems to _items the monitoredItemIds are not known.
+     *  Only after activate is called the monitoredItemIds are known. A map is used to allow fast
+     *  access in the responseHandler. Else one would have to search in _items for the item with the correct
+     *  monitoredItemId.
+     */
     std::map<UA_UInt32, MonitorItem*> subscriptionMap;
 
-    // Send exception to all accesors via the future queue
+    /*
+     *  Send exception to all accesors via the future queue.
+     * \remark Holds item lock.
+     */
     void handleException(const std::string &msg);
 
-    /*
-     *  This is necessary if the client connection is reset.
-     *  It will clear the subscription map and reset the MonitorItem status,
-     *  such that they will be added as monitored items again when calling addMonitoredItems.
-     */
-
-    void resetMonitoredItems();
   };
 }
 

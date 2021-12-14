@@ -9,6 +9,11 @@
 #include <vector>
 
 
+#include <open62541/plugin/log_stdout.h>
+#include <open62541/server_config_default.h>
+#include <open62541/network_tcp.h>
+#include <open62541/client_config_default.h>
+
 #include <boost/fusion/include/for_each.hpp>
 #include <boost/fusion/include/at_key.hpp>
 
@@ -42,13 +47,16 @@ struct VariableAttacher{
   VariableAttacher(UA_NodeId parent, UA_Server* server, bool isArray = false, bool readOnly = false):
   _parent(parent), _server(server), _isArray(isArray), _readOnly(readOnly){}
 
+  ~VariableAttacher(){
+    UA_NodeId_clear(&_parent);
+  }
+
   template<typename PAIR>
   void operator()(PAIR& pair) const{
     typedef typename PAIR::first_type UAType;
     auto mypair = pair.second;
     /* Define the attribute of the myInteger variable node */
-    UA_VariableAttributes attr;
-    UA_VariableAttributes_init(&attr);
+    UA_VariableAttributes attr = UA_VariableAttributes_default;
     UAType data = 42;
     std::vector<UAType> v = {42,42,42,42,42};
     std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
@@ -67,8 +75,9 @@ struct VariableAttacher{
       attr.valueRank = -1;
 
     }
-    attr.description = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
-    attr.displayName = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+    UA_LocalizedText locText = UA_LOCALIZEDTEXT_ALLOC("en_US",&mypair.first[0]);
+    attr.description = locText;
+    attr.displayName = locText;
     attr.dataType = mypair.second.typeId;
     attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
     attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
@@ -85,19 +94,22 @@ struct VariableAttacher{
     UA_QualifiedName nodeName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
     UA_Server_addVariableNode(_server, nodeId, _parent,
         UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), nodeName,
-                              UA_NODEID_NULL, attr, NULL, NULL);
+        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
+                      "Trying to add node:  %s with name: %s" , name.c_str(), mypair.first.c_str());
+    UA_LocalizedText_clear(&locText);
+    for(size_t i = 0; i < 5; ++i){
+      UA_clear(&v[i], &UA_TYPES[mypair.second.typeIndex]);
+    }
   }
 
   void operator()(fusion::pair<UA_String, std::pair<std::string,UA_DataType> >& pair) const{
 //      auto mypair = fusion::at_key<UA_String>(m);
     auto mypair = pair.second;
     /* Define the attribute of the myInteger variable node */
-    UA_VariableAttributes attr;
-    UA_VariableAttributes_init(&attr);
+    UA_VariableAttributes attr = UA_VariableAttributes_default;
     std::string strData = "42";
-    std::vector<UA_String> v = {UA_STRING("42"), UA_STRING("42"),UA_STRING("42"),UA_STRING("42"),UA_STRING("42")};
+    std::vector<UA_String> v = {UA_String_fromChars("42"), UA_String_fromChars("42"),UA_String_fromChars("42"),UA_String_fromChars("42"),UA_String_fromChars("42")};
     UA_String data = UA_STRING((char*)strData.c_str());
     std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
     name = name + "/" + mypair.first;
@@ -113,28 +125,32 @@ struct VariableAttacher{
       UA_Variant_setScalar(&attr.value, &data, &UA_TYPES[mypair.second.typeIndex]);
       attr.valueRank = -1;
     }
-
-    attr.description = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
-    attr.displayName = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+    UA_LocalizedText locText = UA_LOCALIZEDTEXT_ALLOC("en_US",&mypair.first[0]);
+    attr.description = locText;
+    attr.displayName = locText;
     attr.dataType = mypair.second.typeId;
     attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
     attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
     if(_readOnly){
-      attr.accessLevel = 1;
-      attr.userAccessLevel = 1;
+      attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+      attr.userAccessLevel = UA_ACCESSLEVELMASK_READ;
     } else {
-      attr.accessLevel = 3;
-      attr.userAccessLevel = 3;
+      attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+      attr.userAccessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;;
     }
 
     /* Add the variable node to the information model */
-    UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, &name[0]);
-    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-    UA_Server_addVariableNode(_server, myIntegerNodeId, _parent,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myIntegerName,
-                              UA_NODEID_NULL, attr, NULL, NULL);
+    UA_NodeId myNodeId = UA_NODEID_STRING(1, &name[0]);
+    UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
+    UA_Server_addVariableNode(_server, myNodeId, _parent,
+        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
+        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
+                      "Trying to add node:  %s with name: %s" , name.c_str(), mypair.first.c_str());
+    UA_LocalizedText_clear(&locText);
+    for(size_t i = 0; i < 5; ++i){
+      UA_String_clear(&v[i]);
+    }
   }
 
   void operator()(fusion::pair<UA_Boolean, std::pair<std::string,UA_DataType> >& pair) const{
@@ -161,90 +177,107 @@ struct VariableAttacher{
       attr.valueRank = -1;
     }
 
-    attr.description = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
-    attr.displayName = UA_LOCALIZEDTEXT("en_US",&mypair.first[0]);
+    UA_LocalizedText locText = UA_LOCALIZEDTEXT_ALLOC("en_US",&mypair.first[0]);
+    attr.description = locText;
+    attr.displayName = locText;
     attr.dataType = mypair.second.typeId;
     attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
     attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
     if(_readOnly){
-      attr.accessLevel = 1;
-      attr.userAccessLevel = 1;
+      attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+      attr.userAccessLevel = UA_ACCESSLEVELMASK_READ;
     } else {
-      attr.accessLevel = 3;
-      attr.userAccessLevel = 3;
+      attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+      attr.userAccessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
     }
 
     /* Add the variable node to the information model */
-    UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, &name[0]);
-    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-    UA_Server_addVariableNode(_server, myIntegerNodeId, _parent,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myIntegerName,
-                              UA_NODEID_NULL, attr, NULL, NULL);
+    UA_NodeId myNodeId = UA_NODEID_STRING(1, &name[0]);
+    UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
+    UA_Server_addVariableNode(_server, myNodeId, _parent,
+        UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
+        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Trying to add node:  %s with name: " , name.c_str(), mypair.first.c_str());
+                      "Trying to add node:  %s with name: %s" , name.c_str(), mypair.first.c_str());
+    UA_LocalizedText_clear(&locText);
   }
-
 };
 
-OPCUAServer::OPCUAServer(): _config(UA_ServerConfig_standard), _server(nullptr){
+OPCUAServer::OPCUAServer(): _server(nullptr){
+  /**
+   *  A single random port will be used for all tests.
+   *  This protects against problems when running the unit tests on the same machine multiple times.
+   */
   std::random_device rd;
   std::uniform_int_distribution<uint> dist(20000, 22000);
   _port = dist(rd);
-//  _port = 4848;
+  _configured = false;
 }
 
 OPCUAServer::~OPCUAServer(){
   UA_Server_delete(_server);
-  _nl.deleteMembers(&_nl);
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                            "Destroyed OPCUAServer object.");
+
 }
 
 void OPCUAServer::start(){
-  _nl = UA_ServerNetworkLayerTCP(UA_ConnectionConfig_standard, _port);
-  _config.networkLayers = &_nl;
-  _config.networkLayersSize = 1;
-  _server = UA_Server_new(_config);
-  running = true;
-
+  // delete server if it was used already before
+  if(_configured){
+    UA_Server_delete(_server);
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                              "Destroyed OPCUAServer object.");
+  }
+  // set up the server
+  _server = UA_Server_new();
+  UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
   addVariables();
-
+  _configured = true;
+  running = true;
+  // run the server
   UA_Server_run(_server, &running);
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                            "Finished running the server.");
+
 }
 
 void OPCUAServer::addFolder(std::string name, UA_NodeId parent){
   std::string displayName = name.substr(name.find_last_of("/")+1,name.size());
-  UA_ObjectAttributes attrObj;
-  UA_ObjectAttributes_init(&attrObj);
-  attrObj.description = UA_LOCALIZEDTEXT("en_US",&displayName[0]);
-  attrObj.displayName = UA_LOCALIZEDTEXT("en_US",&displayName[0]);
+  UA_ObjectAttributes attrObj = UA_ObjectAttributes_default;
+  attrObj.description = UA_LOCALIZEDTEXT_ALLOC("en_US",&displayName[0]);
+  attrObj.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US",&displayName[0]);
   UA_QualifiedName qname = UA_QUALIFIEDNAME(1, &displayName[0]);
   UA_NodeId objNode = UA_NODEID_STRING(1, &name[0]);
   UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
   UA_Server_addObjectNode(_server, objNode, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
       UA_QUALIFIEDNAME(1, (char*)name.c_str()), UA_NODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), attrObj, NULL, NULL);
+  UA_ObjectAttributes_clear(&attrObj);
 }
 
 void OPCUAServer::addVariables(){
   /* Add object node */
   // Create our toplevel instance
-  UA_ObjectAttributes oAttr;
-  UA_ObjectAttributes_init(&oAttr);
-  // Classcast to prevent Warnings
-  oAttr.displayName = UA_LOCALIZEDTEXT((char*)"en_US", "Dummy");
-  oAttr.description = UA_LOCALIZEDTEXT((char*)"en_US", "Dummy");
-  UA_Server_addObjectNode(_server, UA_NODEID_STRING(1, "Dummy"),
+  UA_ObjectAttributes oAttr = UA_ObjectAttributes_default;
+  oAttr.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US", "Dummy");
+  oAttr.description = UA_LOCALIZEDTEXT_ALLOC("en_US", "Dummy");
+  UA_NodeId id = UA_NODEID("ns=1;s=Dummy");
+  UA_QualifiedName qName = UA_QUALIFIEDNAME_ALLOC(1, "Dummy");
+  UA_Server_addObjectNode(_server, id,
       UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
                           UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-                          UA_QUALIFIEDNAME(1, "Dummy"),
-                          UA_NODEID_NULL, oAttr, NULL, NULL);
-  addFolder("Dummy/scalar", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar"), _server, false, false));
-  addFolder("Dummy/array", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array"), _server, true, false));
-  addFolder("Dummy/scalar_ro", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/scalar_ro"), _server, false, true));
-  addFolder("Dummy/array_ro", UA_NODEID_STRING(1,"Dummy"));
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID_STRING(1,"Dummy/array_ro"), _server, true, true));
-
+                          qName,
+                          UA_NODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), oAttr, NULL, NULL);
+  UA_QualifiedName_clear(&qName);
+  addFolder("Dummy/scalar", id);
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar"), _server, false, false));
+  addFolder("Dummy/array", id);
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/array"), _server, true, false));
+  addFolder("Dummy/scalar_ro", id);
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar_ro"), _server, false, true));
+  addFolder("Dummy/array_ro", id);
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/array_ro"), _server, true, true));
+  UA_NodeId_clear(&id);
+  UA_ObjectAttributes_clear(&oAttr);
 }
 
 UA_Variant* OPCUAServer::getValue(std::string nodeName){
@@ -270,14 +303,17 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean> &
   }
   UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   UA_Variant_delete(data);
-  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result.
-  std::this_thread::sleep_for(std::chrono::milliseconds(150));
+  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result. Nevertheless problems were observed so use 300ms.
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
 }
 
 void ThreadedOPCUAServer::start(){
   if(_serverThread.joinable())
     _serverThread.join();
+//  auto port = _server->_port;
+//  _server.reset(new OPCUAServer());
+//  _server->_port = port;
   _serverThread = std::thread{&OPCUAServer::start, &_server};
   if(!checkConnection(ServerState::On))
     throw std::runtime_error("Failed to connect to the test server!");
@@ -285,19 +321,23 @@ void ThreadedOPCUAServer::start(){
                           "Test server is set up and running.");
 }
 
+ThreadedOPCUAServer::ThreadedOPCUAServer():_client(UA_Client_new()){
+  UA_ClientConfig_setDefault(UA_Client_getConfig(_client));
+}
+
 ThreadedOPCUAServer::~ThreadedOPCUAServer(){
+  UA_Client_delete(_client); /* Disconnects the client internally */
   _server.stop();
   _serverThread.join();
 }
 
 bool ThreadedOPCUAServer::checkConnection(const ServerState &state){
-  UA_Client* client = UA_Client_new(UA_ClientConfig_standard);
   /** Connect **/
   UA_StatusCode retval;
   std::string serverAddress("opc.tcp://localhost:"+std::to_string(_server._port));
   uint time = 0;
   while(retval != UA_STATUSCODE_GOOD){
-    retval = UA_Client_connect(client, serverAddress.c_str());
+    retval = UA_Client_connect(_client, serverAddress.c_str());
     if(state == ServerState::On){
       if(retval == UA_STATUSCODE_GOOD)
         break;
@@ -313,6 +353,5 @@ bool ThreadedOPCUAServer::checkConnection(const ServerState &state){
       return false;
     }
   }
-  UA_Client_delete(client); /* Disconnects the client internally */
   return true;
 }

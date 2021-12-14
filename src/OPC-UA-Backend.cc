@@ -9,12 +9,17 @@
 #include "OPC-UA-BackendRegisterAccessor.h"
 #include "SubscriptionManager.h"
 
-#include <ChimeraTK/BackendFactory.h>
-#include <ChimeraTK/DeviceAccessVersion.h>
+#include <open62541/client_config_default.h>
+#include <open62541/plugin/log_stdout.h>
 
+#include <ChimeraTK/BackendFactory.h>
+#include <ChimeraTK/RegisterInfo.h>
+#include <ChimeraTK/DeviceAccessVersion.h>
+#include <ChimeraTK/Exception.h>
 #include <string>
 #include <fstream>
 
+#include <boost/make_shared.hpp>
 #include <boost/tokenizer.hpp>
 typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
 
@@ -33,30 +38,106 @@ extern "C"{
 
 namespace ChimeraTK{
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
+  std::map<UA_Client*, OpcUABackend*> OpcUABackend::backendClients;
+
+  void OpcUABackend::stateCallback(UA_Client *client, UA_SecureChannelState channelState,
+              UA_SessionState sessionState, UA_StatusCode recoveryStatus) {
+    if(OpcUABackend::backendClients.count(client) == 0){
+      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "No client found in the stateCallback.");
+      return;
+    }
+    OpcUABackend::backendClients[client]->_connection->channelState = channelState;
+    OpcUABackend::backendClients[client]->_connection->sessionState = sessionState;
+    switch(channelState) {
+      case UA_SECURECHANNELSTATE_CLOSED:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
+        break;
+      case UA_SECURECHANNELSTATE_HEL_SENT:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for HEL");
+        break;
+      case UA_SECURECHANNELSTATE_OPN_SENT:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
+        break;
+      case UA_SECURECHANNELSTATE_OPEN:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
+        break;
+      case UA_SECURECHANNELSTATE_FRESH:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "SecureChannel state: fresh");
+        break;
+      case UA_SECURECHANNELSTATE_HEL_RECEIVED:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Hel received");
+        break;
+      case UA_SECURECHANNELSTATE_ACK_SENT:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ACK");
+        break;
+      case UA_SECURECHANNELSTATE_ACK_RECEIVED:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "ACK received");
+        break;
+      case UA_SECURECHANNELSTATE_CLOSING:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing secure channel");
+        break;
+      default:
+        break;
+    }
+    switch(sessionState) {
+      case UA_SESSIONSTATE_ACTIVATED:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activated.");
+        break;
+      case UA_SESSIONSTATE_CLOSED:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session disconnected.");
+        break;
+      case UA_SESSIONSTATE_CLOSING:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session is closing...");
+        break;
+      case UA_SESSIONSTATE_CREATE_REQUESTED:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session create requested.");
+        break;
+      case UA_SESSIONSTATE_ACTIVATE_REQUESTED:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activate requested.");
+        break;
+      case UA_SESSIONSTATE_CREATED:
+        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session created.");
+        break;
+
+      default:
+        break;
+    }
+    if(sessionState == UA_SESSIONSTATE_ACTIVATED && channelState == UA_SECURECHANNELSTATE_OPEN)
+      OpcUABackend::backendClients[client]->_isFunctional = true;
+    else
+      OpcUABackend::backendClients[client]->_isFunctional = false;
+
+    // when closing the device this does not need to be done
+    if(OpcUABackend::backendClients[client]->_opened){
+      if(!OpcUABackend::backendClients[client]->_isFunctional && OpcUABackend::backendClients[client]->_subscriptionManager){
+        if (OpcUABackend::backendClients[client]->_subscriptionManager->isRunning())
+          OpcUABackend::backendClients[client]->_subscriptionManager->deactivateAllAndPushException("Client session is not open any more.");
+      }
+    }
+  }
 
   OpcUABackend::OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username, const std::string &password, const std::string &mapfile, const unsigned long &subscriptonPublishingInterval):
       _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile){
-    _connection = std::make_unique<OPCUAConnection>();
-    _connection->serverAddress = fileAddress;
-    _connection->port = port;
-    _connection->username = username;
-    _connection->password = password;
-    _connection->config = UA_ClientConfig_standard;
-    _connection->publishingInterval = subscriptonPublishingInterval;
+    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, port, subscriptonPublishingInterval);
+    _connection->config->stateCallback = stateCallback;
+
+    OpcUABackend::backendClients[_connection->client.get()] = this;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
     /* Registers are added before open() is called in ApplicationCore.
      * Since in the registration the catalog is needed we connect already
      * here and create the catalog.
      */
-    //\ToDo: When using open62541 v1.1 set up callback function here to receive callback on state change.
-//    _config->stateCallback = ...
-    std::lock_guard<std::mutex> lock(_connection->connection_lock);
     connect();
     fillCatalogue();
     _catalogue_filled = true;
     _isFunctional = true;
   }
 
+  OpcUABackend::~OpcUABackend() {
+    if(_opened)
+      close();
+    OpcUABackend::backendClients.erase(_connection->client.get());
+  };
   void OpcUABackend::browseRecursive(UA_NodeId startingNode) {
     // connection is locked in fillCatalogue
     UA_BrowseDescription *bd = UA_BrowseDescription_new();
@@ -85,8 +166,8 @@ namespace ChimeraTK{
         }
     }
     bd->nodeId = UA_NODEID_NULL;
-    UA_BrowseRequest_deleteMembers(&browseRequest);
-    UA_BrowseResponse_deleteMembers(&brp);
+    UA_BrowseRequest_clear(&browseRequest);
+    UA_BrowseResponse_clear(&brp);
   }
 
   void OpcUABackend::getNodesFromMapfile(){
@@ -95,14 +176,14 @@ namespace ChimeraTK{
     std::ifstream mapfile (_mapfile);
     if (mapfile.is_open()) {
       while (std::getline(mapfile,line)) {
-        if(line.empty())
+        if(line.empty() || line[0] == '#')
           continue;
         tokenizer tok{line, sep};
         size_t nTokens = std::distance(tok.begin(), tok.end());
         if (!(nTokens == 2 || nTokens == 3)){
           UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Wrong number of tokens (%zu) in opcua mapfile %s line (-> line is ignored): \n %s",
-                    nTokens, _mapfile.c_str(), line.c_str());
+                    "Wrong number of tokens (%s) in opcua mapfile %s line (-> line is ignored): \n %s",
+                    std::to_string(nTokens).c_str(), _mapfile.c_str(), line.c_str());
           continue;
         }
         auto it = tok.begin();
@@ -130,7 +211,7 @@ namespace ChimeraTK{
           } catch (std::invalid_argument &innerError){
             UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                       "Failed reading the following line from mapping file %s:\n %s", _mapfile.c_str(), line.c_str());
-          } catch (std::out_of_range &rangeError){
+          } catch (std::out_of_range &e){
             UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                       "Failed reading the following line from mapping file %s (Namespace id is out of range!):\n %s", _mapfile.c_str(), line.c_str());
           }
@@ -141,6 +222,8 @@ namespace ChimeraTK{
       }
       mapfile.close();
     } else {
+      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                      "Failed reading opcua mapfile: %s", _mapfile.c_str());
       ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
     }
   }
@@ -222,6 +305,7 @@ namespace ChimeraTK{
     if(UA_Variant_isScalar(val)){
       entry->_arrayLength = 1;
     } else if(val->arrayLength == 0){
+      UA_Variant_delete(val);
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
           "Array length of variable: %s  is 0!. Variable is not added to the catalog."
           , entry->_nodeBrowseName.c_str());
@@ -229,9 +313,8 @@ namespace ChimeraTK{
     } else {
       entry->_arrayLength = val->arrayLength;
     }
-    UA_NodeId_copy(&node,&entry->_id);
     UA_Variant_delete(val);
-    
+    UA_NodeId_copy(&node,&entry->_id);
     // Maximum number of decimal digits to display a float without loss in non-exponential display, including
     // sign, leading 0, decimal dot and one extra digit to avoid rounding issues (hence the +4).
     // This computation matches the one performed in the NumericAddressedBackend catalogue.
@@ -292,10 +375,11 @@ namespace ChimeraTK{
                           "Failed to determine data type for node: %s  -> entry is not added to the catalogue." , entry->_nodeBrowseName.c_str());
         return;
     }
+
     entry->_accessModes.add(AccessMode::wait_for_new_data);
     //\ToDo: Test this here!!
     UA_Byte accessLevel;
-    retval = UA_Client_readAccessLevelAttribute(_connection->client.get(),entry->_id,&accessLevel);
+    retval = UA_Client_readAccessLevelAttribute(_connection->client.get(),node,&accessLevel);
     if(retval != UA_STATUSCODE_GOOD){
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                 "Failed to read access level from variable: %s with reason: %s. Variable is not added to the catalog."
@@ -311,31 +395,35 @@ namespace ChimeraTK{
 
   }
 
-  void OpcUABackend::deleteClient(){
-    if(_connection->client && _subscriptionManager)
-      _subscriptionManager->deactivate();
-    std::lock_guard<std::mutex> lock(_connection->client_lock);
-    _connection->client.reset();/* Disconnects the client internally */
-    _isFunctional = false;
+  void OpcUABackend::resetClient(){
+    if(_subscriptionManager){
+      {
+        std::lock_guard<std::mutex> lock(_connection->client_lock);
+        _subscriptionManager->deactivate();
+      }
+      _subscriptionManager->resetMonitoredItems();
+    }
   }
+
   void OpcUABackend::open() {
-    std::lock_guard<std::mutex> connectionLock(_connection->connection_lock);
     /* Normally client is already connected in the constructor.
      * But open() is also called by ApplicationCore in case an error
      * was detected by the Backend (i.e. an exception was thrown
      * by one of the RegisterAccessors).
      */
-    UA_ConnectionState state;
-    {
-      std::lock_guard<std::mutex> clientLock(_connection->client_lock);
-      state = UA_Client_getConnectionState(_connection->client.get());
-    }
+
     // if an error was seen by the accessor the error is in the queue but as long as no read happened setException is not called
-    // but in the tests the the device is reset without calling read in between -> so we need to check the connection here
-    // -> to make sure the Subscription intgernal thread is stopped.
-    if(!_isFunctional || state != UA_CONNECTION_ESTABLISHED){
+    // but in the tests the device is reset without calling read in between -> so we need to check the connection here
+    // -> to make sure the Subscription internal thread is stopped.
+    if(!_isFunctional || !isConnected()){
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                   "Opening the device: %s" , _connection->serverAddress.c_str());
+      if(_subscriptionManager){
+        if(_subscriptionManager->_opcuaThread && _subscriptionManager->_opcuaThread->joinable()){
+          _subscriptionManager->_opcuaThread->join();
+          _subscriptionManager->_opcuaThread.reset(nullptr);
+        }
+      }
       connect();
     }
 
@@ -344,70 +432,69 @@ namespace ChimeraTK{
       _catalogue_filled = true;
     }
     _opened = true;
+    // wait at maximum 100ms for the client to come up
+    uint i = 0;
+    while(!isConnected()){
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      ++i;
+      if(i>4)
+        throw ChimeraTK::runtime_error("Connection could not be established.");
+    }
     _isFunctional = true;
   }
 
   void OpcUABackend::close() {
-    //ToDo: What to do with the subscription manager?
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+    _opened = false;
+    _isFunctional = false;
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                     "Closing the device: %s" , _connection->serverAddress.c_str());
-    deleteClient();
+    resetClient();
+    if(_subscriptionManager){
+      _subscriptionManager->removeMonitoredItems();
+    }
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
 //    _catalogue_mutable = RegisterCatalogue();
 //    _catalogue_filled = false;
-    _opened = false;
-    _isFunctional = false;
+    _connection->close();
   }
 
   void OpcUABackend::connect(){
-//    if(_client == nullptr || getConnectionState() != UA_CLIENTSTATE_CONNECTED || !isFunctional()){
-      if(_connection->client)
-        deleteClient();
-      UA_StatusCode retval;
-      {
-        std::lock_guard<std::mutex> lock(_connection->client_lock);
-        _connection->client.reset(UA_Client_new(_connection->config));
-        /** Connect **/
-        if(UA_Client_getState(_connection->client.get()) != UA_CLIENTSTATE_READY){
-          deleteClient();
-          throw ChimeraTK::runtime_error("Failed to set up OPC-UA client");
-        }
-        if(_connection->username.empty() || _connection->password.empty()){
-          retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
-        } else {
-          retval = UA_Client_connect_username(_connection->client.get(), _connection->serverAddress.c_str(), _connection->username.c_str(), _connection->password.c_str());
-        }
-      }
-      if(retval != UA_STATUSCODE_GOOD) {
-        deleteClient();
-        std::stringstream ss;
-        ss << "Failed to connect to opc server: " <<  _connection->serverAddress << " with reason: " << UA_StatusCode_name(retval);
-        throw ChimeraTK::runtime_error(ss.str());
+    resetClient();
+    UA_StatusCode retval;
+    {
+      std::lock_guard<std::mutex> lock(_connection->client_lock);
+      /** Connect **/
+      if(_connection->username.empty() || _connection->password.empty()){
+        retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
       } else {
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Connection established:  %s " , _connection->serverAddress.c_str());
+        retval = UA_Client_connectUsername(_connection->client.get(), _connection->serverAddress.c_str(), _connection->username.c_str(), _connection->password.c_str());
       }
-      // if already setup subscriptions where used
-      if(_subscriptionManager)
-        _subscriptionManager->resetClient();
-//    }
+    }
+    if(retval != UA_STATUSCODE_GOOD) {
+      std::stringstream ss;
+      ss << "Failed to connect to opc server: " <<  _connection->serverAddress << " with reason: " << UA_StatusCode_name(retval);
+      throw ChimeraTK::runtime_error(ss.str());
+    } else {
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                  "Connection established:  %s " , _connection->serverAddress.c_str());
+    }
+    // if already setup subscriptions where used
+    if(_subscriptionManager)
+      _subscriptionManager->prepare();
+
   }
 
   bool OpcUABackend::isFunctional() const {
-    //\ToDo: Check why connection is not accessable here and why UA_Client_getState(_client) is not working...
-    // \ToDo: Use stateCallback with version 1.1
-//    if(_client->connection->state != UA_CONNECTION_ESTABLISHED)
-//      return false;
-//    else
-//      return true;
-    if (!_connection->client || !_isFunctional){
-      return false;
-    } else {
+    // isFunctional is also set by setException!
+    if (_connection->isConnected() && _isFunctional){
       return true;
+    } else {
+      return false;
     }
   }
 
   void OpcUABackend::activateAsyncRead()noexcept{
+    std::lock_guard<std::mutex> lock(_asyncReadLock);
     if(!_opened || !_isFunctional)
       return;
     if(!_subscriptionManager)
@@ -415,7 +502,7 @@ namespace ChimeraTK{
     _subscriptionManager->activate();
 
     //Check if thread is already running-> happens if a second logicalNameMappingBackend is calling activateAsyncRead after a first one called activateAsyncRead already
-    if(!_subscriptionManager->_opcuaThread){
+    if(_subscriptionManager->_opcuaThread == nullptr){
       _subscriptionManager->start();
       // sleep twice the publishing interval to make sure intital values are written
       std::this_thread::sleep_for(std::chrono::milliseconds(2*_connection->publishingInterval));
@@ -429,9 +516,9 @@ namespace ChimeraTK{
 
   void OpcUABackend::setException(){
     _isFunctional = false;
+    std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(_subscriptionManager)
       _subscriptionManager->deactivateAllAndPushException();
-    deleteClient();
   }
 
   template<typename UserType>
@@ -457,7 +544,7 @@ namespace ChimeraTK{
     if(numberOfWords + wordOffsetInRegister > info->_arrayLength ||
        (numberOfWords == 0 && wordOffsetInRegister > 0)){
       std::stringstream ss;
-      ss << "Requested number of words/elements ( " << numberOfWords << ") with offset " << wordOffsetInRegister << " exceeds the number of available words/elements: " << info->_arrayLength;
+      ss << "Requested number of words/elements ( " << numberOfWords << ") with offset " + wordOffsetInRegister << " exceeds the number of available words/elements: " << info->_arrayLength;
       throw ChimeraTK::logic_error(ss.str());
     }
 
@@ -509,8 +596,7 @@ namespace ChimeraTK{
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map", "publishingInterval"});
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                "BackendRegisterer: registered backend type opcua");
+    std::cout << "BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
   const RegisterCatalogue& OpcUABackend::getRegisterCatalogue() const {
@@ -528,9 +614,5 @@ namespace ChimeraTK{
     if(!parameters["publishingInterval"].empty())
       publishingInterval = std::stoul(parameters["publishingInterval"]);
     return boost::shared_ptr<DeviceBackend> (new OpcUABackend(serverAddress, port, parameters["username"], parameters["password"], parameters["map"], publishingInterval));
-  }
-
-  OpcUABackend::~OpcUABackend(){
-    deleteClient();
   }
 }
