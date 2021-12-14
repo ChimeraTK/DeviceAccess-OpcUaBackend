@@ -176,6 +176,7 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults{
 
 };
 
+
 template <>
 struct ScalarDefaultsRO<UA_String> : ScalarDefaults<UA_String>{
   bool isWriteable() override {return false;};
@@ -666,15 +667,12 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
                  .addRegister<RegSomeFloatArrayRO>()
                  .addRegister<RegSomeDoubleArrayRO>()
                  .addRegister<RegSomeStringArrayRO>();
-//  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeBoolArray>().addRegister<RegSomeBool>().addRegister<RegSomeBoolArrayRO>().addRegister<RegSomeBoolRO>();
-//  auto ubt = ChimeraTK::UnifiedBackendTest<>().addRegister<RegSomeBool>();
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
   // minimum publishing interval on the server is 100ms
   ss << "(" << path << "?port=" << port << "&publishingInterval=100)";
-
-  ubt.runTests(ss.str(),"");
+  ubt.runTests(ss.str());
 }
 
 BOOST_AUTO_TEST_SUITE_END()

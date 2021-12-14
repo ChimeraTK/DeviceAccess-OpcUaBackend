@@ -7,6 +7,19 @@
 
 #include "VersionMapper.h"
 
+VersionMapper::VersionMapper(){
+  // 11h is chosen because it is the only time point in GMT were the date is the same all over the globe
+  const std::time_t epoch_plus_11h = 60 * 60 * 11;
+  // convert to local time
+  const int local_time = localtime(&epoch_plus_11h)->tm_hour;
+  // convert to GMT
+  const int gm_time = gmtime(&epoch_plus_11h)->tm_hour;
+  // get the difference [-11,12]h
+  const int tz_diff = local_time - gm_time;
+  // scale [1h] to [100ns] like used with OPC UA
+  _localTimeOffset = tz_diff*3600*1e7;
+}
+
 timePoint_t VersionMapper::convertToTimePoint(const UA_DateTime& timeStamp){
  /**
  * UA_DateTime is encoded as a 64-bit signed integer
@@ -14,7 +27,7 @@ timePoint_t VersionMapper::convertToTimePoint(const UA_DateTime& timeStamp){
  * (UTC)
  * */
  int64_t sourceTimeStampUnixEpoch = (timeStamp - UA_DATETIME_UNIX_EPOCH);
- std::chrono::duration<int64_t,std::nano> d(sourceTimeStampUnixEpoch*100);
+ std::chrono::duration<int64_t,std::nano> d((sourceTimeStampUnixEpoch + _localTimeOffset)*100);
 
  return timePoint_t(d);
 }
@@ -27,5 +40,3 @@ ChimeraTK::VersionNumber VersionMapper::getVersion(const UA_DateTime &timeStamp)
   }
   return _versionMap[timeStamp];
 }
-
-

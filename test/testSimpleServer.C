@@ -169,3 +169,11 @@ BOOST_AUTO_TEST_CASE(testWithServer) {
   t2.join();
 
 }
+
+#include "DummyServer.h"
+BOOST_AUTO_TEST_CASE(testDummyServer){
+  ThreadedOPCUAServer dummy;
+  dummy.start();
+  BOOST_CHECK_EQUAL(true,dummy.checkConnection(ServerState::On));
+  std::this_thread::sleep_for(std::chrono::seconds(5));
+}
