@@ -182,7 +182,7 @@ struct ScalarDefaultsRO<UA_String> : ScalarDefaults<UA_String>{
   bool isWriteable() override {return false;};
 };
 
-template <>
+/*template <>
 struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults{
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 1; }
@@ -233,7 +233,7 @@ template <>
 struct ScalarDefaultsRO<UA_Boolean> : ScalarDefaults<UA_Boolean>{
   bool isWriteable() override {return false;};
 };
-
+*/
 
 template <typename UAType>
 struct ArrayDefaults : AllRegisterDefaults{
@@ -363,7 +363,7 @@ struct ArrayDefaultsRO<UA_String> : ArrayDefaults<UA_String>{
  bool isWriteable() override {return false;}
 };
 
-template <>
+/*template <>
 struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults{
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 5; }
@@ -425,6 +425,7 @@ struct RegSomeBool : ScalarDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/scalar/bool"; }
   typedef Boolean minimumUserType;
 };
+*/
 
 struct RegSomeInt64 : ScalarDefaults<UA_Int64> {
   std::string path() override { return "Dummy/scalar/int64"; }
@@ -470,12 +471,12 @@ struct RegSomeString : ScalarDefaults<UA_String> {
   std::string path() override { return "Dummy/scalar/string"; }
   typedef std::string minimumUserType;
 };
-
+/*
 struct RegSomeBoolArray : ArrayDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/array/bool"; }
   typedef Boolean minimumUserType;
 };
-
+*/
 
 struct RegSomeInt64Array : ArrayDefaults<UA_Int64> {
   std::string path() override { return "Dummy/array/int64"; }
@@ -521,13 +522,13 @@ struct RegSomeStringArray : ArrayDefaults<UA_String> {
   std::string path() override { return "Dummy/array/string"; }
   typedef std::string minimumUserType;
 };
-
+/*
 // read only part
 struct RegSomeBoolRO : ScalarDefaultsRO<UA_Boolean> {
   std::string path() override { return "Dummy/scalar_ro/bool"; }
   typedef Boolean minimumUserType;
 };
-
+*/
 struct RegSomeInt64RO : ScalarDefaultsRO<UA_Int64> {
   std::string path() override { return "Dummy/scalar_ro/int64"; }
   typedef int64_t minimumUserType;
@@ -572,12 +573,12 @@ struct RegSomeStringRO : ScalarDefaultsRO<UA_String> {
   std::string path() override { return "Dummy/scalar_ro/string"; }
   typedef std::string minimumUserType;
 };
-
+/*
 struct RegSomeBoolArrayRO : ArrayDefaultsRO<UA_Boolean> {
   std::string path() override { return "Dummy/array_ro/bool"; }
   typedef Boolean minimumUserType;
 };
-
+*/
 struct RegSomeInt64ArrayRO : ArrayDefaultsRO<UA_Int64> {
   std::string path() override { return "Dummy/array_ro/int64"; }
   typedef int64_t minimumUserType;
@@ -628,7 +629,7 @@ BOOST_FIXTURE_TEST_SUITE(s, OPCUALauncher)
 BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   auto ubt = ChimeraTK::UnifiedBackendTest<>()
                  .addRegister<RegSomeInt16>()
-                 .addRegister<RegSomeBool>()
+//                 .addRegister<RegSomeBool>()
                  .addRegister<RegSomeUInt16>()
                  .addRegister<RegSomeInt32>()
                  .addRegister<RegSomeUInt32>()
@@ -637,7 +638,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
                  .addRegister<RegSomeFloat>()
                  .addRegister<RegSomeDouble>()
                  .addRegister<RegSomeString>()
-                 .addRegister<RegSomeBoolArray>()
+//                 .addRegister<RegSomeBoolArray>()
                  .addRegister<RegSomeInt16Array>()
                  .addRegister<RegSomeUInt16Array>()
                  .addRegister<RegSomeInt32Array>()
@@ -647,7 +648,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
                  .addRegister<RegSomeFloatArray>()
                  .addRegister<RegSomeDoubleArray>()
                  .addRegister<RegSomeStringArray>()
-                 .addRegister<RegSomeBoolRO>()
+//                 .addRegister<RegSomeBoolRO>()
                  .addRegister<RegSomeInt16RO>()
                  .addRegister<RegSomeUInt16RO>()
                  .addRegister<RegSomeInt32RO>()
@@ -657,7 +658,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
                  .addRegister<RegSomeFloatRO>()
                  .addRegister<RegSomeDoubleRO>()
                  .addRegister<RegSomeStringRO>()
-                 .addRegister<RegSomeBoolArrayRO>()
+//                 .addRegister<RegSomeBoolArrayRO>()
                  .addRegister<RegSomeInt16ArrayRO>()
                  .addRegister<RegSomeUInt16ArrayRO>()
                  .addRegister<RegSomeInt32ArrayRO>()

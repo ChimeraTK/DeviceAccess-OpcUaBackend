@@ -53,8 +53,7 @@ namespace ChimeraTK {
     , fusion::pair<UA_Float, UA_DataType>
     , fusion::pair<UA_String, UA_DataType>
     , fusion::pair<UA_SByte, UA_DataType>
-    , fusion::pair<UA_Byte, UA_DataType>
-    , fusion::pair<UA_Boolean, UA_DataType>> myMap;
+    , fusion::pair<UA_Byte, UA_DataType>> myMap;
 
   template <typename DestType, typename SourceType>
   class RangeCheckingDataConverter{
@@ -96,7 +95,7 @@ namespace ChimeraTK {
       return std::to_string(x);
     }
   };
-
+/*
   //partial specialization of conversion from void
   template<typename DestType>
   class RangeCheckingDataConverter<DestType, Void> {
@@ -110,7 +109,7 @@ namespace ChimeraTK {
    public:
     Void convert([[maybe_unused]] SourceType& x) { return Void(); }
   };
-
+*/
 
   //partial specialization of conversion to string
   template <>
@@ -147,7 +146,7 @@ namespace ChimeraTK {
       return std::string((char*)x.data, x.length);
     }
   };
-
+/*
   //full specialization of conversion void to string (ambiguous if not defined)
   template<>
   class RangeCheckingDataConverter<UA_String, ChimeraTK::Void> {
@@ -161,7 +160,7 @@ namespace ChimeraTK {
    public:
     ChimeraTK::Void convert([[maybe_unused]] UA_String& x) { return ChimeraTK::Void(); }
   };
-
+*/
   /**
    * Untemplated base class used in connection with the subscription manager.
    */
@@ -190,8 +189,7 @@ namespace ChimeraTK {
         fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]),
         fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]),
         fusion::make_pair<UA_SByte>(UA_TYPES[UA_TYPES_SBYTE]),
-        fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE]),
-        fusion::make_pair<UA_Boolean>(UA_TYPES[UA_TYPES_BOOLEAN])};
+        fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE])};
     /**
      * Convert the actual UA_DataValue to a VersionNumber.
      * The VersionNumeber is constructed from the source time stamp.
