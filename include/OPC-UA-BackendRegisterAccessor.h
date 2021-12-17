@@ -53,7 +53,8 @@ namespace ChimeraTK {
     , fusion::pair<UA_Float, UA_DataType>
     , fusion::pair<UA_String, UA_DataType>
     , fusion::pair<UA_SByte, UA_DataType>
-    , fusion::pair<UA_Byte, UA_DataType>> myMap;
+    , fusion::pair<UA_Byte, UA_DataType>
+    , fusion::pair<UA_Boolean, UA_DataType>> myMap;
 
   template <typename DestType, typename SourceType>
   class RangeCheckingDataConverter{
@@ -189,7 +190,8 @@ namespace ChimeraTK {
         fusion::make_pair<UA_Float>(UA_TYPES[UA_TYPES_FLOAT]),
         fusion::make_pair<UA_String>(UA_TYPES[UA_TYPES_STRING]),
         fusion::make_pair<UA_SByte>(UA_TYPES[UA_TYPES_SBYTE]),
-        fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE])};
+        fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE]),
+        fusion::make_pair<UA_Boolean>(UA_TYPES[UA_TYPES_BOOLEAN])};
     /**
      * Convert the actual UA_DataValue to a VersionNumber.
      * The VersionNumeber is constructed from the source time stamp.

@@ -552,9 +552,9 @@ namespace ChimeraTK{
       numberOfWords = info->_arrayLength;
 
     switch(info->_dataType){
-//      case 1:
-//        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Boolean, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
-//        break;
+      case 1:
+        return boost::make_shared<OpcUABackendRegisterAccessor<UA_Boolean, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
+        break;
       case 2:
         return boost::make_shared<OpcUABackendRegisterAccessor<UA_SByte, UserType>>(path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
