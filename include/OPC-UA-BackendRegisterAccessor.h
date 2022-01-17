@@ -216,71 +216,70 @@ namespace ChimeraTK {
   public:
 
 //   virtual ~OpcUABackendRegisterAccessor(){this->shutdown();};
-   ~OpcUABackendRegisterAccessor();
+    ~OpcUABackendRegisterAccessor();
 
-   void doReadTransferSynchronously() override;
+    void doReadTransferSynchronously() override;
 
-   void doPreRead(TransferType) override {
-     if(!_backend->isOpen()) {
-       throw ChimeraTK::logic_error("Read operation not allowed while device is closed.");
-     }
+    void doPreRead(TransferType) override {
+      if(!_backend->isOpen()) {
+        throw ChimeraTK::logic_error("Read operation not allowed while device is closed.");
+      }
      // This will be done by the subscription manager how sends exception to the future queue and stops waiting.
 //     if(_backend->isAsyncReadActive() && !OPCUASubscriptionManager::getInstance().isActive()){
 //       throw ChimeraTK::runtime_error("SubscriptionManager error.");
 //     }
-   }
+    }
 
-   void doPostRead(TransferType, bool /*hasNewData*/) override;
+    void doPostRead(TransferType, bool /*hasNewData*/) override;
 
-   void doPreWrite(TransferType, VersionNumber) override {
-     if(!_backend->isOpen()) throw ChimeraTK::logic_error("Write operation not allowed while device is closed.");
-   }
+    void doPreWrite(TransferType, VersionNumber) override {
+      if(!_backend->isOpen()) throw ChimeraTK::logic_error("Write operation not allowed while device is closed.");
+    }
 
-   bool doWriteTransfer(VersionNumber /*versionNumber*/={}) override;
+    bool doWriteTransfer(VersionNumber /*versionNumber*/={}) override;
 
-   OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo, AccessModeFlags flags, size_t numberOfWords, size_t wordOffsetInRegister);
+    OpcUABackendRegisterAccessor(const RegisterPath &path, boost::shared_ptr<DeviceBackend> backend,const std::string &node_id, OpcUABackendRegisterInfo* registerInfo, AccessModeFlags flags, size_t numberOfWords, size_t wordOffsetInRegister);
 
-   bool isReadOnly() const override {
-     return _info->_isReadonly;
-   }
+    bool isReadOnly() const override {
+      return _info->_isReadonly;
+    }
 
-   bool isReadable() const override {
-     return true;
-   }
+    bool isReadable() const override {
+      return true;
+    }
 
-   bool isWriteable() const override {
-     return !_info->_isReadonly;
-   }
+    bool isWriteable() const override {
+      return !_info->_isReadonly;
+    }
 
-   void interrupt() override { this->interrupt_impl(this->_notifications);}
+    void interrupt() override { this->interrupt_impl(this->_notifications);}
 
-   using TransferElement::_readQueue;
-
-
-   std::vector< boost::shared_ptr<TransferElement> > getHardwareAccessingElements() override {
-     return { boost::enable_shared_from_this<TransferElement>::shared_from_this() };
-   }
-
-   std::list<boost::shared_ptr<TransferElement> > getInternalElements() override {
-     return {};
-   }
-
-   void replaceTransferElement(boost::shared_ptr<TransferElement> /*newElement*/) override {} // LCOV_EXCL_LINE
-
-   friend class OpcUABackend;
+    using TransferElement::_readQueue;
 
 
-   std::string _node_id;
-   ChimeraTK::VersionNumber _currentVersion;
-   size_t _numberOfWords; ///< Requested array length. Could be smaller than what is available on the server.
-   size_t _offsetWords; ///< Requested offset for arrays.
-   RangeCheckingDataConverter<UAType, CTKType> toOpcUA;
-   RangeCheckingDataConverter<CTKType, UAType> toCTK;
-   bool _isPartial{false};
+    std::vector< boost::shared_ptr<TransferElement> > getHardwareAccessingElements() override {
+      return { boost::enable_shared_from_this<TransferElement>::shared_from_this() };
+    }
+
+    std::list<boost::shared_ptr<TransferElement> > getInternalElements() override {
+      return {};
+    }
+
+    void replaceTransferElement(boost::shared_ptr<TransferElement> /*newElement*/) override {} // LCOV_EXCL_LINE
+
+    friend class OpcUABackend;
+
+
+    std::string _node_id;
+    ChimeraTK::VersionNumber _currentVersion;
+    size_t _numberOfWords; ///< Requested array length. Could be smaller than what is available on the server.
+    size_t _offsetWords; ///< Requested offset for arrays.
+    RangeCheckingDataConverter<UAType, CTKType> toOpcUA;
+    RangeCheckingDataConverter<CTKType, UAType> toCTK;
+    bool _isPartial{false};
 
   private:
-
-   void handleError(const UA_StatusCode &retval);
+    void handleError(const UA_StatusCode &retval);
   };
 
   template<typename UAType, typename CTKType>
