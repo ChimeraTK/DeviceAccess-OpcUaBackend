@@ -245,6 +245,7 @@ void  OPCUASubscriptionManager::subscribe(const std::string &browseName, const U
       // if already active add initial value
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                       "Setting intial value for accessor with existing node subscription.");
+      std::lock_guard<std::mutex> lock(tmp->_dataUpdateLock);
       accessor->_notifications.push_overwrite(tmp->_data);
     }
     _mutex.unlock();

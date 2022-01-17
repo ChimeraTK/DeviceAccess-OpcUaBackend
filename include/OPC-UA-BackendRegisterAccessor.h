@@ -179,6 +179,16 @@ namespace ChimeraTK {
 
     bool _subscribed{false}; ///< Remember if a subscription was added.
 
+    /*
+     * The subscription manager might use one monitored item for several accessors (e.g. if multiple LogicalNameMappings are
+     * used or a variable is mapped multiple times in the LogicalNameMapping).
+     * If an accessors is added to the accessors list of a MonitorItem the initial value is copied from the first accessor to the new accessor.
+     * At this point it must be ensured that the data of the source accessor is not updated, when reading the inital value.
+     * In consequence the mutex is needed only when an accessor is added and the inital value is forwarded. If only one
+     * accessor is used at all in principle no mutex is needed. But a new accessor can be added in principle at any time.
+     */
+    std::mutex _dataUpdateLock;
+
     myMap m{
         fusion::make_pair<UA_Int16>(UA_TYPES[UA_TYPES_INT16]),
         fusion::make_pair<UA_UInt16>(UA_TYPES[UA_TYPES_UINT16]),
@@ -299,6 +309,7 @@ namespace ChimeraTK {
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) {
 //        this->_data = data;
+        std::lock_guard<std::mutex> lock(_dataUpdateLock);
         if(!UA_Variant_isEmpty(&this->_data.value))
           UA_DataValue_clear(&this->_data);
         UA_DataValue_copy(&data,&this->_data);
