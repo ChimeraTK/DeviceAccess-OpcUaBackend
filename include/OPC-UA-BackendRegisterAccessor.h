@@ -308,15 +308,10 @@ namespace ChimeraTK {
       // Create notification queue.
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) {
-//        this->_data = data;
         std::lock_guard<std::mutex> lock(_dataUpdateLock);
-        if(!UA_Variant_isEmpty(&this->_data.value))
-          UA_DataValue_clear(&this->_data);
         UA_DataValue_copy(&data,&this->_data);
         UA_DataValue_clear(&data);
       }, std::launch::deferred);
-//      std::cerr << "Subscriptions are not yet supported by the backend." << std::endl;
-      // needs to be called after the notifications queue is created!
       if(!_backend->_subscriptionManager)
         _backend->activateSubscriptionSupport();
       _backend->_subscriptionManager->subscribe(_info->_nodeBrowseName, _info->_id, this);
