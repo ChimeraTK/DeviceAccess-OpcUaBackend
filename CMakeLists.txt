@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.13)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 01)
 set(${PROJECT_NAME}_MINOR_VERSION 00)
-set(${PROJECT_NAME}_PATCH_VERSION 04)
+set(${PROJECT_NAME}_PATCH_VERSION 05)
 include(cmake/set_version_numbers.cmake)
 
 include(cmake/add_dependency.cmake)
@@ -49,6 +49,10 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   target_link_libraries( testUnifiedBackendTest ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${ChimeraTK-DeviceAccess_LIBRARIES} open62541::open62541)
   target_include_directories(testUnifiedBackendTest PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
   add_test(testUnifiedBackendTest testUnifiedBackendTest)
+
+  add_executable(memoryTest ${CMAKE_SOURCE_DIR}/test/memorytest.C )
+  target_link_libraries( memoryTest open62541::open62541)
+
 #  add_executable(simpleRead ${CMAKE_SOURCE_DIR}/test/simpleRead.C )
 #  target_link_libraries( simpleRead ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 else()

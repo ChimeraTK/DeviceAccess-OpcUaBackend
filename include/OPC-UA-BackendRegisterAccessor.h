@@ -309,8 +309,14 @@ namespace ChimeraTK {
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) {
         std::lock_guard<std::mutex> lock(_dataUpdateLock);
-        UA_DataValue_copy(&data,&this->_data);
-        UA_DataValue_clear(&data);
+
+       if(!UA_Variant_isEmpty(&this->_data.value)){
+         UA_DataValue_clear(&this->_data);
+       }
+       if (UA_DataValue_copy(&data,&this->_data) != UA_STATUSCODE_GOOD){
+         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,"Data copy failed!");
+       }
+       UA_DataValue_clear(&data);
       }, std::launch::deferred);
       if(!_backend->_subscriptionManager)
         _backend->activateSubscriptionSupport();
