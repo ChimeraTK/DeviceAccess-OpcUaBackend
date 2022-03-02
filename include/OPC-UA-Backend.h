@@ -9,7 +9,7 @@
 #define OPC_UA_BACKEND_H_
 
 #include <ChimeraTK/DeviceBackendImpl.h>
-#include <ChimeraTK/RegisterPath.h>
+#include <ChimeraTK/BackendRegisterCatalogue.h>
 
 #include <boost/enable_shared_from_this.hpp>
 
@@ -45,51 +45,77 @@ namespace ChimeraTK {
   /**
    *  RegisterInfo-derived class to be put into the RegisterCatalogue
    */
-  class OpcUABackendRegisterInfo : public RegisterInfo {
+  class OpcUABackendRegisterInfo : public BackendRegisterInfoBase {
     //\ToDo: Adopt for OPC UA
-    public:
-      OpcUABackendRegisterInfo(const std::string &serverAddress, const std::string &node_browseName, const UA_NodeId &id):
-      _serverAddress(serverAddress), _nodeBrowseName(node_browseName), _id(id){
-        path = RegisterPath(serverAddress)/RegisterPath(node_browseName);
-      }
+   public:
+    OpcUABackendRegisterInfo(const std::string& serverAddress, const std::string& node_browseName, const UA_NodeId& id)
+    : _serverAddress(serverAddress), _nodeBrowseName(node_browseName), _id(id) {
+      path = RegisterPath(serverAddress) / RegisterPath(node_browseName);
+    }
 
-      OpcUABackendRegisterInfo(const std::string &serverAddress, const std::string &node_browseName):
-      _serverAddress(serverAddress), _nodeBrowseName(node_browseName){
-        path = RegisterPath(serverAddress)/RegisterPath(node_browseName);
-      }
+    OpcUABackendRegisterInfo(const std::string& serverAddress, const std::string& node_browseName)
+    : _serverAddress(serverAddress), _nodeBrowseName(node_browseName) {
+      path = RegisterPath(serverAddress) / RegisterPath(node_browseName);
+    }
 
-      virtual ~OpcUABackendRegisterInfo() {UA_NodeId_clear(&_id);}
+    OpcUABackendRegisterInfo() = default;
 
-      RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
+    ~OpcUABackendRegisterInfo() override { UA_NodeId_clear(&_id); }
 
-      std::string getRegisterPath() const { return path; }
+    OpcUABackendRegisterInfo(const OpcUABackendRegisterInfo& other)
+    : path(other.path), _serverAddress(other._serverAddress), _nodeBrowseName(other._nodeBrowseName),
+      _description(other._description), _unit(other._unit), _dataType(other._dataType),
+      dataDescriptor(other.dataDescriptor), _isReadonly(other._isReadonly), _arrayLength(other._arrayLength),
+      _accessModes(other._accessModes) {
+      UA_NodeId_copy(&other._id, &_id);
+    }
 
-      unsigned int getNumberOfElements() const override { return _arrayLength; }
+    OpcUABackendRegisterInfo& operator=(const OpcUABackendRegisterInfo& other) {
+      path = other.path;
+      _serverAddress = other._serverAddress;
+      _nodeBrowseName = other._nodeBrowseName;
+      _description = other._description;
+      _unit = other._unit;
+      _dataType = other._dataType;
+      dataDescriptor = other.dataDescriptor;
+      _isReadonly = other._isReadonly;
+      _arrayLength = other._arrayLength;
+      _accessModes = other._accessModes;
+      UA_NodeId_copy(&other._id, &_id);
+      return *this;
+    }
 
-      unsigned int getNumberOfChannels() const override { return 1; }
+    RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
 
-      unsigned int getNumberOfDimensions() const override { return _arrayLength > 1 ? 1 : 0; }
+    std::string getRegisterPath() const { return path; }
 
-      const RegisterInfo::DataDescriptor& getDataDescriptor() const override { return dataDescriptor; }
+    unsigned int getNumberOfElements() const override { return _arrayLength; }
 
-      bool isReadable() const override {return true;}
+    unsigned int getNumberOfChannels() const override { return 1; }
 
-      bool isWriteable() const override {return !_isReadonly;}
+    const DataDescriptor& getDataDescriptor() const override { return dataDescriptor; }
 
-      AccessModeFlags getSupportedAccessModes() const override {return _accessModes;}
+    bool isReadable() const override { return true; }
 
-      RegisterPath path;
-      std::string _serverAddress;
-      std::string _nodeBrowseName;
-      std::string _description;
-      std::string _unit;
-      UA_UInt32 _dataType{0};
-      RegisterInfo::DataDescriptor dataDescriptor;
-      bool _isReadonly{true};
-      size_t _arrayLength{0};
-      AccessModeFlags _accessModes{};
-      UA_NodeId _id;
+    bool isWriteable() const override { return !_isReadonly; }
 
+    AccessModeFlags getSupportedAccessModes() const override { return _accessModes; }
+
+    std::unique_ptr<BackendRegisterInfoBase> clone() const override {
+      return std::unique_ptr<BackendRegisterInfoBase>(new OpcUABackendRegisterInfo(*this));
+    }
+
+    RegisterPath path;
+    std::string _serverAddress;
+    std::string _nodeBrowseName;
+    std::string _description;
+    std::string _unit;
+    UA_UInt32 _dataType{0};
+    DataDescriptor dataDescriptor;
+    bool _isReadonly{true};
+    size_t _arrayLength{0};
+    AccessModeFlags _accessModes{};
+    UA_NodeId _id;
   };
 
   /**
@@ -98,23 +124,26 @@ namespace ChimeraTK {
    * items will be removed. This includes UA_Client_MonitoredItems_deleteSingle, which uses a timeout. Since both methods use the
    * subscription manager mutex shutting down the application takes some time.
    */
-  class OpcUABackend : public DeviceBackendImpl{
-  public:
+  class OpcUABackend : public DeviceBackendImpl {
+   public:
     ~OpcUABackend();
-    static boost::shared_ptr<DeviceBackend> createInstance(std::string address, std::map<std::string,std::string> parameters);
+    static boost::shared_ptr<DeviceBackend> createInstance(
+        std::string address, std::map<std::string, std::string> parameters);
 
-    static void
-    stateCallback(UA_Client *client, UA_SecureChannelState channelState,
-                  UA_SessionState sessionState, UA_StatusCode recoveryStatus);
-  protected:
-    OpcUABackend(const std::string &fileAddress, const unsigned long &port, const std::string &username = "", const std::string &password = "", const std::string &mapfile = "", const unsigned long &subscriptonPublishingInterval = 500);
+    static void stateCallback(UA_Client* client, UA_SecureChannelState channelState, UA_SessionState sessionState,
+        UA_StatusCode recoveryStatus);
+
+   protected:
+    OpcUABackend(const std::string& fileAddress, const unsigned long& port, const std::string& username = "",
+        const std::string& password = "", const std::string& mapfile = "",
+        const unsigned long& subscriptonPublishingInterval = 500);
 
     void fillCatalogue();
 
     /**
      * Return the catalogue and if not filled yet fill it.
      */
-    const RegisterCatalogue& getRegisterCatalogue() const override;
+    RegisterCatalogue getRegisterCatalogue() const override;
 
     void setException() override;
 
@@ -139,26 +168,26 @@ namespace ChimeraTK {
     void activateSubscriptionSupport();
 
     template<typename UserType>
-    boost::shared_ptr< NDRegisterAccessor<UserType> > getRegisterAccessor_impl(const RegisterPath &registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags);
+    boost::shared_ptr<NDRegisterAccessor<UserType>> getRegisterAccessor_impl(
+        const RegisterPath& registerPathName, size_t numberOfWords, size_t wordOffsetInRegister, AccessModeFlags flags);
 
-    DEFINE_VIRTUAL_FUNCTION_TEMPLATE_VTABLE_FILLER( OpcUABackend, getRegisterAccessor_impl, 4);
+    DEFINE_VIRTUAL_FUNCTION_TEMPLATE_VTABLE_FILLER(OpcUABackend, getRegisterAccessor_impl, 4);
 
     /** We need to make the catalogue mutable, since we fill it within getRegisterCatalogue() */
-    mutable RegisterCatalogue _catalogue_mutable;
+    mutable BackendRegisterCatalogue<OpcUABackendRegisterInfo> _catalogue_mutable;
 
     /** Class to register the backend type with the factory. */
     class BackendRegisterer {
-      public:
-        BackendRegisterer();
+     public:
+      BackendRegisterer();
     };
     static BackendRegisterer backendRegisterer;
     static std::map<UA_Client*, OpcUABackend*> backendClients;
 
-
     template<typename UAType, typename CTKType>
     friend class OpcUABackendRegisterAccessor;
-		
-    bool isAsyncReadActive(){
+
+    bool isAsyncReadActive() {
       if(_subscriptionManager)
         return true;
       else
@@ -168,7 +197,7 @@ namespace ChimeraTK {
     std::shared_ptr<OPCUASubscriptionManager> _subscriptionManager;
     std::shared_ptr<OPCUAConnection> _connection;
 
-  private:
+   private:
     /**
      * Catalogue is filled when device is opened. When working with LogicalNameMapping the
      * catalogue is requested even if the device is not opened!
@@ -213,13 +242,13 @@ namespace ChimeraTK {
      *        name of the node in case of a string node id and to "node_ID", where ID is
      *        the node id, in case of numeric node id.
      */
-    void addCatalogueEntry(const UA_NodeId &node, std::shared_ptr<std::string> nodeName = nullptr);
+    void addCatalogueEntry(const UA_NodeId& node, std::shared_ptr<std::string> nodeName = nullptr);
 
     /**
      * Browse for nodes of type Variable.
      * If type Object is found move into the object and recall browseRecursive.
      */
-    void browseRecursive(UA_NodeId startingNode = UA_NODEID_NUMERIC(0,UA_NS0ID_OBJECTSFOLDER));
+    void browseRecursive(UA_NodeId startingNode = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
 
     /**
      * Read nodes from the file supplied as mapping file.
@@ -234,10 +263,7 @@ namespace ChimeraTK {
      *  myname2     123                1
      */
     void getNodesFromMapfile();
-
   };
-}
-
-
+} // namespace ChimeraTK
 
 #endif /* OPC_UA_BACKEND_H_ */
