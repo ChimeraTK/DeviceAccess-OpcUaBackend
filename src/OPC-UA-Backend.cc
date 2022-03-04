@@ -207,7 +207,7 @@ namespace ChimeraTK {
               nodeName = std::make_shared<std::string>(*it);
               it++;
             }
-            std::string id = (*it);
+            std::string id = _rootNode + (*it);
             it++;
             UA_UInt16 ns = std::stoul(*it);
             addCatalogueEntry(UA_NODEID_STRING(ns, (char*)id.c_str()), nodeName);
@@ -635,20 +635,29 @@ namespace ChimeraTK {
     std::string serverAddress = std::string("opc.tcp://") + address + ":" + parameters["port"];
     unsigned long publishingInterval = 500;
     if(!parameters["publishingInterval"].empty()) publishingInterval = std::stoul(parameters["publishingInterval"]);
-    auto pos = parameters["rootNode"].find_first_of(":");
-    if(pos == std::string::npos){
-      throw ChimeraTK::runtime_error("root node does not contain delimter ':' formated correct. Expected ns:nodeid or ns:nodename!");
-    }
+
     ulong rootNS;
     std::string rootName("");
-    if(!parameters["rootNode"].empty()){
-      try{
-        rootNS = std::stoul(parameters["rootNode"].substr(0,pos));
-      } catch (...) {
-        throw ChimeraTK::runtime_error("failed to determine ns from root node");
+    if(parameters["map"].empty()){
+      if(!parameters["rootNode"].empty()){
+        // prepare automatic browsing
+        auto pos = parameters["rootNode"].find_first_of(":");
+        if(pos == std::string::npos){
+          throw ChimeraTK::runtime_error("root node does not contain delimter ':' formated correct. Expected ns:nodeid or ns:nodename!");
+        }
+        try{
+          rootNS = std::stoul(parameters["rootNode"].substr(0,pos));
+        } catch (...) {
+          throw ChimeraTK::runtime_error("failed to determine ns from root node");
+        }
+        rootName = parameters["rootNode"].substr(pos+1);
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Set root name for automatic browsing to: %s. Name space: %ld", rootName.c_str(), rootNS);
       }
-      rootName = parameters["rootNode"].substr(pos+1);
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Set root name for automatic browsing to: %s. Name space: %ld", rootName.c_str(), rootNS);
+    } else {
+      // prepare map file based browsing
+      rootName = parameters["rootNode"];
+      if(rootName.at(rootName.length()-1) != '/')
+        rootName.append("/");
     }
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(
         serverAddress, parameters["username"], parameters["password"], parameters["map"], publishingInterval, rootName, rootNS));

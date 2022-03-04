@@ -17,10 +17,16 @@ a publishing of 500ms is used.
 The backend can be used in two different ways:
 
 - Automatic catalog creation via browsing the server (only works for ChimeraTK OPC-UA servers) &rarr; use `test (opcua:localhost?port=16664)` in the device mapping file
-- Manual catalog creation via map file &rarr; use `test (opcua:localhost?port=16664&map=mymap.map)` in the device mapping file
 
 For the automatic catalog creation it is possible to only consider subdirectories. This is possible by using the mapping parameter `rootNode`.
 The `rootNode` is given as `namespace:directoryName`, e.g. `1:Test/ControllerDir`. Pay attention that node names of directories always include "Dir" at the end.
+
+- Manual catalog creation via map file &rarr; use `test (opcua:localhost?port=16664&map=mymap.map)` in the device mapping file
+
+For manual catalog creation the mapping parameter `rootNode` can be used to prepend a root directory name to the entries in the given map file.
+If e.g. one wants to use a single map file for different servers, that differ in the root folder name this feature can be used.
+Consider a the variable `serverA/test` of a first server and `serverB/test` of a second server. In that case a common map file can be used mapping `test` 
+and the parameter `rootNode=serverA` and `rootNode=serverB` can be used as mapping parameter.
 
 ## Map file based catalog creation
 
