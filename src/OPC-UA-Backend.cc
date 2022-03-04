@@ -118,11 +118,11 @@ namespace ChimeraTK {
     }
   }
 
-  OpcUABackend::OpcUABackend(const std::string& fileAddress, const unsigned long& port, const std::string& username,
-      const std::string& password, const std::string& mapfile, const unsigned long& subscriptonPublishingInterval)
-  : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile) {
+  OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username,
+      const std::string& password, const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName, const ulong& rootNS)
+  : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
     _connection =
-        std::make_unique<OPCUAConnection>(fileAddress, username, password, port, subscriptonPublishingInterval);
+        std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval);
     _connection->config->stateCallback = stateCallback;
 
     OpcUABackend::backendClients[_connection->client.get()] = this;
@@ -232,15 +232,24 @@ namespace ChimeraTK {
     }
     else {
       UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Failed reading opcua mapfile: %s", _mapfile.c_str());
-      ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
+      throw ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
     }
   }
 
   void OpcUABackend::fillCatalogue() {
     std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(_mapfile.empty()) {
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting up OPC-UA catalog by browsing the server.");
-      browseRecursive();
+      if(_rootNode.empty()){
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting up OPC-UA catalog by browsing the server.");
+        browseRecursive();
+      } else {
+        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting up OPC-UA catalog by browsing the server using the root node: %s.", _rootNode.c_str());
+        try{
+          browseRecursive(UA_NODEID_STRING(_rootNS, (char*)_rootNode.c_str()));
+        } catch(...) {
+          throw ChimeraTK::runtime_error("root node not formated correct. Expected ns:nodeid or ns:nodename!");
+        }
+      }
     }
     else {
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting up OPC-UA catalog by reading the map file: %s",
@@ -265,12 +274,16 @@ namespace ChimeraTK {
       if(localNodeName.at(0) == '/') {
         localNodeName = localNodeName.substr(1, localNodeName.size() - 1);
       }
+
       // remove "Value" from node name
-      auto match = localNodeName.rfind("Value");
-      if(match == (localNodeName.length() - 5)) {
-        // remove "Value" only if it is at the end of the node name
-        localNodeName = localNodeName.substr(0, match);
+      auto localRootName = _rootNode;
+      auto path = localRootName.rfind("Dir");
+      if(path == (localRootName.length() - 3)) {
+        // remove "Dir" only if it is at the end of the rootNode name
+        localRootName = localRootName.substr(0, path);
       }
+      std::cout << localRootName << "\t" << _rootNode << "\t" << localNodeName << std::endl;
+      localNodeName.erase(0, localRootName.length());
       entry = {_connection->serverAddress, localNodeName};
     }
     else {
@@ -607,7 +620,7 @@ namespace ChimeraTK {
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType(
-        "opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map", "publishingInterval"});
+        "opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map", "publishingInterval", "rootNode"});
     std::cout << "BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -619,11 +632,25 @@ namespace ChimeraTK {
       throw ChimeraTK::logic_error("Missing OPC-UA port.");
     }
 
-    unsigned long port = std::stoul(parameters["port"]);
-    std::string serverAddress = std::string("opc.tcp://") + address + ":" + std::to_string(port);
+    std::string serverAddress = std::string("opc.tcp://") + address + ":" + parameters["port"];
     unsigned long publishingInterval = 500;
     if(!parameters["publishingInterval"].empty()) publishingInterval = std::stoul(parameters["publishingInterval"]);
+    auto pos = parameters["rootNode"].find_first_of(":");
+    if(pos == std::string::npos){
+      throw ChimeraTK::runtime_error("root node does not contain delimter ':' formated correct. Expected ns:nodeid or ns:nodename!");
+    }
+    ulong rootNS;
+    std::string rootName("");
+    if(!parameters["rootNode"].empty()){
+      try{
+        rootNS = std::stoul(parameters["rootNode"].substr(0,pos));
+      } catch (...) {
+        throw ChimeraTK::runtime_error("failed to determine ns from root node");
+      }
+      rootName = parameters["rootNode"].substr(pos+1);
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Set root name for automatic browsing to: %s. Name space: %ld", rootName.c_str(), rootNS);
+    }
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(
-        serverAddress, port, parameters["username"], parameters["password"], parameters["map"], publishingInterval));
+        serverAddress, parameters["username"], parameters["password"], parameters["map"], publishingInterval, rootName, rootNS));
   }
 } // namespace ChimeraTK

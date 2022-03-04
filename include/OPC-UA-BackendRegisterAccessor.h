@@ -152,7 +152,7 @@ namespace ChimeraTK {
   template<>
   class RangeCheckingDataConverter<UA_String, ChimeraTK::Void> {
    public:
-    UA_String convert([[maybe_unused]] ChimeraTK::Void& x) { return UA_STRING("void"); }
+    UA_String convert([[maybe_unused]] ChimeraTK::Void& x) { return UA_String_fromChars("void"); }
   };
 
   //full specialization of conversion string to void (ambiguous if not defined)

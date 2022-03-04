@@ -134,10 +134,28 @@ namespace ChimeraTK {
         UA_StatusCode recoveryStatus);
 
    protected:
-    OpcUABackend(const std::string& fileAddress, const unsigned long& port, const std::string& username = "",
+    /**
+     * \param fileAddress The address of the OPC UA server, e.g. opc.tcp://localhost:port.
+     * \param username User name used when connecting to the OPC UA server.
+     * \param password Password used when connecting to the OPC UA server.
+     * \param mapfile The map file name.
+     * \param subscriptonPublishingInterval Publishing interval used for the subscription in ms.
+     * \param root The root node specified as ns:nodeid or ns:nodename.
+     */
+    OpcUABackend(const std::string& fileAddress, const std::string& username = "",
         const std::string& password = "", const std::string& mapfile = "",
-        const unsigned long& subscriptonPublishingInterval = 500);
+        const unsigned long& subscriptonPublishingInterval = 500, const std::string& rootNode = "", const ulong& rootNS = 0);
 
+    /**
+     * Fill catalog.
+     *
+     * If mapfile is empty the variable tree is parsed automatically by adding all nodes. This works only for ChimeraTK server
+     * using the OPC UA ControlSystemAdapter.
+     * If in addition a _rootNode is given browsing will start at the root node and all variables below are added. Else
+     * the root node of the OPC UA server is used.
+     *
+     * If a mapfile is given only node specified in the mapfile are considered.
+     */
     void fillCatalogue();
 
     /**
@@ -156,7 +174,7 @@ namespace ChimeraTK {
 
     std::string readDeviceInfo() override {
       std::stringstream ss;
-      ss << "OPC-UA Server: " << _connection->serverAddress << ":" << _connection->port;
+      ss << "OPC-UA Server: " << _connection->serverAddress;
       return ss.str();
     }
 
@@ -208,6 +226,10 @@ namespace ChimeraTK {
     bool _isFunctional{false};
 
     std::string _mapfile;
+
+    std::string _rootNode;
+
+    ulong _rootNS;
 
     /**
      * Protect against multiple calles of activateAsyncRead().

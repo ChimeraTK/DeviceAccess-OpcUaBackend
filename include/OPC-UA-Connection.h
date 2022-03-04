@@ -46,12 +46,11 @@ struct OPCUAConnection{
   std::string username;
   std::string password;
 
-  unsigned long port;
   unsigned long publishingInterval;
 
-  OPCUAConnection(const std::string &address, const std::string &username, const std::string &password, unsigned long port, unsigned long publishingInterval):
+  OPCUAConnection(const std::string &address, const std::string &username, const std::string &password, unsigned long publishingInterval):
     client(UA_Client_new()), config(UA_Client_getConfig(client.get())), serverAddress(address), channelState(UA_SECURECHANNELSTATE_FRESH),
-    sessionState(UA_SESSIONSTATE_CLOSED), username(username), password(password), port(port), publishingInterval(publishingInterval)
+    sessionState(UA_SESSIONSTATE_CLOSED), username(username), password(password), publishingInterval(publishingInterval)
   {UA_ClientConfig_setDefault(config);};
 
   void close(){
