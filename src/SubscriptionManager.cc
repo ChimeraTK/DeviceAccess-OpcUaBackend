@@ -137,6 +137,7 @@ void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subI
       base->subscriptionMap[monId]->_hasException = false;
       for(auto &accessor : base->subscriptionMap[monId]->_accessors){
 			  UA_DataValue data;
+			  UA_DataValue_init(&data);
 			  UA_DataValue_copy(value, &data);
         accessor->_notifications.push_overwrite(std::move(data));
       }

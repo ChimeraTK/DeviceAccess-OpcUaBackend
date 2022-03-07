@@ -300,6 +300,7 @@ namespace ChimeraTK {
     if(flags.has(AccessMode::raw))
       throw ChimeraTK::logic_error("Raw access mode is not supported.");
 
+    UA_DataValue_init(&_data);
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
     this->accessChannel(0).resize(numberOfWords);
     if(flags.has(AccessMode::wait_for_new_data)){
@@ -308,11 +309,9 @@ namespace ChimeraTK {
       // Create notification queue.
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>([this](UA_DataValue& data) {
-        std::lock_guard<std::mutex> lock(_dataUpdateLock);
+       std::lock_guard<std::mutex> lock(_dataUpdateLock);
 
-       if(!UA_Variant_isEmpty(&this->_data.value)){
-         UA_DataValue_clear(&this->_data);
-       }
+       UA_DataValue_clear(&this->_data);
        if (UA_DataValue_copy(&data,&this->_data) != UA_STATUSCODE_GOOD){
          UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,"Data copy failed!");
        }
