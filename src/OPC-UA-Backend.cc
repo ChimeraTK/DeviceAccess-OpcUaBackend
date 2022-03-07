@@ -430,7 +430,7 @@ namespace ChimeraTK {
     // if an error was seen by the accessor the error is in the queue but as long as no read happened setException is not called
     // but in the tests the device is reset without calling read in between -> so we need to check the connection here
     // -> to make sure the Subscription internal thread is stopped.
-    if(!isFunctional()) {
+    if(!isFunctional() || !_connection->isConnected()) {
       UA_LOG_DEBUG(
           UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Opening the device: %s", _connection->serverAddress.c_str());
       if(_subscriptionManager) {
@@ -449,12 +449,17 @@ namespace ChimeraTK {
     _opened = true;
     // wait at maximum 100ms for the client to come up
     uint i = 0;
-    while(!_connection->isConnected()) {
+    while(!_connection->isConnected()){
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
       ++i;
-      if(i > 4) throw ChimeraTK::runtime_error("Connection could not be established.");
+      if(i>4)
+        throw ChimeraTK::runtime_error("Connection could not be established.");
     }
-    _isFunctional = true;
+    if(!_isFunctional){
+      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        "open() was called but client connection was still up. Maybe setException() was called manually.");
+      _isFunctional = true;
+    }
   }
 
   void OpcUABackend::close() {
