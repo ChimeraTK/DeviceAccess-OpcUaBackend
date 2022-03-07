@@ -155,6 +155,9 @@ namespace ChimeraTK {
      * the root node of the OPC UA server is used.
      *
      * If a mapfile is given only node specified in the mapfile are considered.
+     * Passing a _rootNode allows to prepend a certain hierarchy to the variables given in the map file.
+     * E.g. if _rootNode is testServer and the variable in the map file is temperature/test fillCatalgogue will try to add
+     * the node testServer/temperature/test.
      */
     void fillCatalogue();
 
