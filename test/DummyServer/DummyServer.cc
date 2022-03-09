@@ -221,7 +221,14 @@ OPCUAServer::~OPCUAServer(){
 
 }
 
+static UA_INLINE UA_DurationRange
+UA_DURATIONRANGE(UA_Duration min, UA_Duration max) {
+    UA_DurationRange range = {min, max};
+    return range;
+}
+
 void OPCUAServer::start(){
+  lock();
   // delete server if it was used already before
   if(_configured){
     UA_Server_delete(_server);
@@ -231,11 +238,39 @@ void OPCUAServer::start(){
   // set up the server
   _server = UA_Server_new();
   UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
+  auto config = UA_Server_getConfig(_server);
+  config->publishingIntervalLimits = UA_DURATIONRANGE(PUB_INTERVAL, 3600.0 * 1000.0);
+  config->samplingIntervalLimits = UA_DURATIONRANGE(PUB_INTERVAL, 24.0 * 3600.0 * 1000.0);
   addVariables();
   _configured = true;
   running = true;
   // run the server
-  UA_Server_run(_server, &running);
+  /**
+   *  This is a version without the option to lock in between
+   */
+  //  UA_Server_run(_server, &running);
+  /**
+   * Here we use UA_Server_run_iterate to allow to lock in between
+   */
+  UA_Server_run_startup(_server);
+  // make sure to kepp the lock until UA_Server_run_iterate is called once to emit initial values
+  bool isFirstLock = true;
+  while(running){
+    if(!isFirstLock)
+      lock();
+    else
+      isFirstLock = false;
+    auto nextUpdate = UA_Server_run_iterate(_server, true);
+//    usleep(nextUpdate);
+    unlock();
+    usleep(1000);
+  }
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                            "Finished iterate loop in the server.");
+
+  lock();
+  UA_Server_run_shutdown(_server);
+  unlock();
   UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
                             "Finished running the server.");
 
@@ -301,10 +336,12 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean> &
   } else {
     UA_Variant_setArrayCopy(data, &p[0], length, &UA_TYPES[UA_TYPES_BOOLEAN]);
   }
+  lock();
   UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
+  unlock();
   UA_Variant_delete(data);
-  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result. Nevertheless problems were observed so use 300ms.
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  // In the test new data is set in a sequence. Since the smapling interval is set equal to the p[ublishing interval we have to wait at least one sampling interval here
+  std::this_thread::sleep_for(std::chrono::milliseconds(2*PUB_INTERVAL));
 
 }
 
@@ -345,13 +382,14 @@ bool ThreadedOPCUAServer::checkConnection(const ServerState &state){
       if(retval != UA_STATUSCODE_GOOD)
         break;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(PUB_INTERVAL));
 
     time++;
-    if(time == 200){
-      // break after 2s - server should be up now!
+    if(time == 1000/PUB_INTERVAL){
+      // break after 1s - server should be up now!
       return false;
     }
   }
+  UA_Client_disconnect(_client);
   return true;
 }

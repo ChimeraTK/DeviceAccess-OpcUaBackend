@@ -69,7 +69,7 @@ struct AllRegisterDefaults{
       OPCUALauncher::threadedServer->start();
     }
     // sleep for twice the publishing interval
-    std::this_thread::sleep_for(std::chrono::milliseconds(2*100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2*PUB_INTERVAL));
   }
 };
 
@@ -671,7 +671,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
   // minimum publishing interval on the server is 100ms
-  ss << "(" << path << "?port=" << port << "&publishingInterval=100)";
+  ss << "(" << path << "?port=" << port << "&publishingInterval=" << PUB_INTERVAL << ")";
   ubt.runTests(ss.str());
 }
 

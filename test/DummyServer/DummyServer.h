@@ -11,7 +11,7 @@
 #include <open62541/server.h>
 #include <open62541/plugin/network.h>
 
-
+#include <atomic>
 #include <thread>
 #include <chrono>
 #include <mutex>
@@ -39,6 +39,9 @@ extern TypeMapWithName dummyMap;
 
 enum ServerState{On, Off};
 
+// The publishing and sampling interval used in the tests
+#define PUB_INTERVAL 10 // ms
+
 struct OPCUAServer{
 
   OPCUAServer();
@@ -51,7 +54,7 @@ struct OPCUAServer{
 
   bool _configured{false};
 
-  UA_Boolean running{true};
+  std::atomic<UA_Boolean> running{true};
 
   std::mutex _mux;
 
