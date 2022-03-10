@@ -660,9 +660,11 @@ namespace ChimeraTK {
       }
     } else {
       // prepare map file based browsing
-      rootName = parameters["rootNode"];
-      if(rootName.at(rootName.length()-1) != '/')
-        rootName.append("/");
+      if(!parameters["rootNode"].empty()){
+        rootName = parameters["rootNode"];
+        if(rootName.at(rootName.length()-1) != '/')
+          rootName.append("/");
+      }
     }
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(
         serverAddress, parameters["username"], parameters["password"], parameters["map"], publishingInterval, rootName, rootNS));
