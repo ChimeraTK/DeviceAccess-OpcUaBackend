@@ -8,11 +8,14 @@ This backend uses the opcua client from open62541. The version of open62541 is t
       # using target ip
       test (opcua:127.0.0.1?port=16664)
 
-If authentification should be used when connecting to a server use optional device mapping parameters `username` and `password`.
+If authentication should be used when connecting to a server use optional device mapping parameters `username` and `password`.
 
 Furthermore, there is a parameter called `publishingInterval`, which is relevant for asynchronous reading. It defines the smallest update time of data to the backend.
 Changes that happen faster than the publishing interval will not be seen by the backend. The unit of the publishing interval is ms and in case no publishing interval is given 
 a publishing of 500ms is used. 
+
+If the connection to the server is lost the client will try to recover the connection after a specified timeout. The default timeout is 5000ms.
+This can be changed using the backend parameter `connectionTimeout` and passing the desired timeout in milli seconds.
 
 The backend can be used in two different ways:
 
