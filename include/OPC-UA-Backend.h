@@ -130,8 +130,18 @@ namespace ChimeraTK {
     static boost::shared_ptr<DeviceBackend> createInstance(
         std::string address, std::map<std::string, std::string> parameters);
 
+    /**
+     * Callback triggered by state changes of the client connection.
+     * Used here to detect when the client connection is set up.
+     */
     static void stateCallback(UA_Client* client, UA_SecureChannelState channelState, UA_SessionState sessionState,
         UA_StatusCode recoveryStatus);
+
+    /**
+     * Callback triggered if inactivity of a subscription is detected.
+     * This can happen if the server connection is cut and no communication is possible any more.
+     */
+    static void inactivityCallback(UA_Client *client, UA_UInt32 subId, void *subContext);
 
    protected:
     /**
@@ -140,11 +150,14 @@ namespace ChimeraTK {
      * \param password Password used when connecting to the OPC UA server.
      * \param mapfile The map file name.
      * \param subscriptonPublishingInterval Publishing interval used for the subscription in ms.
-     * \param root The root node specified as ns:nodeid or ns:nodename.
+     * \param rootNode The root node specified.
+     * \param rootNS The root node name space.
+     * \param connectionTimeout
      */
     OpcUABackend(const std::string& fileAddress, const std::string& username = "",
         const std::string& password = "", const std::string& mapfile = "",
-        const unsigned long& subscriptonPublishingInterval = 500, const std::string& rootNode = "", const ulong& rootNS = 0);
+        const unsigned long& subscriptonPublishingInterval = 500, const std::string& rootNode = "", const ulong& rootNS = 0,
+        const long int& connectionTimeout = -1);
 
     /**
      * Fill catalog.

@@ -118,12 +118,39 @@ namespace ChimeraTK {
     }
   }
 
+  void OpcUABackend::inactivityCallback(UA_Client *client, UA_UInt32 subId, void *subContext){
+    // when closing the device this does not need to be done
+    if(OpcUABackend::backendClients[client]->_opened) {
+      if(OpcUABackend::backendClients[client]->_isFunctional &&
+         OpcUABackend::backendClients[client]->_subscriptionManager) {
+        if(OpcUABackend::backendClients[client]->_subscriptionManager->isRunning() &&
+            OpcUABackend::backendClients[client]->_subscriptionManager->getSubscriptionID() == subId){
+          std::stringstream ss;
+          ss <<  "No activity for subscriptions: " << subId;
+          OpcUABackend::backendClients[client]->_subscriptionManager->deactivateAllAndPushException(
+              ss.str());
+          OpcUABackend::backendClients[client]->_isFunctional = false;
+          /*
+           *  Manually set session state to closed.
+           *  When backend is recovered a new session will be created and thus the sessionState will be
+           *  updated accordinly.
+           */
+          OpcUABackend::backendClients[client]->_connection->sessionState = UA_SessionState::UA_SESSIONSTATE_CLOSED;
+        }
+      }
+    }
+  }
+
   OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username,
-      const std::string& password, const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName, const ulong& rootNS)
-  : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
+      const std::string& password, const std::string& mapfile, const unsigned long& subscriptonPublishingInterval,
+      const std::string& rootName, const ulong& rootNS,
+      const long int& connectionTimeout)
+  : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS){
     _connection =
         std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval);
     _connection->config->stateCallback = stateCallback;
+    _connection->config->subscriptionInactivityCallback = inactivityCallback;
+    _connection->config->timeout = connectionTimeout;
 
     OpcUABackend::backendClients[_connection->client.get()] = this;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
@@ -418,6 +445,18 @@ namespace ChimeraTK {
       }
       _subscriptionManager->resetMonitoredItems();
     }
+    /*
+     *  close connection
+     *
+     *  In the tests after unlocking the server the client reused the session that
+     *  was active before the locking the server. In that case no initial value was sent.
+     *  By closing the session we force an initial value to be send when reconnecting the
+     *  client.
+     */
+    {
+      std::lock_guard<std::mutex> lock(_connection->client_lock);
+      _connection->close();
+    }
   }
 
   void OpcUABackend::open() {
@@ -467,9 +506,6 @@ namespace ChimeraTK {
     _isFunctional = false;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing the device: %s", _connection->serverAddress.c_str());
     resetClient();
-    if(_subscriptionManager) {
-      _subscriptionManager->removeMonitoredItems();
-    }
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
     //    _catalogue_mutable = RegisterCatalogue();
     //    _catalogue_filled = false;
@@ -625,7 +661,7 @@ namespace ChimeraTK {
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType(
-        "opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map", "publishingInterval", "rootNode"});
+        "opcua", &OpcUABackend::createInstance, {"port", "username", "password", "map", "publishingInterval", "rootNode", "connectionTimeout"});
     std::cout << "BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -666,7 +702,13 @@ namespace ChimeraTK {
           rootName.append("/");
       }
     }
+    long int connetionTimeout = -1;
+    if(!parameters["connectionTimeout"].empty()){
+      connetionTimeout = std::stoi(parameters["connectionTimeout"]);
+      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %ld ms", connetionTimeout);
+    }
+
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(
-        serverAddress, parameters["username"], parameters["password"], parameters["map"], publishingInterval, rootName, rootNS));
+        serverAddress, parameters["username"], parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout));
   }
 } // namespace ChimeraTK

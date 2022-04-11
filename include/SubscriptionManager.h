@@ -146,15 +146,8 @@ namespace ChimeraTK{
 
     void resetMonitoredItems();
 
-    /**
-     * Clear list of monitored items.
-     *
-     * Use this to make sure the corresponding items are not activated any more. This is important if the accessors do not
-     * exist anymore when calling activate again.
-     *
-     *  \remark Holds item lock.
-     */
-    void removeMonitoredItems();
+    UA_UInt32 getSubscriptionID(){return _subscriptionID;}
+
   private:
 
     /**
@@ -180,7 +173,7 @@ namespace ChimeraTK{
 
     std::shared_ptr<OPCUAConnection> _connection;
 
-    UA_UInt32 _subscriptionID;
+    UA_UInt32 _subscriptionID{0};
 
     // List of items to be monitored
     std::deque<MonitorItem> _items;

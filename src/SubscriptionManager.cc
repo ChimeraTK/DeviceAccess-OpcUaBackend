@@ -112,6 +112,7 @@ void OPCUASubscriptionManager::removeSubscription(){
   if(!UA_Client_Subscriptions_deleteSingle(_connection->client.get(), _subscriptionID)){
     UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
         "Sucessfully removed old subscription.");
+    _subscriptionID = 0;
   }
 
 }
@@ -125,8 +126,8 @@ void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subI
     UA_UInt32 monId, void *monContext, UA_DataValue *value){
   UA_DateTime sourceTime = value->sourceTimestamp;
   UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime);
-  UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-  "Subscription handler called.\nSource time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u, ",
+  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+  "Subscription handler called. Source time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u",
                  dts.day, dts.month, dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
   auto base = reinterpret_cast<OPCUASubscriptionManager*>(monContext);
 
@@ -150,6 +151,8 @@ void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subI
 }
 
 void OPCUASubscriptionManager::createSubscription(){
+  /* Clean up left over subscription. */
+  if(_subscriptionID != 0) removeSubscription();
   /* Create the subscription with default configuration. */
   UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
   request.requestedPublishingInterval = _connection->publishingInterval;
@@ -259,7 +262,7 @@ void  OPCUASubscriptionManager::subscribe(const std::string &browseName, const U
 }
 
 OPCUASubscriptionManager::OPCUASubscriptionManager(std::shared_ptr<OPCUAConnection> connection):
-  _connection(connection), _subscriptionActive(false), _asyncReadActive(false), _run(true), _subscriptionID(0){
+  _connection(connection){
 }
 
 void OPCUASubscriptionManager::resetMonitoredItems(){
@@ -273,11 +276,6 @@ void OPCUASubscriptionManager::resetMonitoredItems(){
     item._isMonitored = false;
   }
   subscriptionMap.clear();
-}
-
-void OPCUASubscriptionManager::removeMonitoredItems(){
-  std::lock_guard<std::mutex> lock(_mutex);
-  _items.clear();
 }
 
 void OPCUASubscriptionManager::unsubscribe(const std::string &browseName, OpcUABackendRegisterAccessorBase* accessor){

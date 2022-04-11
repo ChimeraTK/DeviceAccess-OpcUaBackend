@@ -39,12 +39,13 @@ public:
 ThreadedOPCUAServer* OPCUALauncher::threadedServer;
 
 struct AllRegisterDefaults{
+  virtual ~AllRegisterDefaults(){}
   virtual bool isWriteable() { return true; }
   bool isReadable() { return true; }
   AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
   size_t nChannels() { return 1; }
   size_t writeQueueLength() { return std::numeric_limits<size_t>::max(); }
-  size_t nRuntimeErrorCases() { return 1; }
+  size_t nRuntimeErrorCases() { return 2; }
   typedef std::nullptr_t rawUserType;
   typedef int32_t minimumUserType;
 
@@ -54,22 +55,37 @@ struct AllRegisterDefaults{
                                            .disableSwitchReadOnly()
                                            .disableSwitchWriteOnly();
 
-  void setForceRuntimeError(bool enable, size_t){
-    if(enable){
-      OPCUALauncher::threadedServer->_server.stop();
-      // check if the server is really off
-      if(!OPCUALauncher::threadedServer->checkConnection(ServerState::Off)){
-        throw std::runtime_error("Failed to force runtime error.");
-      }
-      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                        "Server is stopped.");
+  void setForceRuntimeError(bool enable, size_t test){
+    switch(test){
+      case 0:
+        if(enable){
+          OPCUALauncher::threadedServer->_server.stop();
+          // check if the server is really off
+          if(!OPCUALauncher::threadedServer->checkConnection(ServerState::Off)){
+            throw std::runtime_error("Failed to force runtime error.");
+          }
+          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                            "Server is stopped.");
+        }
+        else {
+          // check if server is running is done by the method itself.
+          OPCUALauncher::threadedServer->start();
+        }
+        // sleep for twice the publishing interval
+        std::this_thread::sleep_for(std::chrono::milliseconds(2*PUB_INTERVAL));
+        break;
+      case 1:
+        if(enable){
+          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,"Locking server.");
+          OPCUALauncher::threadedServer->_server._mux.lock();
+        } else {
+          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,"Unlocking server.");
+          OPCUALauncher::threadedServer->_server._mux.unlock();
+        }
+        break;
+      default:
+        throw std::runtime_error("Unknown error case.");
     }
-    else {
-      // check if server is running is done by the method itself.
-      OPCUALauncher::threadedServer->start();
-    }
-    // sleep for twice the publishing interval
-    std::this_thread::sleep_for(std::chrono::milliseconds(2*PUB_INTERVAL));
   }
 };
 
@@ -671,7 +687,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
   // minimum publishing interval on the server is 100ms
-  ss << "(" << path << "?port=" << port << "&publishingInterval=" << PUB_INTERVAL << ")";
+  ss << "(" << path << "?port=" << port << "&publishingInterval=" << PUB_INTERVAL << "&connectionTimeout=50" << ")";
   ubt.runTests(ss.str());
 }
 
