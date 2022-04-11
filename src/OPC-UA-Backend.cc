@@ -702,11 +702,11 @@ namespace ChimeraTK {
           rootName.append("/");
       }
     }
-    long int connetionTimeout = -1;
+    long int connetionTimeout = 5000;
     if(!parameters["connectionTimeout"].empty()){
       connetionTimeout = std::stoi(parameters["connectionTimeout"]);
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %ld ms", connetionTimeout);
     }
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %ld ms", connetionTimeout);
 
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(
         serverAddress, parameters["username"], parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout));
