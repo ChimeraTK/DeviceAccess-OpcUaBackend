@@ -309,7 +309,6 @@ namespace ChimeraTK {
         // remove "Dir" only if it is at the end of the rootNode name
         localRootName = localRootName.substr(0, path);
       }
-      std::cout << localRootName << "\t" << _rootNode << "\t" << localNodeName << std::endl;
       localNodeName.erase(0, localRootName.length());
       entry = {_connection->serverAddress, localNodeName};
     }
