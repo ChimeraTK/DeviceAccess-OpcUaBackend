@@ -126,7 +126,7 @@ void OPCUASubscriptionManager::responseHandler(UA_Client *client, UA_UInt32 subI
     UA_UInt32 monId, void *monContext, UA_DataValue *value){
   UA_DateTime sourceTime = value->sourceTimestamp;
   UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime);
-  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+  UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
   "Subscription handler called. Source time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u",
                  dts.day, dts.month, dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
   auto base = reinterpret_cast<OPCUASubscriptionManager*>(monContext);
