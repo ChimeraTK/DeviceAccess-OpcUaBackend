@@ -697,8 +697,6 @@ namespace ChimeraTK {
       // prepare map file based browsing
       if(!parameters["rootNode"].empty()){
         rootName = parameters["rootNode"];
-        if(rootName.at(rootName.length()-1) != '/')
-          rootName.append("/");
       }
     }
     long int connetionTimeout = 5000;
