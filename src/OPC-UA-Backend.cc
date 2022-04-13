@@ -302,7 +302,7 @@ namespace ChimeraTK {
         localNodeName = localNodeName.substr(1, localNodeName.size() - 1);
       }
 
-      // remove "Value" from node name
+      // remove "Dir" from node name
       auto localRootName = _rootNode;
       auto path = localRootName.rfind("Dir");
       if(path == (localRootName.length() - 3)) {
