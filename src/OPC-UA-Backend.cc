@@ -290,7 +290,7 @@ namespace ChimeraTK {
     // connection is locked in fillCatalogue
     OpcUABackendRegisterInfo entry;
     if(nodeName == nullptr) {
-      // used when reading nodes from map file
+      // used when reading nodes from server
       std::string localNodeName;
       if(node.identifierType == UA_NODEIDTYPE_STRING) {
         localNodeName = std::string((char*)node.identifier.string.data, node.identifier.string.length);
@@ -313,7 +313,7 @@ namespace ChimeraTK {
       entry = {_connection->serverAddress, localNodeName};
     }
     else {
-      // used when reading nodes from server
+      // used when reading nodes from map file
       entry = {_connection->serverAddress, *(nodeName.get())};
     }
 
