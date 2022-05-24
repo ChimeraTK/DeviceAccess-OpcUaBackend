@@ -288,10 +288,9 @@ namespace ChimeraTK {
 
   void OpcUABackend::addCatalogueEntry(const UA_NodeId& node, std::shared_ptr<std::string> nodeName) {
     // connection is locked in fillCatalogue
-    OpcUABackendRegisterInfo entry;
+    std::string localNodeName{*(nodeName.get())};
     if(nodeName == nullptr) {
       // used when reading nodes from server
-      std::string localNodeName;
       if(node.identifierType == UA_NODEIDTYPE_STRING) {
         localNodeName = std::string((char*)node.identifier.string.data, node.identifier.string.length);
       }
@@ -310,13 +309,9 @@ namespace ChimeraTK {
         localRootName = localRootName.substr(0, path);
       }
       localNodeName.erase(0, localRootName.length());
-      entry = {_connection->serverAddress, localNodeName};
-    }
-    else {
-      // used when reading nodes from map file
-      entry = {_connection->serverAddress, *(nodeName.get())};
     }
 
+    OpcUABackendRegisterInfo entry{_connection->serverAddress, localNodeName};
     UA_NodeId* id = UA_NodeId_new();
     UA_StatusCode retval = UA_Client_readDataTypeAttribute(_connection->client.get(), node, id);
     if(retval != UA_STATUSCODE_GOOD) {
@@ -333,13 +328,13 @@ namespace ChimeraTK {
     retval = UA_Client_readDescriptionAttribute(_connection->client.get(), node, text);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_LocalizedText_delete(text);
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-          "Failed to read data description from variable: %s with reason: %s. Variable is not added to the catalog.",
+      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          "Failed to read data description from variable: %s with reason: %s.",
           entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
-      return;
+    } else {
+      entry._description = std::string((char*)text->text.data, text->text.length);
+      UA_LocalizedText_delete(text);
     }
-    entry._description = std::string((char*)text->text.data, text->text.length);
-    UA_LocalizedText_delete(text);
 
     UA_Variant* val = UA_Variant_new();
     retval = UA_Client_readValueAttribute(_connection->client.get(), node, val);
