@@ -288,7 +288,7 @@ namespace ChimeraTK {
 
   void OpcUABackend::addCatalogueEntry(const UA_NodeId& node, std::shared_ptr<std::string> nodeName) {
     // connection is locked in fillCatalogue
-    std::string localNodeName{*(nodeName.get())};
+    std::string localNodeName;
     if(nodeName == nullptr) {
       // used when reading nodes from server
       if(node.identifierType == UA_NODEIDTYPE_STRING) {
@@ -309,6 +309,8 @@ namespace ChimeraTK {
         localRootName = localRootName.substr(0, path);
       }
       localNodeName.erase(0, localRootName.length());
+    } else {
+      localNodeName = *(nodeName.get());
     }
 
     OpcUABackendRegisterInfo entry{_connection->serverAddress, localNodeName};
