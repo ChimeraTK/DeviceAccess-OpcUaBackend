@@ -8,7 +8,7 @@ include(cmake/set_version_numbers.cmake)
 
 include(cmake/add_dependency.cmake)
 add_dependency(ChimeraTK-DeviceAccess 03.00 REQUIRED)
-add_dependency(open62541 01.02 REQUIRED)
+add_dependency(open62541 01.03 REQUIRED)
 
 # add support for latest C++ standard to compiler flags
 include(cmake/enable_latest_cxx_support.cmake)
