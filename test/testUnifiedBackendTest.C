@@ -5,27 +5,25 @@
  *      Author: Klaus Zenker (HZDR)
  */
 
-#include <chrono>
-#include <cstddef>
-
 #include "DummyServer.h"
 #include <open62541/plugin/log_stdout.h>
 
-#define BOOST_TEST_MODULE testUnifiedBackendTest
-#include <boost/test/included/unit_test.hpp>
+#include <chrono>
+#include <cstddef>
 
+#define BOOST_TEST_MODULE testUnifiedBackendTest
 #include <ChimeraTK/UnifiedBackendTest.h>
+
+#include <boost/test/unit_test.hpp>
 
 using namespace boost::unit_test_framework;
 using namespace ChimeraTK;
 
-
-
 class OPCUALauncher {
-public:
-  OPCUALauncher(){
+ public:
+  OPCUALauncher() {
     port = server._server.getPort();
-    path= "opcua:localhost";
+    path = "opcua:localhost";
     threadedServer = &server;
     server.start();
   }
@@ -38,8 +36,8 @@ public:
 
 ThreadedOPCUAServer* OPCUALauncher::threadedServer;
 
-struct AllRegisterDefaults{
-  virtual ~AllRegisterDefaults(){}
+struct AllRegisterDefaults {
+  virtual ~AllRegisterDefaults() {}
   virtual bool isWriteable() { return true; }
   bool isReadable() { return true; }
   AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
@@ -55,31 +53,31 @@ struct AllRegisterDefaults{
                                            .disableSwitchReadOnly()
                                            .disableSwitchWriteOnly();
 
-  void setForceRuntimeError(bool enable, size_t test){
-    switch(test){
+  void setForceRuntimeError(bool enable, size_t test) {
+    switch(test) {
       case 0:
-        if(enable){
+        if(enable) {
           OPCUALauncher::threadedServer->_server.stop();
           // check if the server is really off
-          if(!OPCUALauncher::threadedServer->checkConnection(ServerState::Off)){
+          if(!OPCUALauncher::threadedServer->checkConnection(ServerState::Off)) {
             throw std::runtime_error("Failed to force runtime error.");
           }
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                            "Server is stopped.");
+          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Server is stopped.");
         }
         else {
           // check if server is running is done by the method itself.
           OPCUALauncher::threadedServer->start();
         }
         // sleep for twice the publishing interval
-        std::this_thread::sleep_for(std::chrono::milliseconds(2*PUB_INTERVAL));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2 * PUB_INTERVAL));
         break;
       case 1:
-        if(enable){
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,"Locking server.");
+        if(enable) {
+          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Locking server.");
           OPCUALauncher::threadedServer->_server._mux.lock();
-        } else {
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,"Unlocking server.");
+        }
+        else {
+          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Unlocking server.");
           OPCUALauncher::threadedServer->_server._mux.unlock();
         }
         break;
@@ -89,27 +87,27 @@ struct AllRegisterDefaults{
   }
 };
 
-template <typename UAType>
-struct ScalarDefaults : AllRegisterDefaults{
+template<typename UAType>
+struct ScalarDefaults : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 1; }
   virtual std::string path() = 0;
 
   // \ToDo: Is that needed for OPC UA?
-//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+  //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   UAType* data;
-  
+
   template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(){
+  std::vector<std::vector<UserType>> generateValue() {
     UserType increment(3);
     auto currentData = getRemoteValue<UserType>();
     UserType data = currentData.at(0).at(0) + increment;
     return {{data}};
   }
-  
+
   template<typename UserType>
-  std::vector<std::vector<UserType> > getRemoteValue(){
+  std::vector<std::vector<UserType>> getRemoteValue() {
     auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
     data = (UAType*)variant->data;
     auto d = ChimeraTK::numericToUserType<UserType>(*data);
@@ -117,45 +115,45 @@ struct ScalarDefaults : AllRegisterDefaults{
     return {{d}};
   }
 
-  void setRemoteValue(){
+  void setRemoteValue() {
     std::vector<UAType> value;
     //\ToDo: Should this be UserType instead of UAType?
     value.push_back(generateValue<UAType>().at(0).at(0));
     std::stringstream ss;
     ss << value.at(0);
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Setting value:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(),value);
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
+    OPCUALauncher::threadedServer->_server.setValue(path(), value);
   }
 };
 
-template <typename UAType>
-struct ScalarDefaultsRO : ScalarDefaults<UAType>{
-  bool isWriteable() override {return false;};
+template<typename UAType>
+struct ScalarDefaultsRO : ScalarDefaults<UAType> {
+  bool isWriteable() override { return false; };
 };
 
-
 template<typename T>
-struct identity { typedef T type; };
+struct identity {
+  typedef T type;
+};
 
-template <>
-struct ScalarDefaults<UA_String> : AllRegisterDefaults{
+template<>
+struct ScalarDefaults<UA_String> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 1; }
   virtual std::string path() = 0;
 
   // \ToDo: Is that needed for OPC UA?
-//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+  //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   UA_String* data;
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(){
+  std::vector<std::vector<UserType>> generateValue() {
     return generateValue(identity<UserType>());
   }
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > getRemoteValue(){
+  std::vector<std::vector<UserType>> getRemoteValue() {
     auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
     data = (UA_String*)variant->data;
     std::stringstream ss(std::string((char*)data->data, data->length));
@@ -166,51 +164,48 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults{
     return {{d}};
   }
 
-  void setRemoteValue(){
+  void setRemoteValue() {
     std::vector<UA_String> value;
-    std::string tmp  = generateValue<std::string>().at(0).at(0);
+    std::string tmp = generateValue<std::string>().at(0).at(0);
     value.push_back(UA_STRING((char*)tmp.c_str()));
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Setting value:   %s", tmp.c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(),value);
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", tmp.c_str());
+    OPCUALauncher::threadedServer->_server.setValue(path(), value);
   }
 
-  private:
+ private:
   template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(identity<UserType>){
+  std::vector<std::vector<UserType>> generateValue(identity<UserType>) {
     UserType increment(3);
     auto currentData = getRemoteValue<UserType>();
     UserType data = currentData.at(0).at(0) + increment;
     return {{data}};
   }
-  std::vector<std::vector<std::string> > generateValue(identity<std::string>){
+  std::vector<std::vector<std::string>> generateValue(identity<std::string>) {
     int increment(3);
     auto currentData = getRemoteValue<int>();
     int data = currentData.at(0).at(0) + increment;
     return {{std::to_string(data)}};
   }
-
 };
 
-
-template <>
-struct ScalarDefaultsRO<UA_String> : ScalarDefaults<UA_String>{
-  bool isWriteable() override {return false;};
+template<>
+struct ScalarDefaultsRO<UA_String> : ScalarDefaults<UA_String> {
+  bool isWriteable() override { return false; };
 };
 
-template <>
-struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults{
+template<>
+struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 1; }
   virtual std::string path() = 0;
 
   // \ToDo: Is that needed for OPC UA?
-//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+  //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   UA_Boolean* data;
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > getRemoteValue(){
+  std::vector<std::vector<UserType>> getRemoteValue() {
     auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
     data = (UA_Boolean*)variant->data;
     // convert to int
@@ -220,64 +215,62 @@ struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults{
     return {{d}};
   }
 
-  void setRemoteValue(){
+  void setRemoteValue() {
     std::vector<UA_Boolean> value;
     value.push_back(generateValue<int>().at(0).at(0));
     std::stringstream ss;
     ss << value.at(0);
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Setting value:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(),value);
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
+    OPCUALauncher::threadedServer->_server.setValue(path(), value);
   }
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(){
+  std::vector<std::vector<UserType>> generateValue() {
     UserType increment(1);
     auto currentData = getRemoteValue<UserType>();
-    if(currentData.at(0).at(0) > 0 ){
+    if(currentData.at(0).at(0) > 0) {
       UserType data = currentData.at(0).at(0) - increment;
       return {{data}};
-    } else {
+    }
+    else {
       UserType data = currentData.at(0).at(0) + increment;
       return {{data}};
     }
   }
-
 };
 
-template <>
-struct ScalarDefaultsRO<UA_Boolean> : ScalarDefaults<UA_Boolean>{
-  bool isWriteable() override {return false;};
+template<>
+struct ScalarDefaultsRO<UA_Boolean> : ScalarDefaults<UA_Boolean> {
+  bool isWriteable() override { return false; };
 };
 
-
-template <typename UAType>
-struct ArrayDefaults : AllRegisterDefaults{
+template<typename UAType>
+struct ArrayDefaults : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 5; }
   virtual std::string path() = 0;
   UAType* data;
 
   // \ToDo: Is that needed for OPC UA?
-//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+  //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(){
+  std::vector<std::vector<UserType>> generateValue() {
     auto currentData = getRemoteValue<UserType>();
     UserType increment(3);
     std::vector<UserType> val;
-    for(size_t i =0; i < nElementsPerChannel(); ++i){
-      val.push_back(currentData.at(0).at(i)+(i+1)*increment);
+    for(size_t i = 0; i < nElementsPerChannel(); ++i) {
+      val.push_back(currentData.at(0).at(i) + (i + 1) * increment);
     }
     return {val};
   }
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > getRemoteValue(){
+  std::vector<std::vector<UserType>> getRemoteValue() {
     auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
     data = (UAType*)variant->data;
     std::vector<UserType> values;
-    for(size_t i =0; i < nElementsPerChannel(); ++i){
+    for(size_t i = 0; i < nElementsPerChannel(); ++i) {
       auto value = ChimeraTK::numericToUserType<UserType>(data[i]);
       values.push_back(value);
     }
@@ -285,48 +278,47 @@ struct ArrayDefaults : AllRegisterDefaults{
     return {values};
   }
 
-  void setRemoteValue(){
+  void setRemoteValue() {
     std::vector<UAType> values;
     //\ToDo: Should this be UserType instead of UAType?
     auto v = generateValue<UAType>().at(0);
     std::stringstream ss;
-    for(auto t : v){
+    for(auto t : v) {
       values.push_back(t);
       ss << " " << t;
     }
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Setting array:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
+    OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
   }
 };
 
-template <typename UAType>
-struct ArrayDefaultsRO : ArrayDefaults<UAType>{
- bool isWriteable() override {return false;}
+template<typename UAType>
+struct ArrayDefaultsRO : ArrayDefaults<UAType> {
+  bool isWriteable() override { return false; }
 };
 
-template <>
-struct ArrayDefaults<UA_String> : AllRegisterDefaults{
+template<>
+struct ArrayDefaults<UA_String> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 5; }
   virtual std::string path() = 0;
   UA_String* data;
 
   // \ToDo: Is that needed for OPC UA?
-//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+  //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(){
+  std::vector<std::vector<UserType>> generateValue() {
     return generateValue(identity<UserType>());
   }
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > getRemoteValue(){
+  std::vector<std::vector<UserType>> getRemoteValue() {
     auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
     data = (UA_String*)variant->data;
     std::vector<UserType> values;
     int tmpInt;
-    for(size_t i =0; i < nElementsPerChannel(); ++i){
+    for(size_t i = 0; i < nElementsPerChannel(); ++i) {
       std::string tmp = std::string((char*)data[i].data, data[i].length);
       std::stringstream ss(std::string((char*)data[i].data, data[i].length));
       ss >> tmpInt;
@@ -337,92 +329,90 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults{
     return {values};
   }
 
-  void setRemoteValue(){
+  void setRemoteValue() {
     std::vector<UA_String> values;
     //\ToDo: Should this be UserType instead of UAType?
     auto v = generateValue<std::string>().at(0);
     std::stringstream ss;
-    for(auto &t : v){
+    for(auto& t : v) {
       values.push_back(UA_STRING((char*)t.c_str()));
       ss << " " << t;
     }
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Setting array:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
+    OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
   }
 
-private:
+ private:
   template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(identity<UserType>){
+  std::vector<std::vector<UserType>> generateValue(identity<UserType>) {
     auto currentData = getRemoteValue<UserType>();
     UserType increment(3);
     std::vector<UserType> val;
-    for(size_t i =0; i < nElementsPerChannel(); ++i){
-      val.push_back(currentData.at(0).at(i)+(i+1)*increment);
+    for(size_t i = 0; i < nElementsPerChannel(); ++i) {
+      val.push_back(currentData.at(0).at(i) + (i + 1) * increment);
     }
     return {val};
   }
 
-  std::vector<std::vector<std::string> > generateValue(identity<std::string>){
+  std::vector<std::vector<std::string>> generateValue(identity<std::string>) {
     auto currentData = getRemoteValue<int>();
     int increment(3);
     std::vector<std::string> val;
-    for(size_t i =0; i < nElementsPerChannel(); ++i){
-      val.push_back(std::to_string(currentData.at(0).at(i)+(i+1)*increment));
+    for(size_t i = 0; i < nElementsPerChannel(); ++i) {
+      val.push_back(std::to_string(currentData.at(0).at(i) + (i + 1) * increment));
     }
     return {val};
   }
 };
 
-template <>
-struct ArrayDefaultsRO<UA_String> : ArrayDefaults<UA_String>{
- bool isWriteable() override {return false;}
+template<>
+struct ArrayDefaultsRO<UA_String> : ArrayDefaults<UA_String> {
+  bool isWriteable() override { return false; }
 };
 
-template <>
-struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults{
+template<>
+struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
   size_t nElementsPerChannel() { return 5; }
   virtual std::string path() = 0;
   UA_Boolean* data;
 
   // \ToDo: Is that needed for OPC UA?
-//  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
+  //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > getRemoteValue(){
+  std::vector<std::vector<UserType>> getRemoteValue() {
     auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
     data = (UA_Boolean*)variant->data;
     // convert to int
     int idata;
     std::vector<UserType> d;
-    for(size_t i = 0; i < nElementsPerChannel(); ++i){
+    for(size_t i = 0; i < nElementsPerChannel(); ++i) {
       idata = data[i];
       d.push_back(ChimeraTK::numericToUserType<UserType>(idata));
     }
     return {d};
   }
 
-  void setRemoteValue(){
+  void setRemoteValue() {
     std::vector<UA_Boolean> values;
     //\ToDo: Should this be UserType instead of UAType?
     auto v = generateValue<int>().at(0);
     std::stringstream ss;
-    for(auto &t : v){
+    for(auto& t : v) {
       values.push_back(t);
       ss << " " << t;
     }
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                      "Setting array:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(),values, nElementsPerChannel());
+    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
+    OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
   }
 
   template<typename UserType>
-  std::vector<std::vector<UserType> > generateValue(){
+  std::vector<std::vector<UserType>> generateValue() {
     auto currentData = getRemoteValue<UserType>();
     UserType increment(1);
     std::vector<UserType> val;
-    for(size_t i =0; i < nElementsPerChannel(); ++i){
+    for(size_t i = 0; i < nElementsPerChannel(); ++i) {
       if(currentData.at(0).at(i) > 0)
         val.push_back(currentData.at(0).at(i) - increment);
       else
@@ -432,9 +422,9 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults{
   }
 };
 
-template <>
-struct ArrayDefaultsRO<UA_Boolean> : ArrayDefaults<UA_Boolean>{
- bool isWriteable() override {return false;}
+template<>
+struct ArrayDefaultsRO<UA_Boolean> : ArrayDefaults<UA_Boolean> {
+  bool isWriteable() override { return false; }
 };
 
 struct RegSomeBool : ScalarDefaults<UA_Boolean> {
@@ -491,7 +481,6 @@ struct RegSomeBoolArray : ArrayDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/array/bool"; }
   typedef Boolean minimumUserType;
 };
-
 
 struct RegSomeInt64Array : ArrayDefaults<UA_Int64> {
   std::string path() override { return "Dummy/array/int64"; }
@@ -687,7 +676,8 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
   // minimum publishing interval on the server is 100ms
-  ss << "(" << path << "?port=" << port << "&publishingInterval=" << PUB_INTERVAL << "&connectionTimeout=50" << ")";
+  ss << "(" << path << "?port=" << port << "&publishingInterval=" << PUB_INTERVAL << "&connectionTimeout=50"
+     << ")";
   ubt.runTests(ss.str());
 }
 
