@@ -23,6 +23,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "${ChimeraTK-Devi
 target_link_libraries(${PROJECT_NAME} ${ChimeraTK-DeviceAccess_LIBRARIES} ${ChimeraTK-ControlSystemAdapter_LIBRARIES} open62541::open62541) 
 # --no-as-needed: force linking against this library. This is required for proper registering.
 target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
+# do not remove runtime paths of the library when installing (helps for unsually located implicit dependencies)
+set_property(TARGET ${PROJECT_NAME} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 find_package( Threads )
 FIND_PACKAGE(Boost COMPONENTS unit_test_framework system)
