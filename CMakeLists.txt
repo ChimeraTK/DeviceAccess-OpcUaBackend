@@ -21,6 +21,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_FULL_
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_FLAGS "-Wl,--enable-new-dtags")
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "${ChimeraTK-DeviceAccess_CXX_FLAGS}")
 target_link_libraries(${PROJECT_NAME} ${ChimeraTK-DeviceAccess_LIBRARIES} ${ChimeraTK-ControlSystemAdapter_LIBRARIES} open62541::open62541) 
+# --no-as-needed: force linking against this library. This is required for proper registering.
+target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
 
 find_package( Threads )
 FIND_PACKAGE(Boost COMPONENTS unit_test_framework system)
@@ -44,8 +46,6 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   target_link_libraries( testSubscription open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   
   add_executable(testUnifiedBackendTest ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testUnifiedBackendTest.C )
-  # force linking against the backend library
-  set_target_properties(testUnifiedBackendTest PROPERTIES LINK_FLAGS "-Wl,--no-as-needed")
   target_link_libraries( testUnifiedBackendTest ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${ChimeraTK-DeviceAccess_LIBRARIES} open62541::open62541)
   target_include_directories(testUnifiedBackendTest PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
   add_test(testUnifiedBackendTest testUnifiedBackendTest)
