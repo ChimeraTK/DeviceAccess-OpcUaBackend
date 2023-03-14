@@ -1,14 +1,14 @@
 project(ChimeraTK-DeviceAccess-OPC-UA-Backend)
 cmake_minimum_required(VERSION 2.8.13)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 01)
 set(${PROJECT_NAME}_MINOR_VERSION 02)
 set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
-include(cmake/add_dependency.cmake)
-add_dependency(ChimeraTK-DeviceAccess 03.00 REQUIRED)
-add_dependency(open62541 01.03 REQUIRED)
+find_package(ChimeraTK-DeviceAccess 03.00 REQUIRED)
+find_package(open62541 01.03 REQUIRED)
 
 # add support for latest C++ standard to compiler flags
 include(cmake/enable_latest_cxx_support.cmake)
@@ -18,9 +18,9 @@ aux_source_directory(${CMAKE_SOURCE_DIR}/src library_sources)
 
 add_library(${PROJECT_NAME} SHARED ${library_sources} )
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_FULL_LIBRARY_VERSION} SOVERSION ${${PROJECT_NAME}_SOVERSION})
-set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_FLAGS "-Wl,--enable-new-dtags")
-set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "${ChimeraTK-DeviceAccess_CXX_FLAGS}")
-target_link_libraries(${PROJECT_NAME} ${ChimeraTK-DeviceAccess_LIBRARIES} ${ChimeraTK-ControlSystemAdapter_LIBRARIES} open62541::open62541) 
+target_link_libraries(${PROJECT_NAME} 
+    PUBLIC ChimeraTK::ChimeraTK-DeviceAccess
+    PUBLIC open62541::open62541) 
 # --no-as-needed: force linking against this library. This is required for proper registering.
 target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
 # do not remove runtime paths of the library when installing (helps for unsually located implicit dependencies)
@@ -36,19 +36,24 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   #set_property(SOURCE ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C PROPERTY COMPILE_FLAGS "-std=c99")
   #SET_SOURCE_FILES_PROPERTIES( ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C  PROPERTIES LANGUAGE C )  
   add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
-  target_link_libraries( testSimpleServer open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
-  target_include_directories(testSimpleServer PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
+  target_link_libraries( testSimpleServer 
+        PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  target_include_directories(testSimpleServer 
+        PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
   add_test(testClient testSimpleServer)
   
   add_executable(testBrowse ${CMAKE_SOURCE_DIR}/test/testBrowse.C )
-  target_link_libraries( testBrowse open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  target_link_libraries( testBrowse
+        PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   add_test(testBrowse testBrowse)
   
   add_executable(testSubscription ${CMAKE_SOURCE_DIR}/test/testSubscription.C )
-  target_link_libraries( testSubscription open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+  target_link_libraries( testSubscription 
+        PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   
   add_executable(testUnifiedBackendTest ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testUnifiedBackendTest.C )
-  target_link_libraries( testUnifiedBackendTest ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${ChimeraTK-DeviceAccess_LIBRARIES} open62541::open62541)
+  target_link_libraries( testUnifiedBackendTest 
+        PRIVATE ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
   target_include_directories(testUnifiedBackendTest PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
   add_test(testUnifiedBackendTest testUnifiedBackendTest)
 
@@ -63,6 +68,7 @@ endif()
 
 #Install the library and the executables
 install(TARGETS ${PROJECT_NAME}
+            EXPORT ${PROJECT_NAME}Targets
             RUNTIME DESTINATION bin
             LIBRARY DESTINATION lib
   )
@@ -76,13 +82,8 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include/${PROJECT_NAM
           PATTERN "${PROJECT_NAME}" EXCLUDE
           )
 
-#Create the config files by filling the correct variables into the template (*.cmake.in).
-#All variables @VARIABLE@ are replaced with the current values, but they have to be set first....
-#Only the reference header is needed. The other variables are for dependencies of this library,
-#but there are none.
-set(${PROJECT_NAME}_INCLUDE_DIRS "${CMAKE_INSTALL_PREFIX}/include ${Boost_INCLUDE_DIRS}")
-set(${PROJECT_NAME}_LIBRARIES "${PROJECT_NAME} ${ChimeraTK-DeviceAccess_LIBRARIES}")
-set(${PROJECT_NAME}_LIBRARY_DIRS "${CMAKE_INSTALL_PREFIX}/lib ${ChimeraTK-DeviceAccess_LIBRARY_DIRS}")
-set(${PROJECT_NAME}_CPPFLAGS "${ChimeraTK-DeviceAccess_CXX_FLAGS}")
-set(${PROJECT_NAME}_LINKER_FLAGS "-Wl,-rpath=${CMAKE_INSTALL_PREFIX}/lib,--enable-new-dtags")
+# we support our cmake EXPORTS as imported targets
+set(PROVIDES_EXPORTED_TARGETS 1)
+# we need the public dependencies so create_cmake_config_files can find them as implicit dependencies
+list(APPEND ${PROJECT_NAME}_PUBLIC_DEPENDENCIES "open62541;ChimeraTK-DeviceAccess")
 include(${CMAKE_SOURCE_DIR}/cmake/create_cmake_config_files.cmake)  
