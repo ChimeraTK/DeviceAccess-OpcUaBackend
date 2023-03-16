@@ -7,7 +7,7 @@ set(${PROJECT_NAME}_MINOR_VERSION 02)
 set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
-find_package(ChimeraTK-DeviceAccess 03.00 REQUIRED)
+find_package(ChimeraTK-DeviceAccess 03.08 REQUIRED)
 find_package(open62541 01.03 REQUIRED)
 
 # add support for latest C++ standard to compiler flags
