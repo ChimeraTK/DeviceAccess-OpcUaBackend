@@ -7,7 +7,7 @@ set(${PROJECT_NAME}_MINOR_VERSION 02)
 set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
-find_package(ChimeraTK-DeviceAccess 03.08 REQUIRED)
+find_package(ChimeraTK-DeviceAccess 03.09 REQUIRED)
 find_package(open62541 01.03 REQUIRED)
 
 # add support for latest C++ standard to compiler flags
@@ -67,10 +67,11 @@ else()
 endif()
 
 #Install the library and the executables
+include(GNUInstallDirs)
 install(TARGETS ${PROJECT_NAME}
             EXPORT ${PROJECT_NAME}Targets
             RUNTIME DESTINATION bin
-            LIBRARY DESTINATION lib
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )
   
 #all include files go into include/PROJECT_NAME
