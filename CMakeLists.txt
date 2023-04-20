@@ -7,6 +7,9 @@ set(${PROJECT_NAME}_MINOR_VERSION 02)
 set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
+find_package( Threads )
+find_package(Boost COMPONENTS unit_test_framework system)
+
 find_package(ChimeraTK-DeviceAccess 03.09 REQUIRED)
 find_package(open62541 01.03 REQUIRED)
 
@@ -26,15 +29,9 @@ target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
 # do not remove runtime paths of the library when installing (helps for unsually located implicit dependencies)
 set_property(TARGET ${PROJECT_NAME} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-find_package( Threads )
-FIND_PACKAGE(Boost COMPONENTS unit_test_framework system)
-
-
 if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   ENABLE_TESTING()
-
-  #set_property(SOURCE ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C PROPERTY COMPILE_FLAGS "-std=c99")
-  #SET_SOURCE_FILES_PROPERTIES( ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C  PROPERTIES LANGUAGE C )  
+ 
   add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
   target_link_libraries( testSimpleServer 
         PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
@@ -60,8 +57,6 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
   add_executable(memoryTest ${CMAKE_SOURCE_DIR}/test/memorytest.C )
   target_link_libraries( memoryTest open62541::open62541)
 
-#  add_executable(simpleRead ${CMAKE_SOURCE_DIR}/test/simpleRead.C )
-#  target_link_libraries( simpleRead ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 else()
   message(STATUS "Boost unit test framework not found. No tests will be build.")
 endif()
