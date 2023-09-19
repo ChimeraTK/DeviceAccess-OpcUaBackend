@@ -2,7 +2,7 @@
  * testSubscription.C
  *
  *  Created on: Apr 25, 2019
- *      Author: zenker
+ *      Author: Klaus Zenker (HZDR)
  */
 
 #include <open62541/client_highlevel.h>

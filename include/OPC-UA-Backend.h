@@ -2,7 +2,7 @@
  * OPC-UA-Backend.h
  *
  *  Created on: Nov 19, 2018
- *      Author: zenker
+ *      Author: Klaus Zenker (HZDR)
  */
 
 #ifndef OPC_UA_BACKEND_H_

@@ -2,7 +2,7 @@
  * testSimpleServer.C
  *
  *  Created on: Nov 19, 2018
- *      Author: zenker
+ *      Author: Klaus Zenker (HZDR)
  */
 
 
