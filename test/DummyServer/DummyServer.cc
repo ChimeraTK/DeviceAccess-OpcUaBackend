@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Helmholtz-Zentrum Dresden-Rossendorf, FWKE, ChimeraTK Project <chimeratk-support@desy.de>
+// SPDX-License-Identifier: LGPL-3.0-or-later
 /*
  * DummyServer.cc
  *
@@ -5,18 +7,18 @@
  *      Author: Klaus Zenker (HZDR)
  */
 
-#include <random>
-#include <vector>
+#include "DummyServer.h"
 
+#include <open62541/client_config_default.h>
+#include <open62541/network_tcp.h>
 #include <open62541/plugin/log_stdout.h>
 #include <open62541/server_config_default.h>
-#include <open62541/network_tcp.h>
-#include <open62541/client_config_default.h>
 
-#include <boost/fusion/include/for_each.hpp>
 #include <boost/fusion/include/at_key.hpp>
+#include <boost/fusion/include/for_each.hpp>
 
-#include "DummyServer.h"
+#include <random>
+#include <vector>
 
 namespace fusion = boost::fusion;
 
@@ -99,7 +101,7 @@ struct VariableAttacher {
     }
   }
 
-  //void operator()(fusion::pair<UA_String, std::pair<std::string, UA_DataType>>& pair) const {
+  // void operator()(fusion::pair<UA_String, std::pair<std::string, UA_DataType>>& pair) const {
   void operator()(fusion::pair<UA_String, std::pair<std::string, UA_UInt16>>& pair) const {
     //      auto mypair = fusion::at_key<UA_String>(m);
     auto mypair = pair.second;
@@ -333,7 +335,8 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean>& 
   UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   unlock();
   UA_Variant_delete(data);
-  // In the test new data is set in a sequence. Since the smapling interval is set equal to the p[ublishing interval we have to wait at least one sampling interval here
+  // In the test new data is set in a sequence. Since the smapling interval is set equal to the p[ublishing interval we
+  // have to wait at least one sampling interval here
   std::this_thread::sleep_for(std::chrono::milliseconds(2 * PUB_INTERVAL));
 }
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Helmholtz-Zentrum Dresden-Rossendorf, FWKE, ChimeraTK Project <chimeratk-support@desy.de>
+// SPDX-License-Identifier: LGPL-3.0-or-later
+#pragma once
 /*
  * DummyServer.h
  *
@@ -7,17 +10,17 @@
 
 #pragma once
 
-#include <open62541/types.h>
-#include <open62541/server.h>
 #include <open62541/plugin/network.h>
-
-#include <atomic>
-#include <thread>
-#include <chrono>
-#include <mutex>
-#include <vector>
+#include <open62541/server.h>
+#include <open62541/types.h>
 
 #include <boost/fusion/container/map.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <mutex>
+#include <thread>
+#include <vector>
 
 namespace fusion = boost::fusion;
 
@@ -94,7 +97,8 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UAType>& t, c
   }
   UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   UA_Variant_delete(data);
-  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should have published the result. Nevertheless problems were observed so use 300ms.
+  // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should
+  // have published the result. Nevertheless problems were observed so use 300ms.
   std::this_thread::sleep_for(std::chrono::milliseconds(300));
 }
 

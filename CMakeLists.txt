@@ -7,14 +7,15 @@ set(${PROJECT_NAME}_MINOR_VERSION 03)
 set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
-find_package( Threads )
-find_package(Boost COMPONENTS unit_test_framework system)
+#find_package( Threads )
+find_package(Boost COMPONENTS unit_test_framework)
 
 find_package(ChimeraTK-DeviceAccess 03.09 REQUIRED)
 find_package(open62541 01.03 REQUIRED)
 
 # add support for latest C++ standard to compiler flags
 include(cmake/enable_latest_cxx_support.cmake)
+include(cmake/enable_code_style_check.cmake)
 include_directories( include )
 
 aux_source_directory(${CMAKE_SOURCE_DIR}/src library_sources)
@@ -30,8 +31,6 @@ target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
 set_property(TARGET ${PROJECT_NAME} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
-  ENABLE_TESTING()
- 
   add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C )
   target_link_libraries( testSimpleServer 
         PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
@@ -64,20 +63,9 @@ endif()
 #Install the library and the executables
 include(GNUInstallDirs)
 install(TARGETS ${PROJECT_NAME}
-            EXPORT ${PROJECT_NAME}Targets
-            RUNTIME DESTINATION bin
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  )
-  
-#all include files go into include/PROJECT_NAME
-#The exclusion of ${PROJECT_NAME} prevents the recursive installation of the files just being installed.
-#The original headers are in include/*.h, the installed ones in include/PROJECT_NAME/*.h.
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include/${PROJECT_NAME}
-          FILES_MATCHING PATTERN "*.h"
-          PATTERN ".svn" EXCLUDE
-          PATTERN "${PROJECT_NAME}" EXCLUDE
-          )
-
+        EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 # we support our cmake EXPORTS as imported targets
 set(PROVIDES_EXPORTED_TARGETS 1)
 # we need the public dependencies so create_cmake_config_files can find them as implicit dependencies
