@@ -7,7 +7,6 @@ set(${PROJECT_NAME}_MINOR_VERSION 03)
 set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
-#find_package( Threads )
 find_package(Boost COMPONENTS unit_test_framework)
 
 find_package(ChimeraTK-DeviceAccess 03.09 REQUIRED)
