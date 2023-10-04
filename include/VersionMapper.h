@@ -1,21 +1,21 @@
+// SPDX-FileCopyrightText: Helmholtz-Zentrum Dresden-Rossendorf, FWKE, ChimeraTK Project <chimeratk-support@desy.de>
+// SPDX-License-Identifier: LGPL-3.0-or-later
+#pragma once
 /*
  * VersionMapper.h
  *
  *  Created on: Jan 14, 2021
  *      Author: Klaus Zenker (HZDR)
  */
-
-#ifndef INCLUDE_VERSIONMAPPER_H_
-#define INCLUDE_VERSIONMAPPER_H_
-
-#include <map>
-#include <mutex>
-#include <chrono>
-#include <ChimeraTK/VersionNumber.h>
-
 #include <open62541/types.h>
 
-using timePoint_t = std::chrono::time_point<std::chrono::system_clock,std::chrono::duration<int64_t,std::nano> > ;
+#include <ChimeraTK/VersionNumber.h>
+
+#include <chrono>
+#include <map>
+#include <mutex>
+
+using timePoint_t = std::chrono::time_point<std::chrono::system_clock, std::chrono::duration<int64_t, std::nano>>;
 
 /**
  * This class is needed, because if two accessors are create and receive the same data from the server their
@@ -50,8 +50,3 @@ class VersionMapper {
 
   constexpr static size_t maxSizeEventIdMap = 2000;
 };
-
-
-
-
-#endif /* INCLUDE_VERSIONMAPPER_H_ */

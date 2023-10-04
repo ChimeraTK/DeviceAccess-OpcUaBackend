@@ -1,25 +1,24 @@
+// SPDX-FileCopyrightText: Helmholtz-Zentrum Dresden-Rossendorf, FWKE, ChimeraTK Project <chimeratk-support@desy.de>
+// SPDX-License-Identifier: LGPL-3.0-or-later
+#pragma once
 /*
  * OPC-UA-Backend.h
  *
  *  Created on: Nov 19, 2018
  *      Author: Klaus Zenker (HZDR)
  */
+#include "OPC-UA-Connection.h"
+#include "SubscriptionManager.h"
+#include <unordered_set>
 
-#ifndef OPC_UA_BACKEND_H_
-#define OPC_UA_BACKEND_H_
-
-#include <ChimeraTK/DeviceBackendImpl.h>
 #include <ChimeraTK/BackendRegisterCatalogue.h>
+#include <ChimeraTK/DeviceBackendImpl.h>
 
 #include <boost/enable_shared_from_this.hpp>
 
-#include "OPC-UA-Connection.h"
-#include "SubscriptionManager.h"
-
-#include <sstream>
-#include <mutex>
 #include <memory>
-#include <unordered_set>
+#include <mutex>
+#include <sstream>
 
 namespace ChimeraTK {
   class OPCUASubscriptionManager;
@@ -119,10 +118,10 @@ namespace ChimeraTK {
   };
 
   /**
-   * \remark Closing the an application using SIGINT will trigger closing the session. Thus, the state handler will trigger
-   * OPCUASubscriptionManager::deactivateAllAndPushException. At the same time, in the destructor of the Accessors the monitored
-   * items will be removed. This includes UA_Client_MonitoredItems_deleteSingle, which uses a timeout. Since both methods use the
-   * subscription manager mutex shutting down the application takes some time.
+   * \remark Closing the an application using SIGINT will trigger closing the session. Thus, the state handler will
+   * trigger OPCUASubscriptionManager::deactivateAllAndPushException. At the same time, in the destructor of the
+   * Accessors the monitored items will be removed. This includes UA_Client_MonitoredItems_deleteSingle, which uses a
+   * timeout. Since both methods use the subscription manager mutex shutting down the application takes some time.
    */
   class OpcUABackend : public DeviceBackendImpl {
    public:
@@ -141,7 +140,7 @@ namespace ChimeraTK {
      * Callback triggered if inactivity of a subscription is detected.
      * This can happen if the server connection is cut and no communication is possible any more.
      */
-    static void inactivityCallback(UA_Client *client, UA_UInt32 subId, void *subContext);
+    static void inactivityCallback(UA_Client* client, UA_UInt32 subId, void* subContext);
 
    protected:
     /**
@@ -154,23 +153,21 @@ namespace ChimeraTK {
      * \param rootNS The root node name space.
      * \param connectionTimeout
      */
-    OpcUABackend(const std::string& fileAddress, const std::string& username = "",
-        const std::string& password = "", const std::string& mapfile = "",
-        const unsigned long& subscriptonPublishingInterval = 500, const std::string& rootNode = "", const ulong& rootNS = 0,
-        const long int& connectionTimeout = 5000);
+    OpcUABackend(const std::string& fileAddress, const std::string& username = "", const std::string& password = "",
+        const std::string& mapfile = "", const unsigned long& subscriptonPublishingInterval = 500,
+        const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000);
 
     /**
      * Fill catalog.
      *
-     * If mapfile is empty the variable tree is parsed automatically by adding all nodes. This works only for ChimeraTK server
-     * using the OPC UA ControlSystemAdapter.
-     * If in addition a _rootNode is given browsing will start at the root node and all variables below are added. Else
-     * the root node of the OPC UA server is used.
+     * If mapfile is empty the variable tree is parsed automatically by adding all nodes. This works only for ChimeraTK
+     * server using the OPC UA ControlSystemAdapter. If in addition a _rootNode is given browsing will start at the root
+     * node and all variables below are added. Else the root node of the OPC UA server is used.
      *
      * If a mapfile is given only node specified in the mapfile are considered.
      * Passing a _rootNode allows to prepend a certain hierarchy to the variables given in the map file.
-     * E.g. if _rootNode is testServer and the variable in the map file is temperature/test fillCatalgogue will try to add
-     * the node testServer/temperature/test.
+     * E.g. if _rootNode is testServer and the variable in the map file is temperature/test fillCatalgogue will try to
+     * add the node testServer/temperature/test.
      */
     void fillCatalogue();
 
@@ -251,8 +248,8 @@ namespace ChimeraTK {
      * Protect against multiple calles of activateAsyncRead().
      *
      * This was observed for multiple LogicalNameMapping devices that reference the same device.
-     * In the end OPCUASubscriptionManager::start() was called multiple times because the new thread was not yet created when testing
-     * the thread in activateAsyncRead().
+     * In the end OPCUASubscriptionManager::start() was called multiple times because the new thread was not yet created
+     * when testing the thread in activateAsyncRead().
      */
     std::mutex _asyncReadLock;
 
@@ -303,5 +300,3 @@ namespace ChimeraTK {
     void getNodesFromMapfile();
   };
 } // namespace ChimeraTK
-
-#endif /* OPC_UA_BACKEND_H_ */
