@@ -541,16 +541,6 @@ namespace ChimeraTK {
     if(_subscriptionManager) _subscriptionManager->prepare();
   }
 
-  bool OpcUABackend::isFunctional() const {
-    // isFunctional is also set by setException!
-    if(_connection->isConnected() && _isFunctional) {
-      return true;
-    }
-    else {
-      return false;
-    }
-  }
-
   void OpcUABackend::activateAsyncRead() noexcept {
     std::lock_guard<std::mutex> lock(_asyncReadLock);
     if(!_opened || !_isFunctional) return;
@@ -570,8 +560,7 @@ namespace ChimeraTK {
     if(!_subscriptionManager) _subscriptionManager = std::make_unique<OPCUASubscriptionManager>(_connection);
   }
 
-  void OpcUABackend::setException() {
-    _isFunctional = false;
+  void OpcUABackend::setExceptionImpl() noexcept {
     std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(_subscriptionManager) _subscriptionManager->deactivateAllAndPushException();
   }
