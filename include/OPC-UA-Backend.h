@@ -176,7 +176,7 @@ namespace ChimeraTK {
      */
     RegisterCatalogue getRegisterCatalogue() const override;
 
-    void setException() override;
+    void setExceptionImpl() noexcept override;
 
     /**
      * Catalogue is filled here.
@@ -190,8 +190,6 @@ namespace ChimeraTK {
       ss << "OPC-UA Server: " << _connection->serverAddress;
       return ss.str();
     }
-
-    bool isFunctional() const override;
 
     void activateAsyncRead() noexcept override;
 
