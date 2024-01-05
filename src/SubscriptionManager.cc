@@ -19,6 +19,13 @@
 
 namespace ChimeraTK {
 
+  void OPCUASubscriptionManager::deleteSubscriptionCallback(
+      UA_Client* client, UA_UInt32 subscriptionId, void* subscriptionContext) {
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Subscription Id %u was deleted", subscriptionId);
+    OpcUABackend* backend = OpcUABackend::backendClients[client];
+    backend->_subscriptionManager->setInactive();
+  };
+
   OPCUASubscriptionManager::~OPCUASubscriptionManager() {
     // already called when closing the device...
     deactivate();
@@ -53,6 +60,10 @@ namespace ChimeraTK {
       {
         std::lock_guard<std::mutex> lock(_connection->client_lock);
         ret = UA_Client_run_iterate(_connection->client.get(), 0);
+        if(_subscriptionNeedsToBeRemoved) {
+          removeSubscription();
+          _subscriptionNeedsToBeRemoved = false;
+        }
       }
       if(ret != UA_STATUSCODE_GOOD) {
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Stopped sending publish requests. OPC UA message: %s",
@@ -100,9 +111,17 @@ namespace ChimeraTK {
 
     if(_subscriptionActive) {
       _subscriptionActive = false;
-      // lock is hold in runClient and this method is called in the state callback
-      //    std::lock_guard<std::mutex> lock(_connection->client_lock);
-      removeSubscription();
+
+      if(_opcuaThread) {
+        // lock is hold in runClient and this method is called in the state callback by the same thread in in
+        // UA_Client_run_iterate() -> simply set bool and remove subscription outside UA_Client_run_iterate()
+        // in the main thread!
+        _subscriptionNeedsToBeRemoved = true;
+      }
+      else {
+        std::lock_guard<std::mutex> lock(_connection->client_lock);
+        removeSubscription();
+      }
     }
     _asyncReadActive = false;
   }
@@ -239,7 +258,13 @@ namespace ChimeraTK {
 
       _mutex.unlock();
       // check if device was already opened
-      if(_subscriptionActive) {
+      if(_asyncReadActive) {
+        // This can happen if async read was activated without any RegisterAccesors using the subscription.
+        // In this case it is closed due to inactivity.
+        if(!_subscriptionActive) {
+          UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "No active subscription. Setting up new one.");
+          createSubscription();
+        }
         addMonitoredItems();
       }
     }
