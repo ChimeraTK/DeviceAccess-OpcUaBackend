@@ -57,9 +57,8 @@ namespace ChimeraTK {
     OPCUASubscriptionManager(std::shared_ptr<OPCUAConnection> connection);
     ~OPCUASubscriptionManager();
 
-    static void deleteSubscriptionCallback(UA_Client* client, UA_UInt32 subscriptionId, void* subscriptionContext) {
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Subscription Id %u was deleted", subscriptionId);
-    }
+    static void deleteSubscriptionCallback(UA_Client* client, UA_UInt32 subscriptionId, void* subscriptionContext);
+
     /**
      * Enable pushing values to the TransferElement future queue in the OPC UA callback function.
      *
@@ -151,6 +150,14 @@ namespace ChimeraTK {
 
     UA_UInt32 getSubscriptionID() { return _subscriptionID; }
 
+    /**
+     * Method called in the callback function deleteSubscriptionCallback
+     */
+    void setInactive() {
+      _subscriptionActive = false;
+      _subscriptionID = 0;
+    }
+
    private:
     /**
      * Here the items are registered to the server by the client.
@@ -171,6 +178,7 @@ namespace ChimeraTK {
 
     std::atomic<bool> _run{false};
     std::atomic<bool> _subscriptionActive{false};
+    std::atomic<bool> _subscriptionNeedsToBeRemoved{false};
     bool _asyncReadActive{false};
 
     std::shared_ptr<OPCUAConnection> _connection;

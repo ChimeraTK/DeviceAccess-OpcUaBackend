@@ -440,10 +440,7 @@ namespace ChimeraTK {
 
   void OpcUABackend::resetClient() {
     if(_subscriptionManager) {
-      {
-        std::lock_guard<std::mutex> lock(_connection->client_lock);
-        _subscriptionManager->deactivate();
-      }
+      _subscriptionManager->deactivate();
       _subscriptionManager->resetMonitoredItems();
     }
     /*
@@ -561,7 +558,7 @@ namespace ChimeraTK {
   }
 
   void OpcUABackend::setExceptionImpl() noexcept {
-    std::lock_guard<std::mutex> lock(_connection->client_lock);
+    _isFunctional = false;
     if(_subscriptionManager) _subscriptionManager->deactivateAllAndPushException();
   }
 

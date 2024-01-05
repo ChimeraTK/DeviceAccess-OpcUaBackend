@@ -142,6 +142,13 @@ namespace ChimeraTK {
      */
     static void inactivityCallback(UA_Client* client, UA_UInt32 subId, void* subContext);
 
+    /**
+     * Callback triggered if a description is deleted.
+     */
+    static void deleteSubscriptionCallback(UA_Client* client, UA_UInt32 subscriptionId, void* subscriptionContext);
+
+    friend class OPCUASubscriptionManager;
+
    protected:
     /**
      * \param fileAddress The address of the OPC UA server, e.g. opc.tcp://localhost:port.
