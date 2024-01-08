@@ -71,7 +71,7 @@ static void stateCallback(
       }
       /* Add a MonitoredItem */
       //  UA_NodeId monitorThis = UA_NODEID_STRING(1, "/system/status/uptimeSec");
-      UA_NodeId monitorThis = UA_NODEID_STRING(1, "watchdog_server/processes/0/config/killSigValue");
+      UA_NodeId monitorThis = UA_NODEID_STRING(1, "watchdog_server/processes/0/config/killSig");
       UA_UInt32 monId = 0;
       UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(monitorThis);
 
@@ -82,7 +82,7 @@ static void stateCallback(
         monId = monResponse.monitoredItemId;
         printf("Monitoring '/processes/0/config/killSig', id %u\n", subId);
       }
-      UA_NodeId monitorThis1 = UA_NODEID_STRING(1, "watchdog_server/system/status/uptimeSecValue");
+      UA_NodeId monitorThis1 = UA_NODEID_STRING(1, "watchdog_server/system/status/uptimeSec");
       monRequest = UA_MonitoredItemCreateRequest_default(monitorThis1);
 
       monResponse = UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
@@ -117,8 +117,7 @@ int main() {
 
   /* Simple read */
   UA_Variant* var = UA_Variant_new();
-  retval =
-      UA_Client_readValueAttribute(client, UA_NODEID_STRING(1, "watchdog_server/system/status/uptimeSecValue"), var);
+  retval = UA_Client_readValueAttribute(client, UA_NODEID_STRING(1, "watchdog_server/system/status/uptimeSec"), var);
 
   if(retval != UA_STATUSCODE_GOOD) {
     std::cout << "Failed reading simple." << std::endl;
