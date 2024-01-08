@@ -22,8 +22,11 @@ namespace ChimeraTK {
   void OPCUASubscriptionManager::deleteSubscriptionCallback(
       UA_Client* client, UA_UInt32 subscriptionId, void* subscriptionContext) {
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Subscription Id %u was deleted", subscriptionId);
-    OpcUABackend* backend = OpcUABackend::backendClients[client];
-    backend->_subscriptionManager->setInactive();
+    if(OpcUABackend::backendClients.count(client) == 0) {
+      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "No client found in the deleteSubscriptionCallback.");
+      return;
+    }
+    OpcUABackend::backendClients[client]->_subscriptionManager->setInactive();
   };
 
   OPCUASubscriptionManager::~OPCUASubscriptionManager() {
