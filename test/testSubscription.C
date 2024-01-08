@@ -131,6 +131,14 @@ int main() {
   while(!changed) {
     UA_Client_run_iterate(client, 0);
   }
+  std::cout << "Try reconnecting using the same client again." << std::endl;
+  UA_Client_disconnect(client);
+  retval = UA_Client_connect(client, "opc.tcp://localhost:11000");
+  if(retval != UA_STATUSCODE_GOOD) {
+    std::cerr << "Disconnect failed." << std::endl;
+    UA_Client_delete(client);
+    return (int)retval;
+  }
 
   UA_Client_delete(client);
 }
