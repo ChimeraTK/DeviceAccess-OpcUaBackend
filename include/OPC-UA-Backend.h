@@ -223,13 +223,6 @@ namespace ChimeraTK {
     template<typename UAType, typename CTKType>
     friend class OpcUABackendRegisterAccessor;
 
-    bool isAsyncReadActive() {
-      if(_subscriptionManager)
-        return true;
-      else
-        return false;
-    }
-
     std::shared_ptr<OPCUASubscriptionManager> _subscriptionManager;
     std::shared_ptr<OPCUAConnection> _connection;
 
@@ -240,8 +233,6 @@ namespace ChimeraTK {
      * Keep track if catalogue is filled using this bool.
      */
     bool _catalogue_filled;
-
-    bool _isFunctional{false};
 
     std::string _mapfile;
 
