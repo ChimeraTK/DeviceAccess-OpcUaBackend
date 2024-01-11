@@ -57,14 +57,14 @@ struct AllRegisterDefaults {
 
   void setForceRuntimeError(bool enable, size_t test) {
     switch(test) {
-      case 0:
+      case 1:
         if(enable) {
           OPCUALauncher::threadedServer->_server.stop();
           // check if the server is really off
           if(!OPCUALauncher::threadedServer->checkConnection(ServerState::Off)) {
             throw std::runtime_error("Failed to force runtime error.");
           }
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Server is stopped.");
+          UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Server is stopped.");
         }
         else {
           // check if server is running is done by the method itself.
@@ -73,14 +73,15 @@ struct AllRegisterDefaults {
         // sleep for twice the publishing interval
         std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
         break;
-      case 1:
+      case 0:
         if(enable) {
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Locking server.");
+          UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Locking server.");
           OPCUALauncher::threadedServer->_server._mux.lock();
         }
         else {
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Unlocking server.");
+          UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Unlocking server.");
           OPCUALauncher::threadedServer->_server._mux.unlock();
+          std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
         }
         break;
       default:
@@ -123,7 +124,7 @@ struct ScalarDefaults : AllRegisterDefaults {
     value.push_back(generateValue<UAType>().at(0).at(0));
     std::stringstream ss;
     ss << value.at(0);
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), value);
   }
 };
@@ -170,7 +171,7 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults {
     std::vector<UA_String> value;
     std::string tmp = generateValue<std::string>().at(0).at(0);
     value.push_back(UA_STRING((char*)tmp.c_str()));
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", tmp.c_str());
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", tmp.c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), value);
   }
 
@@ -222,7 +223,7 @@ struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults {
     value.push_back(generateValue<int>().at(0).at(0));
     std::stringstream ss;
     ss << value.at(0);
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), value);
   }
 
@@ -289,7 +290,7 @@ struct ArrayDefaults : AllRegisterDefaults {
       values.push_back(t);
       ss << " " << t;
     }
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
   }
 };
@@ -340,7 +341,7 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
       values.push_back(UA_STRING((char*)t.c_str()));
       ss << " " << t;
     }
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
   }
 
@@ -405,7 +406,7 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
       values.push_back(t);
       ss << " " << t;
     }
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
   }
 
@@ -679,7 +680,9 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   std::stringstream ss;
   // minimum publishing interval on the server is 100ms
   ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=50"
+     << "&logLevel=error"
      << ")";
+  // server side logging severity level can be changed in DummyServer.h -> testServerLogLevel
   ubt.runTests(ss.str());
 }
 

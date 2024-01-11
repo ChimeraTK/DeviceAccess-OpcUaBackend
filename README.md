@@ -8,13 +8,31 @@ This backend uses the opcua client from open62541. The version of open62541 is t
       # using target ip
       test (opcua:127.0.0.1?port=16664)
 
+## Optional parameters
+
+The following optional parameters are supported:
+  - `map`
+  - `username`
+  - `password`
+  - `publishingInterval`
+  - `connectionTimeout`
+  - `rootNode`
+  - `logLevel`
+
 If authentication should be used when connecting to a server use optional device mapping parameters `username` and `password`.
 
-Furthermore, there is a parameter called `publishingInterval`, which is relevant for asynchronous reading. It defines the smallest update time of data to the backend.
-Changes that happen faster than the publishing interval will not be seen by the backend. The unit of the publishing interval is ms and in case no publishing interval is given 
-a publishing of 500ms is used. 
+The loggingg severiy level of the client can be set using `logLevel`. Supported log levels are:
+  - `trace`
+  - `debug`
+  - `info`
+  - `warning`
+  - `error`
+  - `fatal`
 
-If the connection to the server is lost the client will try to recover the connection after a specified timeout. The default timeout is 5000ms.
+The parameter `publishingInterval` is relevant for asynchronous reading. It defines the shortest update time of the backend.
+Server side data updates that happen faster than the publishing interval will not be seen by the backend. The unit of the publishing interval is ms and in case no publishing interval is given a publishing of 500ms is used. No queues are used on the backend side!
+
+If the connection to the server is lost the backend will try to recover the connection after a specified timeout. The default timeout is 5000ms.
 This can be changed using the backend parameter `connectionTimeout` and passing the desired timeout in milli seconds.
 
 The backend can be used in two different ways:
@@ -28,7 +46,7 @@ The `rootNode` is given as `namespace:directoryName`, e.g. `1:Test/ControllerDir
 
 For manual catalog creation the mapping parameter `rootNode` can be used to prepend a root directory name to the entries in the given map file.
 If e.g. one wants to use a single map file for different servers, that differ in the root folder name this feature can be used.
-Consider a the variable `serverA/test` of a first server and `serverB/test` of a second server. In that case a common map file can be used mapping `test` 
+Consider variable `serverA/test` of a server and `serverB/test` of another server. In that case a common map file can be used mapping `test` 
 and the parameter `rootNode=serverA` and `rootNode=serverB` can be used as mapping parameter.
 
 ## Map file based catalog creation
@@ -56,13 +74,4 @@ During the development, the reconnection after a connection error was tested. Th
 The 5 subsequent reads happen, because there is a full queue of read triggers. The que was filled during the server was down by the PeriodicTrigger module that was used in the test. After the client recovered from the error state this queue was emptied first. 
 After, periodic triggers from the PeriodicTrigger module followed as expected and correct values were read from the server. 
 
-The read value of 0 did not result e.g. from the client connection being not fully set up. But this is the initial register value after starting a ChimeraTK server. Thus, the opc server was opened but the application did not reach 
-the first mainLoop during the first backend reads. So value of 0 read from the server via the backend is correct. 
-
-### Considerations for testing the backend
-
-- Write test against a server that is implemented using the same stack version
-- The whole test should be a server that can change it's PV and also check if the backend changed some PV
-- A second stage test could be against a ControlsystemAdapter-OPC-UA server -> this should be optional and not needed in the first place
-- The backend should only depend on DeviceAccess and not on other ChimeraTK packages
-- Test the backend also against other Server (in case of problems don't solve problems that are based on the open62541 stack)
+The read value of 0 did not result e.g. from the client connection being not fully set up. But this is the initial register value after starting a ChimeraTK server. Thus, the opc ua server was opened but the application did not reach the first mainLoop during the first backend reads. So value of 0 read from the server via the backend is correct. 

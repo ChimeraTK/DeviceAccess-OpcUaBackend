@@ -43,64 +43,65 @@ std::string backend_name = "opcua";
 namespace ChimeraTK {
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
   std::map<UA_Client*, OpcUABackend*> OpcUABackend::backendClients;
+  UA_Logger OpcUABackend::backendLogger;
 
   void OpcUABackend::stateCallback(UA_Client* client, UA_SecureChannelState channelState, UA_SessionState sessionState,
       UA_StatusCode recoveryStatus) {
     if(OpcUABackend::backendClients.count(client) == 0) {
-      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "No client found in the stateCallback.");
+      UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "No client found in the stateCallback.");
       return;
     }
     OpcUABackend::backendClients[client]->_connection->channelState = channelState;
     OpcUABackend::backendClients[client]->_connection->sessionState = sessionState;
     switch(channelState) {
       case UA_SECURECHANNELSTATE_CLOSED:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
         break;
       case UA_SECURECHANNELSTATE_HEL_SENT:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for HEL");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Waiting for HEL");
         break;
       case UA_SECURECHANNELSTATE_OPN_SENT:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Waiting for OPN Response");
         break;
       case UA_SECURECHANNELSTATE_OPEN:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
         break;
       case UA_SECURECHANNELSTATE_FRESH:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "SecureChannel state: fresh");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "SecureChannel state: fresh");
         break;
       case UA_SECURECHANNELSTATE_HEL_RECEIVED:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Hel received");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Hel received");
         break;
       case UA_SECURECHANNELSTATE_ACK_SENT:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Waiting for ACK");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Waiting for ACK");
         break;
       case UA_SECURECHANNELSTATE_ACK_RECEIVED:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "ACK received");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "ACK received");
         break;
       case UA_SECURECHANNELSTATE_CLOSING:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing secure channel");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Closing secure channel");
         break;
       default:
         break;
     }
     switch(sessionState) {
       case UA_SESSIONSTATE_ACTIVATED:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activated.");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Session activated.");
         break;
       case UA_SESSIONSTATE_CLOSED:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session disconnected.");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Session disconnected.");
         break;
       case UA_SESSIONSTATE_CLOSING:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session is closing...");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Session is closing...");
         break;
       case UA_SESSIONSTATE_CREATE_REQUESTED:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session create requested.");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Session create requested.");
         break;
       case UA_SESSIONSTATE_ACTIVATE_REQUESTED:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session activate requested.");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Session activate requested.");
         break;
       case UA_SESSIONSTATE_CREATED:
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Session created.");
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Session created.");
         break;
 
       default:
@@ -140,9 +141,11 @@ namespace ChimeraTK {
 
   OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username, const std::string& password,
       const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName,
-      const ulong& rootNS, const long int& connectionTimeout)
+      const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel)
   : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
-    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval, connectionTimeout);
+    backendLogger = {UA_Log_Stdout_log, (void*)logLevel, UA_Log_Stdout_clear};
+    _connection = std::make_unique<OPCUAConnection>(
+        fileAddress, username, password, subscriptonPublishingInterval, connectionTimeout, logLevel);
     _connection->config->stateCallback = stateCallback;
     _connection->config->subscriptionInactivityCallback = inactivityCallback;
 
@@ -203,7 +206,7 @@ namespace ChimeraTK {
         tokenizer tok{line, sep};
         size_t nTokens = std::distance(tok.begin(), tok.end());
         if(!(nTokens == 2 || nTokens == 3)) {
-          UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
               "Wrong number of tokens (%s) in opcua mapfile %s line (-> line is ignored): \n %s",
               std::to_string(nTokens).c_str(), _mapfile.c_str(), line.c_str());
           continue;
@@ -233,17 +236,17 @@ namespace ChimeraTK {
             addCatalogueEntry(UA_NODEID_STRING(ns, (char*)id.c_str()), nodeName);
           }
           catch(std::invalid_argument& innerError) {
-            UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+            UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
                 "Failed reading the following line from mapping file %s:\n %s", _mapfile.c_str(), line.c_str());
           }
           catch(std::out_of_range& e) {
-            UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+            UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
                 "Failed reading the following line from mapping file %s (Namespace id is out of range!):\n %s",
                 _mapfile.c_str(), line.c_str());
           }
         }
         catch(std::out_of_range& e) {
-          UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+          UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
               "Failed reading the following line from mapping file %s (Namespace id or Node id is out of range!):\n %s",
               _mapfile.c_str(), line.c_str());
         }
@@ -251,7 +254,8 @@ namespace ChimeraTK {
       mapfile.close();
     }
     else {
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Failed reading opcua mapfile: %s", _mapfile.c_str());
+      UA_LOG_ERROR(
+          &OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Failed reading opcua mapfile: %s", _mapfile.c_str());
       throw ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
     }
   }
@@ -260,11 +264,12 @@ namespace ChimeraTK {
     std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(_mapfile.empty()) {
       if(_rootNode.empty()) {
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting up OPC-UA catalog by browsing the server.");
+        UA_LOG_INFO(
+            &OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Setting up OPC-UA catalog by browsing the server.");
         browseRecursive();
       }
       else {
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
             "Setting up OPC-UA catalog by browsing the server using the root node: %s.", _rootNode.c_str());
         try {
           browseRecursive(UA_NODEID_STRING(_rootNS, (char*)_rootNode.c_str()));
@@ -275,8 +280,8 @@ namespace ChimeraTK {
       }
     }
     else {
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Setting up OPC-UA catalog by reading the map file: %s",
-          _mapfile.c_str());
+      UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+          "Setting up OPC-UA catalog by reading the map file: %s", _mapfile.c_str());
 
       getNodesFromMapfile();
     }
@@ -315,7 +320,7 @@ namespace ChimeraTK {
     UA_StatusCode retval = UA_Client_readDataTypeAttribute(_connection->client.get(), node, id);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_NodeId_delete(id);
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read data type from variable: %s with reason: %s. Variable is not added to the catalog.",
           entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
@@ -327,7 +332,7 @@ namespace ChimeraTK {
     retval = UA_Client_readDescriptionAttribute(_connection->client.get(), node, text);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_LocalizedText_delete(text);
-      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read data description from variable: %s with reason: %s.", entry._nodeBrowseName.c_str(),
           UA_StatusCode_name(retval));
     }
@@ -340,7 +345,7 @@ namespace ChimeraTK {
     retval = UA_Client_readValueAttribute(_connection->client.get(), node, val);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_Variant_delete(val);
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read data from variable: %s with reason: %s. Variable is not added to the catalog.",
           entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
@@ -351,7 +356,7 @@ namespace ChimeraTK {
     }
     else if(val->arrayLength == 0) {
       UA_Variant_delete(val);
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Array length of variable: %s  is 0!. Variable is not added to the catalog.", entry._nodeBrowseName.c_str());
       return;
     }
@@ -406,7 +411,7 @@ namespace ChimeraTK {
         entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::string, true, true, 320, 300);
         break;
       default:
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
             "Failed to determine data type for node: %s  -> entry is not added to the catalogue.",
             entry._nodeBrowseName.c_str());
         return;
@@ -417,7 +422,7 @@ namespace ChimeraTK {
     UA_Byte accessLevel;
     retval = UA_Client_readAccessLevelAttribute(_connection->client.get(), node, &accessLevel);
     if(retval != UA_STATUSCODE_GOOD) {
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read access level from variable: %s with reason: %s. Variable is not added to the catalog.",
           entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
@@ -463,8 +468,8 @@ namespace ChimeraTK {
     // connection here
     // -> to make sure the Subscription internal thread is stopped.
     if(!_connection->isConnected()) {
-      UA_LOG_DEBUG(
-          UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Opening the device: %s", _connection->serverAddress.c_str());
+      UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Opening the device: %s",
+          _connection->serverAddress.c_str());
       if(_subscriptionManager) {
         _subscriptionManager->stopClientThread();
       }
@@ -487,7 +492,8 @@ namespace ChimeraTK {
 
   void OpcUABackend::close() {
     _opened = false;
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing the device: %s", _connection->serverAddress.c_str());
+    UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Closing the device: %s",
+        _connection->serverAddress.c_str());
     resetClient();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
     //    _catalogue_mutable = RegisterCatalogue();
@@ -515,8 +521,8 @@ namespace ChimeraTK {
       throw ChimeraTK::runtime_error(ss.str());
     }
     else {
-      UA_LOG_INFO(
-          UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Connection established:  %s ", _connection->serverAddress.c_str());
+      UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Connection established:  %s ",
+          _connection->serverAddress.c_str());
     }
     // if already setup subscriptions where used
     if(_subscriptionManager) _subscriptionManager->prepare();
@@ -683,7 +689,36 @@ namespace ChimeraTK {
     }
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %ld ms", connetionTimeout);
 
+    UA_LogLevel logLevel = UA_LOGLEVEL_INFO;
+    if(!parameters["logLevel"].empty()) {
+      std::transform(
+          parameters["logLevel"].begin(), parameters["logLevel"].end(), parameters["logLevel"].begin(), ::toupper);
+      if(parameters["logLevel"].compare("DEBUG") == 0) {
+        logLevel = UA_LOGLEVEL_DEBUG;
+      }
+      else if(parameters["logLevel"].compare("INFO") == 0) {
+        logLevel = UA_LOGLEVEL_INFO;
+      }
+      else if(parameters["logLevel"].compare("WARNING") == 0) {
+        logLevel = UA_LOGLEVEL_WARNING;
+      }
+      else if(parameters["logLevel"].compare("TRACE") == 0) {
+        logLevel = UA_LOGLEVEL_TRACE;
+      }
+      else if(parameters["logLevel"].compare("FATAL") == 0) {
+        logLevel = UA_LOGLEVEL_FATAL;
+      }
+      else if(parameters["logLevel"].compare("ERROR") == 0) {
+        logLevel = UA_LOGLEVEL_ERROR;
+      }
+      else {
+        UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+            "Wrong log level in mapping file: %s. Allowed are: trace, debug, info, warning, error, fatal.",
+            parameters["logLevel"].c_str());
+      }
+    }
+
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(serverAddress, parameters["username"],
-        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout));
+        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout, logLevel));
   }
 } // namespace ChimeraTK
