@@ -64,8 +64,7 @@ namespace ChimeraTK {
         std::lock_guard<std::mutex> lock(_connection->client_lock);
         ret = UA_Client_run_iterate(_connection->client.get(), 0);
         if(_subscriptionNeedsToBeRemoved) {
-          removeSubscription();
-          _subscriptionNeedsToBeRemoved = false;
+          break;
         }
       }
       if(ret != UA_STATUSCODE_GOOD) {
@@ -78,6 +77,13 @@ namespace ChimeraTK {
       std::this_thread::sleep_for(std::chrono::milliseconds(_connection->publishingInterval / 2));
       ++i;
       if(i % 50 == 0) UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Still running client iterate loop.");
+    }
+    {
+      std::lock_guard<std::mutex> lock(_connection->client_lock);
+      if(_subscriptionNeedsToBeRemoved) {
+        removeSubscription();
+        _subscriptionNeedsToBeRemoved = false;
+      }
     }
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Stopped client iterate loop.");
 
@@ -132,8 +138,10 @@ namespace ChimeraTK {
   void OPCUASubscriptionManager::removeSubscription() {
     if(!UA_Client_Subscriptions_deleteSingle(_connection->client.get(), _subscriptionID)) {
       UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Sucessfully removed old subscription.");
-      _subscriptionID = 0;
     }
+    // reset ID even subscription deletion fails - this avoids removing it later again
+    _subscriptionID = 0;
+    resetMonitoredItems();
   }
 
   void OPCUASubscriptionManager::deactivateAllAndPushException(std::string message) {
@@ -296,17 +304,18 @@ namespace ChimeraTK {
 
   void OPCUASubscriptionManager::resetMonitoredItems() {
     std::lock_guard<std::mutex> lock(_mutex);
-    if(_opcuaThread && _opcuaThread->joinable()) {
-      _opcuaThread->join();
-      _opcuaThread.reset(nullptr);
-    }
-
     for(auto& item : _items) {
       item._isMonitored = false;
     }
     subscriptionMap.clear();
   }
 
+  void OPCUASubscriptionManager::stopClientThread() {
+    if(_opcuaThread && _opcuaThread->joinable()) {
+      _opcuaThread->join();
+      _opcuaThread.reset(nullptr);
+    }
+  }
   void OPCUASubscriptionManager::unsubscribe(
       const std::string& browseName, OpcUABackendRegisterAccessorBase* accessor) {
     // If the id is set an item is to be removed from the client. Before the _mutex lock is released.
@@ -343,6 +352,15 @@ namespace ChimeraTK {
       else {
         UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
             "Failed to unsubscribe item (no client alive): %s Error: %s", browseName.c_str(), UA_StatusCode_name(ret));
+      }
+      if(_items.size() == 0) {
+        // remove subscription
+        {
+          std::lock_guard<std::mutex> connection_lock(_connection->client_lock);
+          removeSubscription();
+        }
+        _run = false;
+        stopClientThread();
       }
     }
   }

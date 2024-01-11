@@ -24,6 +24,7 @@
 
 #include <fstream>
 #include <string>
+
 typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
 
 extern "C" {
@@ -105,14 +106,9 @@ namespace ChimeraTK {
       default:
         break;
     }
-    if(sessionState == UA_SESSIONSTATE_ACTIVATED && channelState == UA_SECURECHANNELSTATE_OPEN)
-      OpcUABackend::backendClients[client]->_isFunctional = true;
-    else
-      OpcUABackend::backendClients[client]->_isFunctional = false;
-
     // when closing the device this does not need to be done
     if(OpcUABackend::backendClients[client]->_opened) {
-      if(!OpcUABackend::backendClients[client]->_isFunctional &&
+      if(!OpcUABackend::backendClients[client]->_connection->isConnected() &&
           OpcUABackend::backendClients[client]->_subscriptionManager) {
         if(OpcUABackend::backendClients[client]->_subscriptionManager->isRunning())
           OpcUABackend::backendClients[client]->_subscriptionManager->deactivateAllAndPushException(
@@ -123,15 +119,14 @@ namespace ChimeraTK {
 
   void OpcUABackend::inactivityCallback(UA_Client* client, UA_UInt32 subId, void* subContext) {
     // when closing the device this does not need to be done
-    if(OpcUABackend::backendClients[client]->_opened) {
-      if(OpcUABackend::backendClients[client]->_isFunctional &&
+    if(OpcUABackend::backendClients[client]->isFunctional()) {
+      if(OpcUABackend::backendClients[client]->_connection->isConnected() &&
           OpcUABackend::backendClients[client]->_subscriptionManager) {
         if(OpcUABackend::backendClients[client]->_subscriptionManager->isRunning() &&
             OpcUABackend::backendClients[client]->_subscriptionManager->getSubscriptionID() == subId) {
           std::stringstream ss;
           ss << "No activity for subscriptions: " << subId;
           OpcUABackend::backendClients[client]->_subscriptionManager->deactivateAllAndPushException(ss.str());
-          OpcUABackend::backendClients[client]->_isFunctional = false;
           /*
            *  Manually set session state to closed.
            *  When backend is recovered a new session will be created and thus the sessionState will be
@@ -147,10 +142,9 @@ namespace ChimeraTK {
       const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName,
       const ulong& rootNS, const long int& connectionTimeout)
   : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
-    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval);
+    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval, connectionTimeout);
     _connection->config->stateCallback = stateCallback;
     _connection->config->subscriptionInactivityCallback = inactivityCallback;
-    _connection->config->timeout = connectionTimeout;
 
     OpcUABackend::backendClients[_connection->client.get()] = this;
     FILL_VIRTUAL_FUNCTION_TEMPLATE_VTABLE(getRegisterAccessor_impl);
@@ -161,7 +155,6 @@ namespace ChimeraTK {
     connect();
     fillCatalogue();
     _catalogue_filled = true;
-    _isFunctional = true;
   }
 
   OpcUABackend::~OpcUABackend() {
@@ -442,6 +435,7 @@ namespace ChimeraTK {
     if(_subscriptionManager) {
       _subscriptionManager->deactivate();
       _subscriptionManager->resetMonitoredItems();
+      _subscriptionManager->stopClientThread();
     }
     /*
      *  close connection
@@ -468,14 +462,11 @@ namespace ChimeraTK {
     // not called but in the tests the device is reset without calling read in between -> so we need to check the
     // connection here
     // -> to make sure the Subscription internal thread is stopped.
-    if(!isFunctional() || !_connection->isConnected()) {
+    if(!_connection->isConnected()) {
       UA_LOG_DEBUG(
           UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Opening the device: %s", _connection->serverAddress.c_str());
       if(_subscriptionManager) {
-        if(_subscriptionManager->_opcuaThread && _subscriptionManager->_opcuaThread->joinable()) {
-          _subscriptionManager->_opcuaThread->join();
-          _subscriptionManager->_opcuaThread.reset(nullptr);
-        }
+        _subscriptionManager->stopClientThread();
       }
       connect();
     }
@@ -484,7 +475,7 @@ namespace ChimeraTK {
       fillCatalogue();
       _catalogue_filled = true;
     }
-    _opened = true;
+    setOpenedAndClearException();
     // wait at maximum 100ms for the client to come up
     uint i = 0;
     while(!_connection->isConnected()) {
@@ -492,22 +483,15 @@ namespace ChimeraTK {
       ++i;
       if(i > 4) throw ChimeraTK::runtime_error("Connection could not be established.");
     }
-    if(!_isFunctional) {
-      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-          "open() was called but client connection was still up. Maybe setException() was called manually.");
-      _isFunctional = true;
-    }
   }
 
   void OpcUABackend::close() {
     _opened = false;
-    _isFunctional = false;
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Closing the device: %s", _connection->serverAddress.c_str());
     resetClient();
     //\ToDo: Check if we should reset the catalogue after closing. The UnifiedBackendTest will fail in that case.
     //    _catalogue_mutable = RegisterCatalogue();
     //    _catalogue_filled = false;
-    _connection->close();
   }
 
   void OpcUABackend::connect() {
@@ -540,7 +524,7 @@ namespace ChimeraTK {
 
   void OpcUABackend::activateAsyncRead() noexcept {
     std::lock_guard<std::mutex> lock(_asyncReadLock);
-    if(!_opened || !_isFunctional) return;
+    if(!isFunctional()) return;
     if(!_subscriptionManager) _subscriptionManager = std::make_unique<OPCUASubscriptionManager>(_connection);
     _subscriptionManager->activate();
 
@@ -558,7 +542,6 @@ namespace ChimeraTK {
   }
 
   void OpcUABackend::setExceptionImpl() noexcept {
-    _isFunctional = false;
     if(_subscriptionManager) _subscriptionManager->deactivateAllAndPushException();
   }
 

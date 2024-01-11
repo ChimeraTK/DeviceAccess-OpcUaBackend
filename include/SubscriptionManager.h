@@ -126,6 +126,8 @@ namespace ChimeraTK {
 
     bool isRunning() { return _run; }
 
+    bool isAsyncReadActive() { return _asyncReadActive; };
+
     // Report an exception to the subscription manager. E.g. thrown by the RegisterAccessor.
     void setExternalError(const std::string& browseName);
 
@@ -157,6 +159,11 @@ namespace ChimeraTK {
       _subscriptionActive = false;
       _subscriptionID = 0;
     }
+
+    /**
+     * Stop the thread running UA_Client_run_iterate.
+     */
+    void stopClientThread();
 
    private:
     /**

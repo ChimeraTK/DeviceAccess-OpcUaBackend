@@ -281,6 +281,13 @@ namespace ChimeraTK {
           std::launch::deferred);
       if(!_backend->_subscriptionManager) _backend->activateSubscriptionSupport();
       _backend->_subscriptionManager->subscribe(_info->_nodeBrowseName, _info->_id, this);
+      if(_backend->_subscriptionManager->isAsyncReadActive()) {
+        if(_backend->_subscriptionManager->_opcuaThread == nullptr) {
+          _backend->_subscriptionManager->start();
+          // sleep twice the publishing interval to make sure intital values are written
+          std::this_thread::sleep_for(std::chrono::milliseconds(2 * _backend->_connection->publishingInterval));
+        }
+      }
       _subscribed = true;
     }
     if(_info->_arrayLength != numberOfWords) _isPartial = true;
@@ -289,9 +296,7 @@ namespace ChimeraTK {
 
   template<typename UAType, typename CTKType>
   void OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferSynchronously() {
-    if(!_backend->isFunctional()) {
-      throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
-    }
+    _backend->checkActiveException();
     std::lock_guard<std::mutex> lock(_backend->_connection->client_lock);
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     UA_StatusCode retval = UA_Client_readValueAttribute(_backend->_connection->client.get(), _info->_id, val->var);
@@ -328,9 +333,7 @@ namespace ChimeraTK {
 
   template<typename UAType, typename CTKType>
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber) {
-    if(!_backend->isFunctional()) {
-      throw ChimeraTK::runtime_error(std::string("Exception reported by another accessor."));
-    }
+    _backend->checkActiveException();
     UAType* arr;
     if(_isPartial) {
       // read array first before changing only relevant parts of it
