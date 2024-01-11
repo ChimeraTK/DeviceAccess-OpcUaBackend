@@ -264,8 +264,8 @@ namespace ChimeraTK {
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
     this->accessChannel(0).resize(numberOfWords);
     if(flags.has(AccessMode::wait_for_new_data)) {
-      UA_LOG_DEBUG(
-          UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Adding subscription for node: %s", _info->_nodeBrowseName.c_str());
+      UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Adding subscription for node: %s",
+          _info->_nodeBrowseName.c_str());
       // Create notification queue.
       _notifications = cppext::future_queue<UA_DataValue>(3);
       _readQueue = _notifications.then<void>(
@@ -274,7 +274,7 @@ namespace ChimeraTK {
 
             UA_DataValue_clear(&this->_data);
             if(UA_DataValue_copy(&data, &this->_data) != UA_STATUSCODE_GOOD) {
-              UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Data copy failed!");
+              UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Data copy failed!");
             }
             UA_DataValue_clear(&data);
           },
@@ -314,7 +314,7 @@ namespace ChimeraTK {
     if(!hasNewData) return;
     // check if no data is present -> nullptr
     if(!_data.value.data) {
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Data status error for node: %s Error: %s",
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Data status error for node: %s Error: %s",
           _info->_nodeBrowseName.c_str(), UA_StatusCode_name(_data.status));
       this->setDataValidity(DataValidity::faulty);
     }

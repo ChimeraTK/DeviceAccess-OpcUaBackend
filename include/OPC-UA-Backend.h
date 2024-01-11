@@ -9,6 +9,7 @@
  */
 #include "OPC-UA-Connection.h"
 #include "SubscriptionManager.h"
+#include <open62541/plugin/log.h>
 #include <unordered_set>
 
 #include <ChimeraTK/BackendRegisterCatalogue.h>
@@ -162,7 +163,8 @@ namespace ChimeraTK {
      */
     OpcUABackend(const std::string& fileAddress, const std::string& username = "", const std::string& password = "",
         const std::string& mapfile = "", const unsigned long& subscriptonPublishingInterval = 500,
-        const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000);
+        const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000,
+        const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR);
 
     /**
      * Fill catalog.
@@ -219,6 +221,7 @@ namespace ChimeraTK {
     };
     static BackendRegisterer backendRegisterer;
     static std::map<UA_Client*, OpcUABackend*> backendClients;
+    static UA_Logger backendLogger;
 
     template<typename UAType, typename CTKType>
     friend class OpcUABackendRegisterAccessor;

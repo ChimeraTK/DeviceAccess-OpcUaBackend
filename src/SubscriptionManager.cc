@@ -21,9 +21,11 @@ namespace ChimeraTK {
 
   void OPCUASubscriptionManager::deleteSubscriptionCallback(
       UA_Client* client, UA_UInt32 subscriptionId, void* subscriptionContext) {
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Subscription Id %u was deleted", subscriptionId);
+    UA_LOG_INFO(
+        &OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Subscription Id %u was deleted", subscriptionId);
     if(OpcUABackend::backendClients.count(client) == 0) {
-      UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "No client found in the deleteSubscriptionCallback.");
+      UA_LOG_WARNING(
+          &OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "No client found in the deleteSubscriptionCallback.");
       return;
     }
     OpcUABackend::backendClients[client]->_subscriptionManager->setInactive();
@@ -43,23 +45,23 @@ namespace ChimeraTK {
     // adding subscription after device open and resynActivate).
     if(_subscriptionActive) {
       _run = true;
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Starting subscription thread with publishing interval of %ldms.", _connection->publishingInterval);
       _opcuaThread.reset(new std::thread{&OPCUASubscriptionManager::runClient, this});
     }
     else {
       _run = false;
-      UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "No active subscriptions. No need to start the subscription manager.");
     }
   }
 
   void OPCUASubscriptionManager::runClient() {
     UA_StatusCode ret;
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Starting client iterate loop.");
+    UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Starting client iterate loop.");
     uint64_t i = 0;
     while(_run) {
-      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Sending subscription request.");
+      UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Sending subscription request.");
       {
         std::lock_guard<std::mutex> lock(_connection->client_lock);
         ret = UA_Client_run_iterate(_connection->client.get(), 0);
@@ -68,15 +70,16 @@ namespace ChimeraTK {
         }
       }
       if(ret != UA_STATUSCODE_GOOD) {
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Stopped sending publish requests. OPC UA message: %s",
-            UA_StatusCode_name(ret));
+        UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+            "Stopped sending publish requests. OPC UA message: %s", UA_StatusCode_name(ret));
 
         break;
       }
       // sleep for half the publishing interval - should be fine to catch up all updates
       std::this_thread::sleep_for(std::chrono::milliseconds(_connection->publishingInterval / 2));
       ++i;
-      if(i % 50 == 0) UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Still running client iterate loop.");
+      if(i % 50 == 0)
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Still running client iterate loop.");
     }
     {
       std::lock_guard<std::mutex> lock(_connection->client_lock);
@@ -85,7 +88,7 @@ namespace ChimeraTK {
         _subscriptionNeedsToBeRemoved = false;
       }
     }
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Stopped client iterate loop.");
+    UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Stopped client iterate loop.");
 
     // Inform all accessors that are subscribed
     //  if(_run)
@@ -137,7 +140,7 @@ namespace ChimeraTK {
 
   void OPCUASubscriptionManager::removeSubscription() {
     if(!UA_Client_Subscriptions_deleteSingle(_connection->client.get(), _subscriptionID)) {
-      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Sucessfully removed old subscription.");
+      UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Sucessfully removed old subscription.");
     }
     // reset ID even subscription deletion fails - this avoids removing it later again
     _subscriptionID = 0;
@@ -153,7 +156,7 @@ namespace ChimeraTK {
       UA_Client* client, UA_UInt32 subId, void* subContext, UA_UInt32 monId, void* monContext, UA_DataValue* value) {
     UA_DateTime sourceTime = value->sourceTimestamp;
     UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime);
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+    UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
         "Subscription handler called. Source time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u", dts.day, dts.month,
         dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
     auto base = reinterpret_cast<OPCUASubscriptionManager*>(monContext);
@@ -174,7 +177,7 @@ namespace ChimeraTK {
     catch(std::out_of_range& e) {
       // When calling unsubscribe the item is removed before it is unsubscribed from the client, which might trigger the
       // response handler.
-      UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Responsehandler for monitored item with id %d called but item is already removed.", subId);
     }
   }
@@ -193,10 +196,12 @@ namespace ChimeraTK {
     }
     if(response.responseHeader.serviceResult == UA_STATUSCODE_GOOD) {
       _subscriptionID = response.subscriptionId;
-      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Create subscription succeeded, id %u", _subscriptionID);
+      UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Create subscription succeeded, id %u",
+          _subscriptionID);
       if(response.revisedPublishingInterval != _connection->publishingInterval) {
-        UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Publishing interval was changed from %ldms to %fms",
-            _connection->publishingInterval, response.revisedPublishingInterval);
+        UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+            "Publishing interval was changed from %ldms to %fms", _connection->publishingInterval,
+            response.revisedPublishingInterval);
         // replace publishing interval with revised publishing interval as it will be used to set the sampling interval
         // of monitored items
         _connection->publishingInterval = response.revisedPublishingInterval;
@@ -230,11 +235,12 @@ namespace ChimeraTK {
         /* Check server response to adding the item to be monitored. */
         if(monResponse.statusCode == UA_STATUSCODE_GOOD) {
           item._id = monResponse.monitoredItemId;
-          UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Monitoring id %u (%s) for pv: %s", item._id,
-              _connection->serverAddress.c_str(), item._browseName.c_str());
+          UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Monitoring id %u (%s) for pv: %s",
+              item._id, _connection->serverAddress.c_str(), item._browseName.c_str());
           if(monResponse.revisedSamplingInterval != _connection->publishingInterval) {
-            UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Publishing interval was changed from %ldms to %fms",
-                _connection->publishingInterval, monResponse.revisedSamplingInterval);
+            UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+                "Publishing interval was changed from %ldms to %fms", _connection->publishingInterval,
+                monResponse.revisedSamplingInterval);
           }
           subscriptionMap[item._id] = &item;
           item._isMonitored = true;
@@ -273,19 +279,21 @@ namespace ChimeraTK {
         // This can happen if async read was activated without any RegisterAccesors using the subscription.
         // In this case it is closed due to inactivity.
         if(!_subscriptionActive) {
-          UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "No active subscription. Setting up new one.");
+          UA_LOG_WARNING(
+              &OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "No active subscription. Setting up new one.");
           createSubscription();
         }
         addMonitoredItems();
       }
     }
     else {
-      UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Adding accessor to existing node subscription.");
+      UA_LOG_DEBUG(
+          &OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Adding accessor to existing node subscription.");
       auto tmp = it->_accessors.back();
       it->_accessors.push_back(accessor);
       if(it->_active) {
         // if already active add initial value
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
             "Setting intial value for accessor with existing node subscription.");
         std::lock_guard<std::mutex> lock(tmp->_dataUpdateLock);
         if(!UA_Variant_isEmpty(&tmp->_data.value)) {
@@ -347,10 +355,11 @@ namespace ChimeraTK {
       }
 
       if(!ret) {
-        UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Monitored item removed for: %s", browseName.c_str());
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Monitored item removed for: %s",
+            browseName.c_str());
       }
       else {
-        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
             "Failed to unsubscribe item (no client alive): %s Error: %s", browseName.c_str(), UA_StatusCode_name(ret));
       }
       if(_items.size() == 0) {
@@ -367,7 +376,7 @@ namespace ChimeraTK {
 
   void OPCUASubscriptionManager::handleException(const std::string& message) {
     std::lock_guard<std::mutex> lock(_mutex);
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Handling error: %s", message.c_str());
+    UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Handling error: %s", message.c_str());
     for(auto& item : _items) {
       try {
         throw ChimeraTK::runtime_error(message);
@@ -375,8 +384,8 @@ namespace ChimeraTK {
       catch(...) {
         if(item._active && !item._hasException) {
           item._hasException = true;
-          UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Sending exception to %lu accessors for node %s.",
-              item._accessors.size(), item._browseName.c_str());
+          UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+              "Sending exception to %lu accessors for node %s.", item._accessors.size(), item._browseName.c_str());
           for(auto& accessor : item._accessors) {
             accessor->_notifications.push_overwrite_exception(std::current_exception());
           }
