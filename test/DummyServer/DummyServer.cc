@@ -22,6 +22,8 @@
 
 namespace fusion = boost::fusion;
 
+UA_Logger OPCUAServer::logger;
+
 TypeMapWithName dummyMap(fusion::make_pair<UA_Int16>(std::make_pair("int16", UA_TYPES_INT16)),
     fusion::make_pair<UA_UInt16>(std::make_pair("uint16", UA_TYPES_UINT16)),
     fusion::make_pair<UA_Int32>(std::make_pair("int32", UA_TYPES_INT32)),
@@ -92,7 +94,7 @@ struct VariableAttacher {
     UA_QualifiedName nodeName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
     UA_Server_addVariableNode(_server, nodeId, _parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), nodeName,
         UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
     UA_LocalizedText_clear(&locText);
     for(size_t i = 0; i < 5; ++i) {
@@ -147,7 +149,7 @@ struct VariableAttacher {
     UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
     UA_Server_addVariableNode(_server, myNodeId, _parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
         UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
     UA_LocalizedText_clear(&locText);
     for(size_t i = 0; i < 5; ++i) {
@@ -201,7 +203,7 @@ struct VariableAttacher {
     UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
     UA_Server_addVariableNode(_server, myNodeId, _parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
         UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
-    UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
+    UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
     UA_LocalizedText_clear(&locText);
   }
@@ -216,11 +218,12 @@ OPCUAServer::OPCUAServer() : _server(nullptr) {
   std::uniform_int_distribution<uint> dist(20000, 22000);
   _port = dist(rd);
   _configured = false;
+  OPCUAServer::logger = UA_Log_Stdout_withLevel(testServerLogLevel);
 }
 
 OPCUAServer::~OPCUAServer() {
   UA_Server_delete(_server);
-  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Destroyed OPCUAServer object.");
+  UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Destroyed OPCUAServer object.");
 }
 
 static UA_INLINE UA_DurationRange UA_DURATIONRANGE(UA_Duration min, UA_Duration max) {
@@ -232,15 +235,17 @@ void OPCUAServer::start() {
   lock();
   // delete server if it was used already before
   if(_configured) {
+    UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Destroying OPCUAServer object.");
     UA_Server_delete(_server);
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Destroyed OPCUAServer object.");
   }
   // set up the server
   _server = UA_Server_new();
-  UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
   auto config = UA_Server_getConfig(_server);
-  config->publishingIntervalLimits = UA_DURATIONRANGE(PUB_INTERVAL, 3600.0 * 1000.0);
-  config->samplingIntervalLimits = UA_DURATIONRANGE(PUB_INTERVAL, 24.0 * 3600.0 * 1000.0);
+  config->logger = UA_Log_Stdout_withLevel(testServerLogLevel);
+  UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
+  config->publishingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 3600.0 * 1000.0);
+  config->samplingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 24.0 * 3600.0 * 1000.0);
+
   addVariables();
   _configured = true;
   running = true;
@@ -265,12 +270,12 @@ void OPCUAServer::start() {
     unlock();
     usleep(1000);
   }
-  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Finished iterate loop in the server.");
+  UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Finished iterate loop in the server.");
 
   lock();
   UA_Server_run_shutdown(_server);
   unlock();
-  UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Finished running the server.");
+  UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Finished running the server.");
 }
 
 void OPCUAServer::addFolder(std::string name, UA_NodeId parent) {
@@ -337,7 +342,7 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean>& 
   UA_Variant_delete(data);
   // In the test new data is set in a sequence. Since the smapling interval is set equal to the p[ublishing interval we
   // have to wait at least one sampling interval here
-  std::this_thread::sleep_for(std::chrono::milliseconds(2 * PUB_INTERVAL));
+  std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
 }
 
 void ThreadedOPCUAServer::start() {
@@ -347,11 +352,13 @@ void ThreadedOPCUAServer::start() {
   //  _server->_port = port;
   _serverThread = std::thread{&OPCUAServer::start, &_server};
   if(!checkConnection(ServerState::On)) throw std::runtime_error("Failed to connect to the test server!");
-  UA_LOG_DEBUG(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Test server is set up and running.");
+  UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Test server is set up and running.");
 }
 
 ThreadedOPCUAServer::ThreadedOPCUAServer() : _client(UA_Client_new()) {
-  UA_ClientConfig_setDefault(UA_Client_getConfig(_client));
+  auto config = UA_Client_getConfig(_client);
+  config->logger = UA_Log_Stdout_withLevel(testServerLogLevel);
+  UA_ClientConfig_setDefault(config);
 }
 
 ThreadedOPCUAServer::~ThreadedOPCUAServer() {
@@ -373,10 +380,10 @@ bool ThreadedOPCUAServer::checkConnection(const ServerState& state) {
     else {
       if(retval != UA_STATUSCODE_GOOD) break;
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(PUB_INTERVAL));
+    std::this_thread::sleep_for(std::chrono::milliseconds(publishingInterval));
 
     time++;
-    if(time == 1000 / PUB_INTERVAL) {
+    if(time == 1000 / publishingInterval) {
       // break after 1s - server should be up now!
       return false;
     }
