@@ -8,8 +8,8 @@
  *      Author: Klaus Zenker (HZDR)
  */
 
-#pragma once
-
+#include <open62541/plugin/log.h>
+#include <open62541/plugin/log_stdout.h>
 #include <open62541/plugin/network.h>
 #include <open62541/server.h>
 #include <open62541/types.h>
@@ -42,7 +42,8 @@ extern TypeMapWithName dummyMap;
 enum ServerState { On, Off };
 
 // The publishing and sampling interval used in the tests
-#define PUB_INTERVAL 10 // ms
+static constexpr int publishingInterval{50}; // ms
+static constexpr UA_LogLevel testServerLogLevel{UA_LOGLEVEL_ERROR};
 
 struct OPCUAServer {
   OPCUAServer();
@@ -58,6 +59,8 @@ struct OPCUAServer {
   std::atomic<UA_Boolean> running{true};
 
   std::mutex _mux;
+
+  static UA_Logger logger;
 
   void start();
 
