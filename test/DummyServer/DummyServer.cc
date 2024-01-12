@@ -340,7 +340,7 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean>& 
   UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   unlock();
   UA_Variant_delete(data);
-  // In the test new data is set in a sequence. Since the smapling interval is set equal to the p[ublishing interval we
+  // In the test new data is set in a sequence. Since the sampling interval is set equal to the publishing interval we
   // have to wait at least one sampling interval here
   std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
 }
