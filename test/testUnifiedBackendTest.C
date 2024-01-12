@@ -126,6 +126,7 @@ struct ScalarDefaults : AllRegisterDefaults {
     ss << value.at(0);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), value);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 };
 
@@ -173,6 +174,7 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults {
     value.push_back(UA_STRING((char*)tmp.c_str()));
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", tmp.c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), value);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 
  private:
@@ -225,6 +227,7 @@ struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults {
     ss << value.at(0);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), value);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 
   template<typename UserType>
@@ -292,6 +295,7 @@ struct ArrayDefaults : AllRegisterDefaults {
     }
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
+    std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 };
 
@@ -343,6 +347,7 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
     }
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
+    std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 
  private:
@@ -408,6 +413,7 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
     }
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
+    std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 
   template<typename UserType>
@@ -679,7 +685,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
   // minimum publishing interval on the server is 100ms
-  ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=50"
+  ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=1000"
      << "&logLevel=error"
      << ")";
   // server side logging severity level can be changed in DummyServer.h -> testServerLogLevel
