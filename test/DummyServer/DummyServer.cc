@@ -239,12 +239,12 @@ void OPCUAServer::start() {
     UA_Server_delete(_server);
   }
   // set up the server
-  _server = UA_Server_new();
-  auto config = UA_Server_getConfig(_server);
-  config->logger = UA_Log_Stdout_withLevel(testServerLogLevel);
-  UA_ServerConfig_setMinimal(UA_Server_getConfig(_server), _port, NULL);
-  config->publishingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 3600.0 * 1000.0);
-  config->samplingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 24.0 * 3600.0 * 1000.0);
+  auto config = UA_ServerConfig();
+  config.logger = UA_Log_Stdout_withLevel(testServerLogLevel);
+  UA_ServerConfig_setMinimal(&config, _port, NULL);
+  config.publishingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 3600.0 * 1000.0);
+  config.samplingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 24.0 * 3600.0 * 1000.0);
+  _server = UA_Server_newWithConfig(&config);
 
   addVariables();
   _configured = true;
