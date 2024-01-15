@@ -684,8 +684,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
-  // minimum publishing interval on the server is 100ms
-  ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=1000"
+  ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=50"
      << "&logLevel=error"
      << ")";
   // server side logging severity level can be changed in DummyServer.h -> testServerLogLevel

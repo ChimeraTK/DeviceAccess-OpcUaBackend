@@ -42,7 +42,7 @@ extern TypeMapWithName dummyMap;
 enum ServerState { On, Off };
 
 // The publishing and sampling interval used in the tests
-static constexpr int publishingInterval{200}; // ms
+static constexpr int publishingInterval{20}; // ms
 static constexpr UA_LogLevel testServerLogLevel{UA_LOGLEVEL_ERROR};
 
 struct OPCUAServer {
