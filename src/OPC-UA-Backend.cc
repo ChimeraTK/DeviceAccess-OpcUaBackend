@@ -66,8 +66,11 @@ namespace ChimeraTK {
       case UA_SECURECHANNELSTATE_OPEN:
         UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "A SecureChannel to the server is open");
         break;
-      case UA_SECURECHANNELSTATE_FRESH:
-        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "SecureChannel state: fresh");
+      case UA_SECURECHANNELSTATE_RHE_SENT:
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "RHE send");
+        break;
+      case UA_SECURECHANNELSTATE_REVERSE_LISTENING:
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "SecureChannel reverse listening");
         break;
       case UA_SECURECHANNELSTATE_HEL_RECEIVED:
         UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Hel received");
@@ -77,6 +80,12 @@ namespace ChimeraTK {
         break;
       case UA_SECURECHANNELSTATE_ACK_RECEIVED:
         UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "ACK received");
+        break;
+      case UA_SECURECHANNELSTATE_CONNECTING:
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "SecureChannel connecting");
+        break;
+      case UA_SECURECHANNELSTATE_CONNECTED:
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "SecureChannel connected");
         break;
       case UA_SECURECHANNELSTATE_CLOSING:
         UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Closing secure channel");
@@ -143,7 +152,7 @@ namespace ChimeraTK {
       const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName,
       const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel)
   : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
-    backendLogger = {UA_Log_Stdout_log, (void*)logLevel, UA_Log_Stdout_clear};
+    backendLogger = UA_Log_Stdout_withLevel(logLevel);
     _connection = std::make_unique<OPCUAConnection>(
         fileAddress, username, password, subscriptonPublishingInterval, connectionTimeout, logLevel);
     _connection->config->stateCallback = stateCallback;
