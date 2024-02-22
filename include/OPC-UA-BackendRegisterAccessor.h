@@ -380,6 +380,8 @@ namespace ChimeraTK {
     out << "OPC-UA-Backend::Failed to access variable: " << _node_id << " with reason: " << UA_StatusCode_name(retval)
         << " --> " << std::hex << retval;
     if(_backend->_subscriptionManager) _backend->_subscriptionManager->setExternalError(_info->_nodeBrowseName);
+    // close connection on error
+    _backend->_connection->close();
     throw ChimeraTK::runtime_error(out.str());
   }
 
