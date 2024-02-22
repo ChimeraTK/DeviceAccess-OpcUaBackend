@@ -32,7 +32,6 @@ struct Server {
   ~Server() { UA_Server_delete(server); }
 
   UA_Server* server;
-  UA_ServerNetworkLayer nl;
 
   void start() { UA_Server_run(server, &running); }
 

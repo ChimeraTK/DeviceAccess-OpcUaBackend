@@ -10,7 +10,6 @@
 
 #include <open62541/plugin/log.h>
 #include <open62541/plugin/log_stdout.h>
-#include <open62541/plugin/network.h>
 #include <open62541/server.h>
 #include <open62541/types.h>
 

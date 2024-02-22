@@ -48,13 +48,15 @@ namespace ChimeraTK {
     unsigned long publishingInterval;
     unsigned long connectionTimeout;
 
+    UA_Logger logger;
+
     OPCUAConnection(const std::string& address, const std::string& username, const std::string& password,
         unsigned long publishingInterval, const long int& connectionTimeout, const UA_LogLevel& logLevel)
     : client(UA_Client_new()), config(UA_Client_getConfig(client.get())), serverAddress(address),
-      channelState(UA_SECURECHANNELSTATE_FRESH), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
-      password(password), publishingInterval(publishingInterval), connectionTimeout(connectionTimeout) {
+      channelState(UA_SECURECHANNELSTATE_CLOSED), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
+      password(password), publishingInterval(publishingInterval), connectionTimeout(connectionTimeout),
+      logger(UA_Log_Stdout_withLevel(logLevel)) {
       UA_ClientConfig_setDefault(config);
-      config->logger = UA_Log_Stdout_withLevel(logLevel);
       config->timeout = connectionTimeout;
     };
 
@@ -76,7 +78,7 @@ namespace ChimeraTK {
       }
       auto ret = UA_Client_disconnect(client.get());
       if(ret != UA_STATUSCODE_GOOD) {
-        UA_LOG_ERROR(&config->logger, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_ERROR(config->logging, UA_LOGCATEGORY_USERLAND,
             "Failed to disconnect from server when closing the device. Error: %s", UA_StatusCode_name(ret));
       }
     }

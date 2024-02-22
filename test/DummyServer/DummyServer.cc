@@ -10,7 +10,6 @@
 #include "DummyServer.h"
 
 #include <open62541/client_config_default.h>
-#include <open62541/network_tcp.h>
 #include <open62541/plugin/log_stdout.h>
 #include <open62541/server_config_default.h>
 
@@ -240,7 +239,7 @@ void OPCUAServer::start() {
   }
   // set up the server
   auto config = UA_ServerConfig();
-  config.logger = UA_Log_Stdout_withLevel(testServerLogLevel);
+  config.logging = &OPCUAServer::logger;
   UA_ServerConfig_setMinimal(&config, _port, NULL);
   config.publishingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 3600.0 * 1000.0);
   config.samplingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 24.0 * 3600.0 * 1000.0);
@@ -357,7 +356,7 @@ void ThreadedOPCUAServer::start() {
 
 ThreadedOPCUAServer::ThreadedOPCUAServer() : _client(UA_Client_new()) {
   auto config = UA_Client_getConfig(_client);
-  config->logger = UA_Log_Stdout_withLevel(testServerLogLevel);
+  config->logging = &OPCUAServer::logger;
   UA_ClientConfig_setDefault(config);
 }
 

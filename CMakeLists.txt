@@ -10,7 +10,7 @@ include(cmake/set_version_numbers.cmake)
 find_package(Boost COMPONENTS unit_test_framework)
 
 find_package(ChimeraTK-DeviceAccess 03.14 REQUIRED)
-find_package(open62541 01.03 REQUIRED)
+find_package(open62541 01.04 REQUIRED)
 
 # add support for latest C++ standard to compiler flags
 include(cmake/enable_latest_cxx_support.cmake)
