@@ -61,21 +61,6 @@ namespace ChimeraTK {
     };
 
     void close() {
-      for(size_t i = 0; i < 2; ++i) {
-        /*
-         * This loop is introduced to fix test B_9_1 of the UnifiedBackendTest.
-         * Without, client->connection.state == UA_CONNECTIONSTATE_OPENING after unlocking
-         * the server in the tests in the write part of B_9_1. In that state calling UA_Client_connect fails because
-         * the connection is not fully setup in connectIterate(...) (see ua_client_connect.c)
-         * Calling it once, however sets client->connection.state == UA_CONNECTIONSTATE_OPENING
-         * in the synchronous part of B_9_1. That is why its called twice here to force
-         * client->connection.state == UA_CONNECTIONSTATE_CLOSED, which forces calling
-         * initConnect(client) in connectIterate(...).
-         * \ToDo: Figure out how to do it correct!
-         */
-        UA_Client_run_iterate(client.get(), 0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(connectionTimeout));
-      }
       auto ret = UA_Client_disconnect(client.get());
       if(ret != UA_STATUSCODE_GOOD) {
         UA_LOG_ERROR(config->logging, UA_LOGCATEGORY_USERLAND,
