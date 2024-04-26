@@ -517,21 +517,6 @@ namespace ChimeraTK {
       std::lock_guard<std::mutex> lock(_connection->client_lock);
       /** Connect **/
       if(!_connection->certificate.empty() && !_connection->key.empty()) {
-        _connection->config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
-        UA_ByteString privateKey = UA_BYTESTRING_NULL;
-        privateKey = loadFile(_connection->key.c_str());
-        UA_ByteString certificate = UA_BYTESTRING_NULL;
-        certificate = loadFile(_connection->certificate.c_str());
-        UA_ClientConfig_setDefaultEncryption(_connection->config, certificate, privateKey, 0, 0, NULL, 0);
-        if(!_connection->username.empty() && !_connection->password.empty()) {
-          UA_UserNameIdentityToken* identityToken = UA_UserNameIdentityToken_new();
-          identityToken->userName = UA_STRING_ALLOC(_connection->username.c_str());
-          identityToken->password = UA_STRING_ALLOC(_connection->password.c_str());
-          UA_ExtensionObject_clear(&_connection->config->userIdentityToken);
-          _connection->config->userIdentityToken.encoding = UA_EXTENSIONOBJECT_DECODED;
-          _connection->config->userIdentityToken.content.decoded.type = &UA_TYPES[UA_TYPES_USERNAMEIDENTITYTOKEN];
-          _connection->config->userIdentityToken.content.decoded.data = identityToken;
-        }
         retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
       }
       else {
