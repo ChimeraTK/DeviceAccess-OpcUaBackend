@@ -18,8 +18,11 @@ The following optional parameters are supported:
   - `connectionTimeout`
   - `rootNode`
   - `logLevel`
+  - `certificate`
+  - `privateKey`
 
 If authentication should be used when connecting to a server use optional device mapping parameters `username` and `password`.
+For an encrypted connection use `certificate` and `privateKey`.
 
 The loggingg severiy level of the client can be set using `logLevel`. Supported log levels are:
   - `trace`

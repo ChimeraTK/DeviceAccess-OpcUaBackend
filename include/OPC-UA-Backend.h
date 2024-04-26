@@ -20,6 +20,7 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <stdio.h>
 
 namespace ChimeraTK {
   class OPCUASubscriptionManager;
@@ -164,7 +165,8 @@ namespace ChimeraTK {
     OpcUABackend(const std::string& fileAddress, const std::string& username = "", const std::string& password = "",
         const std::string& mapfile = "", const unsigned long& subscriptonPublishingInterval = 500,
         const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000,
-        const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR);
+        const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR, const std::string& certificate = "",
+        const std::string& privateKey = "");
 
     /**
      * Fill catalog.
@@ -297,5 +299,38 @@ namespace ChimeraTK {
      *  myname2     123                1
      */
     void getNodesFromMapfile();
+
+    /**
+     * loadFile parses the certificate file.
+     *
+     * @param  path               specifies the file name given in argv[]
+     * @return Returns the file content after parsing
+     */
+    static UA_INLINE UA_ByteString loadFile(const char* const path) {
+      UA_ByteString fileContents = UA_STRING_NULL;
+
+      /* Open the file */
+      FILE* fp = fopen(path, "rb");
+      if(!fp) {
+        errno = 0; /* We read errno also from the tcp layer... */
+        return fileContents;
+      }
+
+      /* Get the file length, allocate the data and read */
+      fseek(fp, 0, SEEK_END);
+      fileContents.length = (size_t)ftell(fp);
+      fileContents.data = (UA_Byte*)UA_malloc(fileContents.length * sizeof(UA_Byte));
+      if(fileContents.data) {
+        fseek(fp, 0, SEEK_SET);
+        size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
+        if(read != fileContents.length) UA_ByteString_clear(&fileContents);
+      }
+      else {
+        fileContents.length = 0;
+      }
+      fclose(fp);
+
+      return fileContents;
+    }
   };
 } // namespace ChimeraTK
