@@ -10,11 +10,13 @@
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
 #include <open62541/plugin/log_stdout.h>
+#include <open62541/plugin/securitypolicy.h>
 
 #include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <stdio.h>
 #include <thread>
 
 namespace ChimeraTK {
@@ -59,7 +61,28 @@ namespace ChimeraTK {
       channelState(UA_SECURECHANNELSTATE_CLOSED), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
       password(password), certificate(certificate), key(privateKey), publishingInterval(publishingInterval),
       connectionTimeout(connectionTimeout), logger(UA_Log_Stdout_withLevel(logLevel)) {
-      UA_ClientConfig_setDefault(config);
+      if(!certificate.empty() && !key.empty()) {
+        config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
+        UA_ByteString privateKey = UA_BYTESTRING_NULL;
+        privateKey = loadFile(key.c_str());
+        UA_ByteString cert = UA_BYTESTRING_NULL;
+        cert = loadFile(certificate.c_str());
+        UA_ClientConfig_setDefaultEncryption(config, cert, privateKey, 0, 0, NULL, 0);
+        if(!username.empty() && !password.empty()) {
+          UA_UserNameIdentityToken* identityToken = UA_UserNameIdentityToken_new();
+          identityToken->userName = UA_STRING_ALLOC(username.c_str());
+          identityToken->password = UA_STRING_ALLOC(password.c_str());
+          UA_ExtensionObject_clear(&config->userIdentityToken);
+          config->userIdentityToken.encoding = UA_EXTENSIONOBJECT_DECODED;
+          config->userIdentityToken.content.decoded.type = &UA_TYPES[UA_TYPES_USERNAMEIDENTITYTOKEN];
+          config->userIdentityToken.content.decoded.data = identityToken;
+        }
+        UA_ByteString_clear(&cert);
+        UA_ByteString_clear(&privateKey);
+      }
+      else {
+        UA_ClientConfig_setDefault(config);
+      }
       config->timeout = connectionTimeout;
     };
 
@@ -74,6 +97,40 @@ namespace ChimeraTK {
     // Check connection state set by the callback function.
     bool isConnected() const {
       return (sessionState == UA_SESSIONSTATE_ACTIVATED && channelState == UA_SECURECHANNELSTATE_OPEN);
+    }
+
+   private:
+    /**
+     * loadFile parses the certificate file.
+     *
+     * @param  path               specifies the file name given in argv[]
+     * @return Returns the file content after parsing
+     */
+    static UA_INLINE UA_ByteString loadFile(const char* const path) {
+      UA_ByteString fileContents = UA_STRING_NULL;
+
+      /* Open the file */
+      FILE* fp = fopen(path, "rb");
+      if(!fp) {
+        errno = 0; /* We read errno also from the tcp layer... */
+        return fileContents;
+      }
+
+      /* Get the file length, allocate the data and read */
+      fseek(fp, 0, SEEK_END);
+      fileContents.length = (size_t)ftell(fp);
+      fileContents.data = (UA_Byte*)UA_malloc(fileContents.length * sizeof(UA_Byte));
+      if(fileContents.data) {
+        fseek(fp, 0, SEEK_SET);
+        size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
+        if(read != fileContents.length) UA_ByteString_clear(&fileContents);
+      }
+      else {
+        fileContents.length = 0;
+      }
+      fclose(fp);
+
+      return fileContents;
     }
   };
 
