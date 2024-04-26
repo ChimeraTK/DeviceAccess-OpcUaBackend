@@ -150,11 +150,12 @@ namespace ChimeraTK {
 
   OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username, const std::string& password,
       const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName,
-      const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel)
+      const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel,
+      const std::string& certificate, const std::string& privateKey)
   : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
     backendLogger = UA_Log_Stdout_withLevel(logLevel);
-    _connection = std::make_unique<OPCUAConnection>(
-        fileAddress, username, password, subscriptonPublishingInterval, connectionTimeout, logLevel);
+    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval,
+        connectionTimeout, logLevel, certificate, privateKey);
     _connection->config->stateCallback = stateCallback;
     _connection->config->subscriptionInactivityCallback = inactivityCallback;
 
@@ -515,12 +516,32 @@ namespace ChimeraTK {
     {
       std::lock_guard<std::mutex> lock(_connection->client_lock);
       /** Connect **/
-      if(_connection->username.empty() || _connection->password.empty()) {
+      if(!_connection->certificate.empty() && !_connection->key.empty()) {
+        _connection->config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
+        UA_ByteString privateKey = UA_BYTESTRING_NULL;
+        privateKey = loadFile(_connection->key.c_str());
+        UA_ByteString certificate = UA_BYTESTRING_NULL;
+        certificate = loadFile(_connection->certificate.c_str());
+        UA_ClientConfig_setDefaultEncryption(_connection->config, certificate, privateKey, 0, 0, NULL, 0);
+        if(!_connection->username.empty() && !_connection->password.empty()) {
+          UA_UserNameIdentityToken* identityToken = UA_UserNameIdentityToken_new();
+          identityToken->userName = UA_STRING_ALLOC(_connection->username.c_str());
+          identityToken->password = UA_STRING_ALLOC(_connection->password.c_str());
+          UA_ExtensionObject_clear(&_connection->config->userIdentityToken);
+          _connection->config->userIdentityToken.encoding = UA_EXTENSIONOBJECT_DECODED;
+          _connection->config->userIdentityToken.content.decoded.type = &UA_TYPES[UA_TYPES_USERNAMEIDENTITYTOKEN];
+          _connection->config->userIdentityToken.content.decoded.data = identityToken;
+        }
         retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
       }
       else {
-        retval = UA_Client_connectUsername(_connection->client.get(), _connection->serverAddress.c_str(),
-            _connection->username.c_str(), _connection->password.c_str());
+        if(_connection->username.empty() || _connection->password.empty()) {
+          retval = UA_Client_connect(_connection->client.get(), _connection->serverAddress.c_str());
+        }
+        else {
+          retval = UA_Client_connectUsername(_connection->client.get(), _connection->serverAddress.c_str(),
+              _connection->username.c_str(), _connection->password.c_str());
+        }
       }
     }
     if(retval != UA_STATUSCODE_GOOD) {
@@ -647,7 +668,8 @@ namespace ChimeraTK {
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance,
-        {"port", "username", "password", "map", "publishingInterval", "rootNode", "connectionTimeout"});
+        {"port", "username", "password", "map", "publishingInterval", "rootNode", "connectionTimeout", "certificate",
+            "privateKey"});
     std::cout << "BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -728,6 +750,7 @@ namespace ChimeraTK {
     }
 
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(serverAddress, parameters["username"],
-        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout, logLevel));
+        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout, logLevel,
+        parameters["certificate"], parameters["privateKey"]));
   }
 } // namespace ChimeraTK

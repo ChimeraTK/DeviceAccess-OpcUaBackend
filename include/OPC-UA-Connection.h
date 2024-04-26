@@ -44,6 +44,8 @@ namespace ChimeraTK {
 
     std::string username;
     std::string password;
+    std::string certificate;
+    std::string key;
 
     unsigned long publishingInterval;
     unsigned long connectionTimeout;
@@ -51,11 +53,12 @@ namespace ChimeraTK {
     UA_Logger logger;
 
     OPCUAConnection(const std::string& address, const std::string& username, const std::string& password,
-        unsigned long publishingInterval, const long int& connectionTimeout, const UA_LogLevel& logLevel)
+        unsigned long publishingInterval, const long int& connectionTimeout, const UA_LogLevel& logLevel,
+        const std::string& certificate, const std::string& privateKey)
     : client(UA_Client_new()), config(UA_Client_getConfig(client.get())), serverAddress(address),
       channelState(UA_SECURECHANNELSTATE_CLOSED), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
-      password(password), publishingInterval(publishingInterval), connectionTimeout(connectionTimeout),
-      logger(UA_Log_Stdout_withLevel(logLevel)) {
+      password(password), certificate(certificate), key(privateKey), publishingInterval(publishingInterval),
+      connectionTimeout(connectionTimeout), logger(UA_Log_Stdout_withLevel(logLevel)) {
       UA_ClientConfig_setDefault(config);
       config->timeout = connectionTimeout;
     };
