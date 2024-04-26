@@ -164,7 +164,8 @@ namespace ChimeraTK {
     OpcUABackend(const std::string& fileAddress, const std::string& username = "", const std::string& password = "",
         const std::string& mapfile = "", const unsigned long& subscriptonPublishingInterval = 500,
         const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000,
-        const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR);
+        const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR, const std::string& certificate = "",
+        const std::string& privateKey = "");
 
     /**
      * Fill catalog.

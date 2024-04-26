@@ -141,11 +141,12 @@ namespace ChimeraTK {
 
   OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username, const std::string& password,
       const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName,
-      const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel)
+      const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel,
+      const std::string& certificate, const std::string& privateKey)
   : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
-    backendLogger = {UA_Log_Stdout_log, (void*)logLevel, UA_Log_Stdout_clear};
-    _connection = std::make_unique<OPCUAConnection>(
-        fileAddress, username, password, subscriptonPublishingInterval, connectionTimeout, logLevel);
+    backendLogger = UA_Log_Stdout_withLevel(logLevel);
+    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval,
+        connectionTimeout, logLevel, certificate, privateKey);
     _connection->config->stateCallback = stateCallback;
     _connection->config->subscriptionInactivityCallback = inactivityCallback;
 
@@ -638,7 +639,8 @@ namespace ChimeraTK {
 
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance,
-        {"port", "username", "password", "map", "publishingInterval", "rootNode", "connectionTimeout"});
+        {"port", "username", "password", "map", "publishingInterval", "rootNode", "connectionTimeout", "certificate",
+            "privateKey"});
     std::cout << "BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -683,7 +685,7 @@ namespace ChimeraTK {
         rootName = parameters["rootNode"];
       }
     }
-    long int connetionTimeout = 5000;
+    long int connetionTimeout = 500;
     if(!parameters["connectionTimeout"].empty()) {
       connetionTimeout = std::stoi(parameters["connectionTimeout"]);
     }
@@ -719,6 +721,7 @@ namespace ChimeraTK {
     }
 
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(serverAddress, parameters["username"],
-        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout, logLevel));
+        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout, logLevel,
+        parameters["certificate"], parameters["privateKey"]));
   }
 } // namespace ChimeraTK
