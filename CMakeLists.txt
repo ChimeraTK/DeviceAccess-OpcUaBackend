@@ -4,7 +4,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 01)
 set(${PROJECT_NAME}_MINOR_VERSION 03)
-set(${PROJECT_NAME}_PATCH_VERSION 01)
+set(${PROJECT_NAME}_PATCH_VERSION 02)
 include(cmake/set_version_numbers.cmake)
 
 find_package(Boost COMPONENTS unit_test_framework)
@@ -23,7 +23,7 @@ add_library(${PROJECT_NAME} SHARED ${library_sources})
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_FULL_LIBRARY_VERSION} SOVERSION ${${PROJECT_NAME}_SOVERSION})
 target_link_libraries(${PROJECT_NAME}
       PUBLIC ChimeraTK::ChimeraTK-DeviceAccess
-      PUBLIC open62541::open62541)
+      PRIVATE open62541::open62541)
 
 # --no-as-needed: force linking against this library. This is required for proper registering.
 target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
@@ -50,7 +50,7 @@ if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
 
       add_executable(testUnifiedBackendTest ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testUnifiedBackendTest.C)
       target_link_libraries(testUnifiedBackendTest
-            PRIVATE ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+            PRIVATE ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} open62541::open62541)
       target_include_directories(testUnifiedBackendTest PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
       add_test(testUnifiedBackendTest testUnifiedBackendTest)
 
@@ -72,5 +72,5 @@ install(TARGETS ${PROJECT_NAME}
 set(PROVIDES_EXPORTED_TARGETS 1)
 
 # we need the public dependencies so create_cmake_config_files can find them as implicit dependencies
-list(APPEND ${PROJECT_NAME}_PUBLIC_DEPENDENCIES "open62541;ChimeraTK-DeviceAccess")
+list(APPEND ${PROJECT_NAME}_PUBLIC_DEPENDENCIES "ChimeraTK-DeviceAccess")
 include(${CMAKE_SOURCE_DIR}/cmake/create_cmake_config_files.cmake)
