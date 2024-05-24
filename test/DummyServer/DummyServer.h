@@ -20,6 +20,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <string>
 
 namespace fusion = boost::fusion;
 

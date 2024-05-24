@@ -17,6 +17,7 @@
 #include <boost/fusion/include/for_each.hpp>
 
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 namespace fusion = boost::fusion;
