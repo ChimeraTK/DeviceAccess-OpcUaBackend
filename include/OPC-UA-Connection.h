@@ -63,6 +63,7 @@ namespace ChimeraTK {
       password(password), certificate(certificate), key(privateKey), publishingInterval(publishingInterval),
       connectionTimeout(connectionTimeout), logger(UA_Log_Stdout_withLevel(logLevel)) {
       config->logging = &logger;
+      config->eventLoop->logger = &logger;
       if(!certificate.empty() && !key.empty()) {
         config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
         UA_ByteString privateKey = UA_BYTESTRING_NULL;
