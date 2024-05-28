@@ -689,7 +689,7 @@ namespace ChimeraTK {
           throw ChimeraTK::runtime_error("failed to determine ns from root node");
         }
         rootName = parameters["rootNode"].substr(pos + 1);
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
             "Set root name for automatic browsing to: %s. Name space: %ld", rootName.c_str(), rootNS);
       }
     }
@@ -703,7 +703,8 @@ namespace ChimeraTK {
     if(!parameters["connectionTimeout"].empty()) {
       connetionTimeout = std::stoi(parameters["connectionTimeout"]);
     }
-    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %ld ms", connetionTimeout);
+    UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %ld ms",
+        connetionTimeout);
 
     UA_LogLevel logLevel = UA_LOGLEVEL_INFO;
     if(!parameters["logLevel"].empty()) {
@@ -728,7 +729,7 @@ namespace ChimeraTK {
         logLevel = UA_LOGLEVEL_ERROR;
       }
       else {
-        UA_LOG_WARNING(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
             "Wrong log level in mapping file: %s. Allowed are: trace, debug, info, warning, error, fatal.",
             parameters["logLevel"].c_str());
       }

@@ -62,6 +62,7 @@ namespace ChimeraTK {
       channelState(UA_SECURECHANNELSTATE_CLOSED), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
       password(password), certificate(certificate), key(privateKey), publishingInterval(publishingInterval),
       connectionTimeout(connectionTimeout), logger(UA_Log_Stdout_withLevel(logLevel)) {
+      config->logging = &logger;
       if(!certificate.empty() && !key.empty()) {
         config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
         UA_ByteString privateKey = UA_BYTESTRING_NULL;

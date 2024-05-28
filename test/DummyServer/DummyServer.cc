@@ -16,6 +16,7 @@
 #include <boost/fusion/include/at_key.hpp>
 #include <boost/fusion/include/for_each.hpp>
 
+#include <memory>
 #include <random>
 #include <stdexcept>
 #include <vector>
@@ -347,22 +348,16 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean>& 
 
 void ThreadedOPCUAServer::start() {
   if(_serverThread.joinable()) _serverThread.join();
-  //  auto port = _server->_port;
-  //  _server.reset(new OPCUAServer());
-  //  _server->_port = port;
   _serverThread = std::thread{&OPCUAServer::start, &_server};
   if(!checkConnection(ServerState::On)) throw std::runtime_error("Failed to connect to the test server!");
   UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Test server is set up and running.");
 }
 
-ThreadedOPCUAServer::ThreadedOPCUAServer() : _client(UA_Client_new()) {
-  auto config = UA_Client_getConfig(_client);
-  config->logging = &OPCUAServer::logger;
-  UA_ClientConfig_setDefault(config);
-}
+ThreadedOPCUAServer::ThreadedOPCUAServer()
+: _connection(
+      std::make_unique<ChimeraTK::OPCUAConnection>("", "", "", publishingInterval, 5000, testServerLogLevel, "", "")) {}
 
 ThreadedOPCUAServer::~ThreadedOPCUAServer() {
-  UA_Client_delete(_client); /* Disconnects the client internally */
   _server.stop();
   _serverThread.join();
 }
@@ -373,7 +368,7 @@ bool ThreadedOPCUAServer::checkConnection(const ServerState& state) {
   std::string serverAddress("opc.tcp://localhost:" + std::to_string(_server._port));
   uint time = 0;
   while(retval != UA_STATUSCODE_GOOD) {
-    retval = UA_Client_connect(_client, serverAddress.c_str());
+    retval = UA_Client_connect(_connection->client.get(), serverAddress.c_str());
     if(state == ServerState::On) {
       if(retval == UA_STATUSCODE_GOOD) break;
     }
@@ -388,6 +383,6 @@ bool ThreadedOPCUAServer::checkConnection(const ServerState& state) {
       return false;
     }
   }
-  UA_Client_disconnect(_client);
+  _connection->close();
   return true;
 }

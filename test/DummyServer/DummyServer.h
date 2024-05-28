@@ -8,6 +8,7 @@
  *      Author: Klaus Zenker (HZDR)
  */
 
+#include "OPC-UA-Connection.h"
 #include <open62541/plugin/log.h>
 #include <open62541/plugin/log_stdout.h>
 #include <open62541/server.h>
@@ -18,10 +19,9 @@
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <vector>
-#include <string>
-
 namespace fusion = boost::fusion;
 
 typedef fusion::map<fusion::pair<UA_Int16, std::pair<std::string, UA_UInt16>>,
@@ -122,5 +122,5 @@ class ThreadedOPCUAServer {
   OPCUAServer _server;
 
  private:
-  UA_Client* _client;
+  std::shared_ptr<ChimeraTK::OPCUAConnection> _connection;
 };
