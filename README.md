@@ -54,6 +54,23 @@ and the parameter `rootNode=serverA` and `rootNode=serverB` can be used as mappi
 
 ## Map file based catalog creation
 
+### XML version
+
+The XML scheme is defined in [opcua_map.xsd](xmlschema/opcua_map.xsd). It includes also comments on the individual parameters.
+The legacy example in the xml style looks as follows:
+
+    <?xml version="1.0"?>
+    <csa:opcua_map xmlns:csa="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
+      <pv ns="1" >/dir/var1</pv>
+      <pv ns="1">123</pv>
+      <pv ns="1" name="myname1">/dir/var1</pv>
+      <pv ns="1" name="myname1">123</pv>
+      <pv range="2" ns="1" name="Test/singleElement">array</pv>
+      <pv range="2:5" ns="1" name="Test/arraySubset">array</pv>
+    </csa:opcua_map>
+
+The last two mappings for `array` include a range. **This feature is only possible using xml based map file.**
+### Legacy version
 This options is useful when connecting to servers with many process variables. No browsing is done in that case and therefor no load is put on the target server.
 The map file syntax is as following:
 
@@ -67,6 +84,8 @@ The map file syntax is as following:
     myname2     123                1 
 
 In case a numeric id is used and no new name is given it will appear with the register path: /numeric/id.
+
+
 
 
 ## Technical details

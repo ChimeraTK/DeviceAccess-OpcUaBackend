@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
-<opcua_map>
+<csa:opcua_map xmlns:csa="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
   <pv ns="1" name="Test/newName">Dummy/scalar/int32</pv>
   <pv ns="1">Dummy/scalar/int32</pv>
   <pv range="2:4" ns="1" name="Test/newNameArray">Dummy/array/int32</pv>
   <pv range="2" ns="1" name="Test/newNameArraySingleElement">Dummy/array/int32</pv>
   <pv ns="1" name="Test/newNameArrayLong">Dummy/array/int32</pv>
-</opcua_map>
+</csa:opcua_map>
