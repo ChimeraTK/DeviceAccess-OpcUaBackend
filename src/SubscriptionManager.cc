@@ -222,6 +222,13 @@ namespace ChimeraTK {
         // pass object as context to the callback function. This allows to use individual subscriptionMaps for each manager!
         UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(item._node);
         // sampling interval equal to the publishing interval set for the subscription
+        if(!item._accessors.at(0)->_info->_indexRange.empty()) {
+          UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+              "Using data range %s for monitored item of %s.", item._accessors.at(0)->_info->_indexRange.c_str(),
+              item._browseName.c_str());
+          monRequest.itemToMonitor.indexRange = UA_String_fromChars(item._accessors.at(0)->_info->_indexRange.c_str());
+        }
+
         monRequest.requestedParameters.samplingInterval = _connection->publishingInterval;
         UA_MonitoredItemCreateResult monResponse;
         // unlock mutex because the OPC UA call potentially ends up in a state callback which enters deactivateAllAndPushException

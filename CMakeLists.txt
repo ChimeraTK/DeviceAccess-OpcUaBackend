@@ -8,6 +8,7 @@ set(${PROJECT_NAME}_PATCH_VERSION 00)
 include(cmake/set_version_numbers.cmake)
 
 find_package(Boost COMPONENTS unit_test_framework)
+find_package(LibXml2 REQUIRED)
 
 find_package(ChimeraTK-DeviceAccess 03.14 REQUIRED)
 find_package(open62541 01.04 REQUIRED)
@@ -16,6 +17,7 @@ find_package(open62541 01.04 REQUIRED)
 include(cmake/enable_latest_cxx_support.cmake)
 include(cmake/enable_code_style_check.cmake)
 include_directories(include)
+include_directories(SYSTEM ${LIBXML2_INCLUDE_DIR})
 
 aux_source_directory(${CMAKE_SOURCE_DIR}/src library_sources)
 
@@ -23,7 +25,8 @@ add_library(${PROJECT_NAME} SHARED ${library_sources})
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_FULL_LIBRARY_VERSION} SOVERSION ${${PROJECT_NAME}_SOVERSION})
 target_link_libraries(${PROJECT_NAME}
       PUBLIC ChimeraTK::ChimeraTK-DeviceAccess
-      PRIVATE open62541::open62541)
+      PRIVATE open62541::open62541
+      PRIVATE ${LIBXML2_LIBRARIES})
 
 # --no-as-needed: force linking against this library. This is required for proper registering.
 target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
@@ -32,31 +35,7 @@ target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
 set_property(TARGET ${PROJECT_NAME} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
-      add_executable(testSimpleServer ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testSimpleServer.C)
-      target_link_libraries(testSimpleServer
-            PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
-      target_include_directories(testSimpleServer
-            PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
-      add_test(testClient testSimpleServer)
-
-      add_executable(testBrowse ${CMAKE_SOURCE_DIR}/test/testBrowse.C)
-      target_link_libraries(testBrowse
-            PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
-      add_test(testBrowse testBrowse)
-
-      add_executable(testSubscription ${CMAKE_SOURCE_DIR}/test/testSubscription.C)
-      target_link_libraries(testSubscription
-            PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
-
-      add_executable(testUnifiedBackendTest ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testUnifiedBackendTest.C)
-      target_link_libraries(testUnifiedBackendTest
-            PRIVATE ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} open62541::open62541)
-      target_include_directories(testUnifiedBackendTest PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
-      add_test(testUnifiedBackendTest testUnifiedBackendTest)
-
-      add_executable(memoryTest ${CMAKE_SOURCE_DIR}/test/memorytest.C)
-      target_link_libraries(memoryTest open62541::open62541)
-
+  add_subdirectory(test)
 else()
       message(STATUS "Boost unit test framework not found. No tests will be build.")
 endif()
