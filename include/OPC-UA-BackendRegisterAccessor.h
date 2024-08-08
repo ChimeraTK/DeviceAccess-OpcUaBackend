@@ -305,7 +305,13 @@ namespace ChimeraTK {
     }
 
     // Write data to  the internal data buffer
-    UA_Variant_copy(val->var, &_data.value);
+    if(_info->_indexRange.empty()) {
+      UA_Variant_copy(val->var, &_data.value);
+    }
+    else {
+      //      UA_NumericRange range = UA_NUMERICRANGE(_info->_indexRange.c_str());
+      UA_Variant_copyRange(val->var, &_data.value, UA_NUMERICRANGE(_info->_indexRange.c_str()));
+    }
     _data.sourceTimestamp = UA_DateTime_now();
   }
 

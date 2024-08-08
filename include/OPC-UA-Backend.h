@@ -67,7 +67,7 @@ namespace ChimeraTK {
     : path(other.path), _serverAddress(other._serverAddress), _nodeBrowseName(other._nodeBrowseName),
       _description(other._description), _unit(other._unit), _dataType(other._dataType),
       dataDescriptor(other.dataDescriptor), _isReadonly(other._isReadonly), _arrayLength(other._arrayLength),
-      _accessModes(other._accessModes) {
+      _accessModes(other._accessModes), _indexRange(other._indexRange) {
       UA_NodeId_copy(&other._id, &_id);
     }
 
@@ -82,6 +82,7 @@ namespace ChimeraTK {
       _isReadonly = other._isReadonly;
       _arrayLength = other._arrayLength;
       _accessModes = other._accessModes;
+      _indexRange = other._indexRange;
       UA_NodeId_copy(&other._id, &_id);
       return *this;
     }
@@ -117,6 +118,7 @@ namespace ChimeraTK {
     size_t _arrayLength{0};
     AccessModeFlags _accessModes{};
     UA_NodeId _id;
+    std::string _indexRange{""};
   };
 
   /**
@@ -227,6 +229,7 @@ namespace ChimeraTK {
 
     template<typename UAType, typename CTKType>
     friend class OpcUABackendRegisterAccessor;
+    friend class OPCUAMapFileReader;
 
     std::shared_ptr<OPCUASubscriptionManager> _subscriptionManager;
     std::shared_ptr<OPCUAConnection> _connection;
@@ -277,8 +280,10 @@ namespace ChimeraTK {
      * \param nodeName An alternative node name. If not set the nodeName is set to the
      *        name of the node in case of a string node id and to "node_ID", where ID is
      *        the node id, in case of numeric node id.
+     * \param range OPC UA style range definition, e.g. "1,2:3". Here we only consider the first dimension!
      */
-    void addCatalogueEntry(const UA_NodeId& node, std::shared_ptr<std::string> nodeName = nullptr);
+    void addCatalogueEntry(
+        const UA_NodeId& node, std::shared_ptr<std::string> nodeName = nullptr, const std::string& range = "");
 
     /**
      * Browse for nodes of type Variable.

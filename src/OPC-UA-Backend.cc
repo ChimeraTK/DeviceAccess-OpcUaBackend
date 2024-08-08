@@ -9,6 +9,7 @@
 
 #include "OPC-UA-Backend.h"
 
+#include "MapFile.h"
 #include "OPC-UA-BackendRegisterAccessor.h"
 #include "SubscriptionManager.h"
 #include <open62541/client_config_default.h>
@@ -207,66 +208,86 @@ namespace ChimeraTK {
   }
 
   void OpcUABackend::getNodesFromMapfile() {
-    boost::char_separator<char> sep{"\t ", "", boost::drop_empty_tokens};
-    std::string line;
-    std::ifstream mapfile(_mapfile);
-    if(mapfile.is_open()) {
-      while(std::getline(mapfile, line)) {
-        if(line.empty() || line[0] == '#') continue;
-        tokenizer tok{line, sep};
-        size_t nTokens = std::distance(tok.begin(), tok.end());
-        if(!(nTokens == 2 || nTokens == 3)) {
-          UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-              "Wrong number of tokens (%s) in opcua mapfile %s line (-> line is ignored): \n %s",
-              std::to_string(nTokens).c_str(), _mapfile.c_str(), line.c_str());
-          continue;
+    try {
+      OPCUAMapFileReader reader(_mapfile);
+      for(auto element : reader._elements) {
+        if(element._name.empty()) {
+          addCatalogueEntry(element._node, nullptr, element._range);
         }
-        auto it = tok.begin();
-        std::shared_ptr<std::string> nodeName = nullptr;
-        try {
-          if(nTokens == 3) {
-            nodeName = std::make_shared<std::string>(*it);
-            it++;
+        else {
+          addCatalogueEntry(element._node, std::make_shared<std::string>(element._name), element._range);
+        }
+      }
+      UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+          "Set up OPC UA device from map file %s using XML reader.", _mapfile.c_str());
+    }
+    catch(...) {
+      UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+          "Failed setting up OPC UA device from map file %s using XML reader. Trying legacy map file style.",
+          _mapfile.c_str());
+
+      boost::char_separator<char> sep{"\t ", "", boost::drop_empty_tokens};
+      std::string line;
+      std::ifstream mapfile(_mapfile);
+      if(mapfile.is_open()) {
+        while(std::getline(mapfile, line)) {
+          if(line.empty() || line[0] == '#') continue;
+          tokenizer tok{line, sep};
+          size_t nTokens = std::distance(tok.begin(), tok.end());
+          if(!(nTokens == 2 || nTokens == 3)) {
+            UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+                "Wrong number of tokens (%s) in opcua mapfile %s line (-> line is ignored): \n %s",
+                std::to_string(nTokens).c_str(), _mapfile.c_str(), line.c_str());
+            continue;
           }
-          UA_UInt32 id = std::stoul(*it);
-          it++;
-          UA_UInt16 ns = std::stoul(*it);
-          addCatalogueEntry(UA_NODEID_NUMERIC(ns, id), nodeName);
-        }
-        catch(std::invalid_argument& e) {
+          auto it = tok.begin();
+          std::shared_ptr<std::string> nodeName = nullptr;
           try {
-            it = tok.begin();
             if(nTokens == 3) {
               nodeName = std::make_shared<std::string>(*it);
               it++;
             }
-            std::string id = _rootNode + (*it);
+            UA_UInt32 id = std::stoul(*it);
             it++;
             UA_UInt16 ns = std::stoul(*it);
-            addCatalogueEntry(UA_NODEID_STRING(ns, (char*)id.c_str()), nodeName);
+            addCatalogueEntry(UA_NODEID_NUMERIC(ns, id), nodeName);
           }
-          catch(std::invalid_argument& innerError) {
-            UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-                "Failed reading the following line from mapping file %s:\n %s", _mapfile.c_str(), line.c_str());
+          catch(std::invalid_argument& e) {
+            try {
+              it = tok.begin();
+              if(nTokens == 3) {
+                nodeName = std::make_shared<std::string>(*it);
+                it++;
+              }
+              std::string id = _rootNode + (*it);
+              it++;
+              UA_UInt16 ns = std::stoul(*it);
+              addCatalogueEntry(UA_NODEID_STRING(ns, (char*)id.c_str()), nodeName);
+            }
+            catch(std::invalid_argument& innerError) {
+              UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+                  "Failed reading the following line from mapping file %s:\n %s", _mapfile.c_str(), line.c_str());
+            }
+            catch(std::out_of_range& e) {
+              UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+                  "Failed reading the following line from mapping file %s (Namespace id is out of range!):\n %s",
+                  _mapfile.c_str(), line.c_str());
+            }
           }
           catch(std::out_of_range& e) {
             UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-                "Failed reading the following line from mapping file %s (Namespace id is out of range!):\n %s",
+                "Failed reading the following line from mapping file %s (Namespace id or Node id is out of range!):\n "
+                "%s",
                 _mapfile.c_str(), line.c_str());
           }
         }
-        catch(std::out_of_range& e) {
-          UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-              "Failed reading the following line from mapping file %s (Namespace id or Node id is out of range!):\n %s",
-              _mapfile.c_str(), line.c_str());
-        }
+        mapfile.close();
       }
-      mapfile.close();
-    }
-    else {
-      UA_LOG_ERROR(
-          &OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Failed reading opcua mapfile: %s", _mapfile.c_str());
-      throw ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
+      else {
+        UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Failed reading opcua mapfile: %s",
+            _mapfile.c_str());
+        throw ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
+      }
     }
   }
 
@@ -297,7 +318,8 @@ namespace ChimeraTK {
     }
   }
 
-  void OpcUABackend::addCatalogueEntry(const UA_NodeId& node, std::shared_ptr<std::string> nodeName) {
+  void OpcUABackend::addCatalogueEntry(
+      const UA_NodeId& node, std::shared_ptr<std::string> nodeName, const std::string& range) {
     // connection is locked in fillCatalogue
     std::string localNodeName;
     if(nodeName == nullptr) {
@@ -360,7 +382,7 @@ namespace ChimeraTK {
           entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
       return;
     }
-
+    entry._indexRange = range;
     if(UA_Variant_isScalar(val)) {
       entry._arrayLength = 1;
     }
@@ -371,7 +393,22 @@ namespace ChimeraTK {
       return;
     }
     else {
-      entry._arrayLength = val->arrayLength;
+      if(range.empty()) {
+        entry._arrayLength = val->arrayLength;
+      }
+      else {
+        auto uaRange = UA_NUMERICRANGE(range.c_str());
+        if(uaRange.dimensionsSize > 1) {
+          UA_Variant_delete(val);
+          UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+              "Given range dimension has to be 1. You passed %s which corresponds to dimension %ld", range.c_str(),
+              uaRange.dimensionsSize);
+          return;
+        }
+        entry._arrayLength = (uaRange.dimensions->max - uaRange.dimensions->min) + 1;
+        UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+            "Array length is set to %ld. You passed range string: %s", entry._arrayLength, entry._indexRange.c_str());
+      }
     }
     UA_Variant_delete(val);
     UA_NodeId_copy(&node, &entry._id);
