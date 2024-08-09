@@ -53,7 +53,8 @@ struct AllRegisterDefaults {
                                            .disableForceDataLossWrite()
                                            .disableAsyncReadInconsistency()
                                            .disableSwitchReadOnly()
-                                           .disableSwitchWriteOnly();
+                                           .disableSwitchWriteOnly()
+                                           .disableTestRawTransfer();
 
   void setForceRuntimeError(bool enable, size_t test) {
     switch(test) {
