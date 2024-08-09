@@ -527,7 +527,6 @@ namespace ChimeraTK {
       fillCatalogue();
       _catalogue_filled = true;
     }
-    setOpenedAndClearException();
     // wait at maximum 100ms for the client to come up
     uint i = 0;
     while(!_connection->isConnected()) {
@@ -535,6 +534,7 @@ namespace ChimeraTK {
       ++i;
       if(i > 4) throw ChimeraTK::runtime_error("Connection could not be established.");
     }
+    setOpenedAndClearException();
   }
 
   void OpcUABackend::close() {
