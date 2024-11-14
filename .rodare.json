@@ -1,0 +1,15 @@
+{
+    "creators": [
+        {
+            "name": "Zenker, Klaus",
+            "affiliation": "Helmholtz-Zentrum Dresden-Rossendorf",
+            "orcid": "0000-0002-8120-6806"
+        }
+    ],
+    "title": "RODARE GitHub Integration test.",
+    "access_right": "open",
+    "upload_type": "software",
+    "license": "LGPL-3.0",
+    "pub_id": "39901",
+    "description": "This repository is used to properly test the integration of GitHub and RODARE."
+}
