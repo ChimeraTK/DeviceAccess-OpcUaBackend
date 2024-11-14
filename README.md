@@ -1,5 +1,9 @@
 # DeviceAccess-OPC-UA-Backend
 
+[![License](https://img.shields.io/badge/license-LGPLv3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.html)
+[![DOI](https://rodare.hzdr.de/badge/DOI/10.14278/rodare.3255.svg)](https://doi.org/10.14278/rodare.3255)
+[![Linux/OSX Build Status dev](https://img.shields.io/travis/openPMD/openPMD-api/dev.svg?label=dev)](https://travis-ci.org/openPMD/openPMD-api/branches)
+
 This backend uses the opcua client from open62541. The version of open62541 is the same as the one used in the ConstrolsystemAdapter-OPC-UA. 
 `port` is a required parameter in the device mapping file and the syntax in the device mapping file is as following:
        
