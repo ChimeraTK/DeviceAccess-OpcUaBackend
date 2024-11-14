@@ -1,0 +1,28 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: OPC UA based device backend for the ChimeraTK framework
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Klaus
+    family-names: Zenker
+    orcid: 'https://orcid.org/0000-0002-8120-6806'
+    affiliation: Helmholtz-Zentrum Dresden-Rossendorf
+identifiers:
+  - type: doi
+    value: 10.14278/rodare.3254
+    description: The URL of the latest version of the software
+repository-code: 'https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend'
+keywords:
+  - OPC UA
+  - ChimeraTK
+  - Control System
+license: LGPL-3.0
+commit: >-
+  https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend/commit/7a1401fd511608b2107118026fb066a1ff4720da
+version: 01.04.00
+date-released: '2024-11-08'
