@@ -155,7 +155,7 @@ namespace ChimeraTK {
   void OPCUASubscriptionManager::responseHandler(
       UA_Client* client, UA_UInt32 subId, void* subContext, UA_UInt32 monId, void* monContext, UA_DataValue* value) {
     UA_DateTime sourceTime = value->sourceTimestamp;
-    UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime);
+    UA_DateTimeStruct dts = UA_DateTime_toStruct(sourceTime + UA_DateTime_localTimeUtcOffset());
     UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
         "Subscription handler called. Source time stamp: %02u-%02u-%04u %02u:%02u:%02u.%03u", dts.day, dts.month,
         dts.year, dts.hour, dts.min, dts.sec, dts.milliSec);
