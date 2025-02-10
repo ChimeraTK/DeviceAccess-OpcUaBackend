@@ -15,7 +15,8 @@
 #include <boost/algorithm/string.hpp>
 
 namespace ChimeraTK {
-  OPCUAMapFileReader::OPCUAMapFileReader(const std::string& filePath) : _file(filePath) {
+  OPCUAMapFileReader::OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode)
+  : _file(filePath), _rootNode(rootNode) {
     doc = xmlReadFile(filePath.c_str(), nullptr, XML_PARSE_NOERROR);
     if(!doc) {
       throw ChimeraTK::runtime_error(std::string("OPC UA device failed parsing map file ") + filePath);
@@ -82,7 +83,7 @@ namespace ChimeraTK {
         catch(std::invalid_argument& e) {
           try {
             UA_UInt16 ns = std::stoul(nsString);
-            _elements.push_back(MapElement(node, ns, range, name));
+            _elements.push_back(MapElement(_rootNode + node, ns, range, name));
           }
           catch(std::invalid_argument& innerError) {
             UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,

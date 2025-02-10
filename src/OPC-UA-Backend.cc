@@ -209,7 +209,7 @@ namespace ChimeraTK {
 
   void OpcUABackend::getNodesFromMapfile() {
     try {
-      OPCUAMapFileReader reader(_mapfile);
+      OPCUAMapFileReader reader(_mapfile, _rootNode);
       for(auto element : reader._elements) {
         if(element._name.empty()) {
           addCatalogueEntry(element._node, nullptr, element._range);

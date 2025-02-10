@@ -45,9 +45,10 @@ namespace ChimeraTK {
   struct OPCUAMapFileReader {
     /** @brief The constructor of the class creates a doc pointer depending on the file path
      *
-     * @param filePath  Path to a xml file which you want to read
+     * @param filePath Path to a xml file which you want to read
+     * @param rootNode Root node name to be prepended to all nodes. Might left empty.
      */
-    OPCUAMapFileReader(const std::string& filePath);
+    OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode = "");
     std::deque<MapElement> _elements; ///< Contains all elements listed in the map file.
    private:
     xmlXPathObjectPtr getNodeSet(const std::string& xPathStr);
@@ -63,6 +64,7 @@ namespace ChimeraTK {
      */
     std::string getAttributeValueFromNode(xmlNode* node, const std::string& attributeName);
     xmlDocPtr doc{nullptr};
-    std::string _file; ///< Name of the map file
+    std::string _file;     ///< Name of the map file
+    std::string _rootNode; ///< Name of the root Node
   };
 } // namespace ChimeraTK
