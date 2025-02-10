@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<csa:opcua_map xmlns:csa="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
+  <pv ns="1" name="Test/newName">scalar/int32</pv>
+  <pv ns="1">scalar/int32</pv>
+  <pv range="2:4" ns="1" name="Test/newNameArray">array/int32</pv>
+  <pv range="2" ns="1" name="Test/newNameArraySingleElement">array/int32</pv>
+  <pv ns="1" name="Test/newNameArrayLong">array/int32</pv>
+</csa:opcua_map>

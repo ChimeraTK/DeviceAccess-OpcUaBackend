@@ -11,7 +11,9 @@ target_link_libraries(testBrowse
 add_test(testBrowse testBrowse)
 
 FILE(COPY ${CMAKE_SOURCE_DIR}/test/opcua_map.map 
+     ${CMAKE_SOURCE_DIR}/test/opcua_map_rootNode.map
      ${CMAKE_SOURCE_DIR}/test/opcua_map_xml.map
+     ${CMAKE_SOURCE_DIR}/test/opcua_map_xml_rootNode.map
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(testMapFiles ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testMapFiles.C)

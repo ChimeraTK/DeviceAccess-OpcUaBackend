@@ -21,6 +21,29 @@ using namespace boost::unit_test_framework;
 #include <sstream>
 #include <thread>
 
+void runTest(const std::string parameter, bool withRootNode = false) {
+  ThreadedOPCUAServer dummy;
+  dummy.start();
+  BOOST_CHECK_EQUAL(true, dummy.checkConnection(ServerState::On));
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  std::stringstream ss;
+  ss << "(opcua:localhost?port=" << dummy._server.getPort() << parameter;
+  ChimeraTK::Device d(ss.str());
+  d.open();
+  BOOST_CHECK_EQUAL(true, d.isFunctional());
+  BOOST_CHECK_EQUAL(true, d.isOpened());
+  if(withRootNode) {
+    auto reg = d.getTwoDRegisterAccessor<int>("scalar/int32");
+    BOOST_CHECK_NO_THROW(reg.read());
+  }
+  else {
+    auto reg = d.getTwoDRegisterAccessor<int>("Dummy/scalar/int32");
+    BOOST_CHECK_NO_THROW(reg.read());
+  }
+  auto regNewName = d.getTwoDRegisterAccessor<int>("Test/newName");
+  BOOST_CHECK_NO_THROW(regNewName.read());
+}
+
 BOOST_AUTO_TEST_CASE(testBrowsing) {
   ThreadedOPCUAServer dummy;
   dummy.start();
@@ -37,20 +60,20 @@ BOOST_AUTO_TEST_CASE(testBrowsing) {
 }
 
 BOOST_AUTO_TEST_CASE(testMapFileLegacy) {
-  ThreadedOPCUAServer dummy;
-  dummy.start();
-  BOOST_CHECK_EQUAL(true, dummy.checkConnection(ServerState::On));
-  std::this_thread::sleep_for(std::chrono::seconds(1));
-  std::stringstream ss;
-  ss << "(opcua:localhost?port=" << dummy._server.getPort() << "&map=opcua_map.map)";
-  ChimeraTK::Device d(ss.str());
-  d.open();
-  BOOST_CHECK_EQUAL(true, d.isFunctional());
-  BOOST_CHECK_EQUAL(true, d.isOpened());
-  auto reg = d.getTwoDRegisterAccessor<int>("Dummy/scalar/int32");
-  BOOST_CHECK_NO_THROW(reg.read());
-  auto regNewName = d.getTwoDRegisterAccessor<int>("Test/newName");
-  BOOST_CHECK_NO_THROW(regNewName.read());
+  BOOST_TEST_MESSAGE("Running test testMapFileLegacy");
+  runTest("&map=opcua_map.map)");
+}
+
+BOOST_AUTO_TEST_CASE(testMapFileLegacyROOT) {
+  runTest("&map=opcua_map_rootNode.map&rootNode=Dummy/)", true);
+}
+
+BOOST_AUTO_TEST_CASE(testMapFile) {
+  runTest("&map=opcua_map_xml.map)");
+}
+
+BOOST_AUTO_TEST_CASE(testMapFileROOT) {
+  runTest("&map=opcua_map_xml_rootNode.map&rootNode=Dummy/)", true);
 }
 
 BOOST_AUTO_TEST_CASE(testMapFileSync) {
