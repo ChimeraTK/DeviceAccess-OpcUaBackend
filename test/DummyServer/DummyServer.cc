@@ -354,8 +354,8 @@ void ThreadedOPCUAServer::start() {
 }
 
 ThreadedOPCUAServer::ThreadedOPCUAServer()
-: _connection(
-      std::make_unique<ChimeraTK::OPCUAConnection>("", "", "", publishingInterval, 5000, testServerLogLevel, "", "")) {}
+: _connection(std::make_unique<ChimeraTK::OPCUAConnection>(
+      "", "", "", publishingInterval, 5000, testServerLogLevel, "", "", true, "", "")) {}
 
 ThreadedOPCUAServer::~ThreadedOPCUAServer() {
   _server.stop();

@@ -10,10 +10,12 @@
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
 #include <open62541/plugin/log_stdout.h>
+#include <open62541/plugin/pki_default.h>
 #include <open62541/plugin/securitypolicy.h>
 
 #include <atomic>
 #include <chrono>
+#include <dirent.h>
 #include <memory>
 #include <mutex>
 #include <stdio.h>
@@ -57,7 +59,8 @@ namespace ChimeraTK {
 
     OPCUAConnection(const std::string& address, const std::string& username, const std::string& password,
         unsigned long publishingInterval, const long int& connectionTimeout, const UA_LogLevel& logLevel,
-        const std::string& certificate, const std::string& privateKey)
+        const std::string& certificate, const std::string& privateKey, const bool trustAny,
+        const std::string trustListFolder, const std::string revocationListFolder)
     : client(UA_Client_new()), config(UA_Client_getConfig(client.get())), serverAddress(address),
       channelState(UA_SECURECHANNELSTATE_CLOSED), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
       password(password), certificate(certificate), key(privateKey), publishingInterval(publishingInterval),
@@ -70,7 +73,21 @@ namespace ChimeraTK {
         privateKey = loadFile(key.c_str());
         UA_ByteString cert = UA_BYTESTRING_NULL;
         cert = loadFile(certificate.c_str());
-        UA_ClientConfig_setDefaultEncryption(config, cert, privateKey, 0, 0, NULL, 0);
+        if(trustAny) {
+          UA_ClientConfig_setDefaultEncryption(config, cert, privateKey, 0, 0, NULL, 0);
+          UA_CertificateVerification_AcceptAll(&config->certificateVerification);
+        }
+        else {
+          /* Load the trustList. Load revocationList is not supported now */
+          size_t trustListSize = 0;
+          UA_ByteString* trustList = nullptr;
+          loadFilesFromDir(trustListFolder, trustListSize, trustList, "trust");
+          size_t revocationListSize = 0;
+          UA_ByteString* revocationList = nullptr;
+          loadFilesFromDir(revocationListFolder, revocationListSize, revocationList, "revocation");
+          UA_ClientConfig_setDefaultEncryption(
+              config, cert, privateKey, trustList, trustListSize, revocationList, revocationListSize);
+        }
         if(!username.empty() && !password.empty()) {
           UA_UserNameIdentityToken* identityToken = UA_UserNameIdentityToken_new();
           identityToken->userName = UA_STRING_ALLOC(username.c_str());
@@ -134,6 +151,28 @@ namespace ChimeraTK {
       fclose(fp);
 
       return fileContents;
+    }
+
+    void loadFilesFromDir(const std::string dir, size_t& listSize, UA_ByteString*& list, const std::string listAlias) {
+      /* Load trust list */
+      struct dirent* entry = nullptr;
+      DIR* dp = nullptr;
+      dp = opendir(dir.c_str());
+      listSize = 0;
+      if(dp != nullptr) {
+        while((entry = readdir(dp))) {
+          if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+          listSize++;
+          list = (UA_ByteString*)UA_realloc(list, sizeof(UA_ByteString) * listSize);
+          char sbuf[1024];
+          sprintf(sbuf, "%s/%s", dir.c_str(), entry->d_name);
+          UA_LOG_INFO(
+              config->logging, UA_LOGCATEGORY_USERLAND, "Add %s to the %s list.", entry->d_name, listAlias.c_str());
+
+          list[listSize - 1] = loadFile(sbuf);
+        }
+      }
+      closedir(dp);
     }
   };
 
