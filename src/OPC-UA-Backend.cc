@@ -152,11 +152,12 @@ namespace ChimeraTK {
   OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username, const std::string& password,
       const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName,
       const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel,
-      const std::string& certificate, const std::string& privateKey)
+      const std::string& certificate, const std::string& privateKey, const bool trustAny,
+      const std::string trustListFolder, const std::string revocationListFolder)
   : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
     backendLogger = UA_Log_Stdout_withLevel(logLevel);
     _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval,
-        connectionTimeout, logLevel, certificate, privateKey);
+        connectionTimeout, logLevel, certificate, privateKey, trustAny, trustListFolder, revocationListFolder);
     _connection->config->stateCallback = stateCallback;
     _connection->config->subscriptionInactivityCallback = inactivityCallback;
 
@@ -709,6 +710,14 @@ namespace ChimeraTK {
     unsigned long publishingInterval = 500;
     if(!parameters["publishingInterval"].empty()) publishingInterval = std::stoul(parameters["publishingInterval"]);
 
+    bool trustAny = false;
+    if(!parameters["trustAny"].empty()) {
+      auto testStr = parameters["trustAny"];
+      std::transform(testStr.begin(), testStr.end(), testStr.begin(), ::toupper);
+      if(testStr == "1" || testStr == "TRUE" || testStr == "YES") {
+        trustAny = true;
+      }
+    }
     ulong rootNS;
     std::string rootName("");
     if(parameters["map"].empty()) {
@@ -772,8 +781,9 @@ namespace ChimeraTK {
       }
     }
 
-    return boost::shared_ptr<DeviceBackend>(new OpcUABackend(serverAddress, parameters["username"],
-        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout, logLevel,
-        parameters["certificate"], parameters["privateKey"]));
+    return boost::shared_ptr<DeviceBackend>(
+        new OpcUABackend(serverAddress, parameters["username"], parameters["password"], parameters["map"],
+            publishingInterval, rootName, rootNS, connetionTimeout, logLevel, parameters["certificate"],
+            parameters["privateKey"], trustAny, parameters["trustListFolder"], parameters["revocationListFolder"]));
   }
 } // namespace ChimeraTK

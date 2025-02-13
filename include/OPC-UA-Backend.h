@@ -163,12 +163,19 @@ namespace ChimeraTK {
      * \param rootNode The root node specified.
      * \param rootNS The root node name space.
      * \param connectionTimeout
+     * \param logLevel The logging level used by the client
+     * \param certificate Client certificate used for encrypted connections
+     * \param privateKey client private key used for encrypted connections
+     * \param trustAny Trust any server certificate. If true trust and revocation list folders are ignored
+     * \param trustListFolder Folder that includes trusted certificates, e.g. the server certificate
+     * \param revocationListFolder Folder that includes revocation lists
      */
     OpcUABackend(const std::string& fileAddress, const std::string& username = "", const std::string& password = "",
         const std::string& mapfile = "", const unsigned long& subscriptonPublishingInterval = 500,
         const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000,
         const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR, const std::string& certificate = "",
-        const std::string& privateKey = "");
+        const std::string& privateKey = "", const bool trustAny = true, const std::string trustListFolder = "",
+        const std::string revocationListFolder = "");
 
     /**
      * Fill catalog.

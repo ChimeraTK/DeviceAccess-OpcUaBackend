@@ -17,19 +17,30 @@ This backend uses the opcua client from open62541. The version of open62541 is t
 
 ## Optional parameters
 
-The following optional parameters are supported:
+The following optional parameters are supported and default values are indicated:
   - `map`
   - `username`
   - `password`
-  - `publishingInterval`
-  - `connectionTimeout`
+  - `publishingInterval=500`
+  - `connectionTimeout=5000`
   - `rootNode`
-  - `logLevel`
+  - `logLevel=info`
   - `certificate`
   - `privateKey`
+  - `trustAny=false`
+  - `trustListFolder`
+  - `revocationListFolder`
+ 
+Detailed information about the parameters are given in the following.
+
+### Encryption and security settings
 
 If authentication should be used when connecting to a server use optional device mapping parameters `username` and `password`.
-For an encrypted connection use `certificate` and `privateKey`.
+For an encrypted connection use `certificate` and `privateKey`. If you want to disable the server certificate validation set `trustAny=true`. 
+In that case `trustListFolder` and `revocationListFolder` settings are ignored.
+Else you need to set `trustListFolder` to a directory that includes the server certificate. If certificate authorities are used consider also setting `revocationListFolder` to a directory that includes the revocation lists.
+
+### Logging level
 
 The loggingg severiy level of the client can be set using `logLevel`. Supported log levels are:
   - `trace`
@@ -39,11 +50,15 @@ The loggingg severiy level of the client can be set using `logLevel`. Supported 
   - `error`
   - `fatal`
 
+### Connection settings
+
 The parameter `publishingInterval` is relevant for asynchronous reading. It defines the shortest update time of the backend.
 Server side data updates that happen faster than the publishing interval will not be seen by the backend. The unit of the publishing interval is ms and in case no publishing interval is given a publishing of 500ms is used. No queues are used on the backend side!
 
 If the connection to the server is lost the backend will try to recover the connection after a specified timeout. The default timeout is 5000ms.
 This can be changed using the backend parameter `connectionTimeout` and passing the desired timeout in milli seconds.
+
+### Node selection
 
 The backend can be used in two different ways:
 
