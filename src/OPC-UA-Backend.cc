@@ -12,13 +12,14 @@
 #include "MapFile.h"
 #include "OPC-UA-BackendRegisterAccessor.h"
 #include "SubscriptionManager.h"
-#include <open62541/client_config_default.h>
-#include <open62541/plugin/log_stdout.h>
 
 #include <ChimeraTK/BackendFactory.h>
 #include <ChimeraTK/DeviceAccessVersion.h>
 #include <ChimeraTK/Exception.h>
 #include <ChimeraTK/RegisterInfo.h>
+
+#include <open62541/client_config_default.h>
+#include <open62541/plugin/log_stdout.h>
 
 #include <boost/make_shared.hpp>
 #include <boost/tokenizer.hpp>

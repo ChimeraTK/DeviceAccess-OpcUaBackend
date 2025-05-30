@@ -10,10 +10,11 @@
 #include "SubscriptionManager.h"
 
 #include "OPC-UA-BackendRegisterAccessor.h"
-#include <open62541/client.h>
-#include <open62541/client_subscriptions.h>
 
 #include <ChimeraTK/Exception.h>
+
+#include <open62541/client.h>
+#include <open62541/client_subscriptions.h>
 
 #include <chrono>
 

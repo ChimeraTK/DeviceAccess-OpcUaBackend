@@ -7,9 +7,9 @@
  *  Created on: Jan 14, 2021
  *      Author: Klaus Zenker (HZDR)
  */
-#include <open62541/types.h>
-
 #include <ChimeraTK/VersionNumber.h>
+
+#include <open62541/types.h>
 
 #include <chrono>
 #include <map>
