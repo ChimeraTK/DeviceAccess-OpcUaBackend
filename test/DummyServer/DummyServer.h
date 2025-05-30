@@ -9,6 +9,7 @@
  */
 
 #include "OPC-UA-Connection.h"
+
 #include <open62541/plugin/log.h>
 #include <open62541/plugin/log_stdout.h>
 #include <open62541/server.h>

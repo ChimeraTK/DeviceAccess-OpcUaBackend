@@ -9,6 +9,7 @@
  */
 #include "OPC-UA-Backend.h"
 #include "OPC-UA-Connection.h"
+
 #include <open62541/plugin/log_stdout.h>
 
 #include <atomic>

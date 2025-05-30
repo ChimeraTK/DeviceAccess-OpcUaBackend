@@ -11,11 +11,12 @@
 #include "OPC-UA-Backend.h"
 #include "SubscriptionManager.h"
 #include "VersionMapper.h"
-#include <open62541/plugin/log_stdout.h>
 
 #include <ChimeraTK/AccessMode.h>
 #include <ChimeraTK/NDRegisterAccessor.h>
 #include <ChimeraTK/RegisterPath.h>
+
+#include <open62541/plugin/log_stdout.h>
 
 #include <boost/fusion/container/map.hpp>
 #include <boost/numeric/conversion/cast.hpp>

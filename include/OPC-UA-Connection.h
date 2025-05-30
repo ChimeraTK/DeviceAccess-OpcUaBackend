@@ -13,12 +13,13 @@
 #include <open62541/plugin/pki_default.h>
 #include <open62541/plugin/securitypolicy.h>
 
+#include <dirent.h>
+#include <stdio.h>
+
 #include <atomic>
 #include <chrono>
-#include <dirent.h>
 #include <memory>
 #include <mutex>
-#include <stdio.h>
 #include <string>
 #include <thread>
 

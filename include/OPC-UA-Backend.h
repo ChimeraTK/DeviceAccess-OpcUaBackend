@@ -9,18 +9,20 @@
  */
 #include "OPC-UA-Connection.h"
 #include "SubscriptionManager.h"
-#include <open62541/plugin/log.h>
-#include <unordered_set>
 
 #include <ChimeraTK/BackendRegisterCatalogue.h>
 #include <ChimeraTK/DeviceBackendImpl.h>
 
+#include <open62541/plugin/log.h>
+
 #include <boost/enable_shared_from_this.hpp>
+
+#include <stdio.h>
 
 #include <memory>
 #include <mutex>
 #include <sstream>
-#include <stdio.h>
+#include <unordered_set>
 
 namespace ChimeraTK {
   class OPCUASubscriptionManager;
