@@ -4,7 +4,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 01)
 set(${PROJECT_NAME}_MINOR_VERSION 05)
-set(${PROJECT_NAME}_PATCH_VERSION 00)
+set(${PROJECT_NAME}_PATCH_VERSION 01)
 include(cmake/set_version_numbers.cmake)
 
 find_package(Boost COMPONENTS unit_test_framework)
@@ -31,7 +31,7 @@ target_link_libraries(${PROJECT_NAME}
 # --no-as-needed: force linking against this library. This is required for proper registering.
 target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")
 
-# do not remove runtime paths of the library when installing (helps for unsually located implicit dependencies)
+# do not remove runtime paths of the library when installing (helps for unusually located implicit dependencies)
 set_property(TARGET ${PROJECT_NAME} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(Boost_UNIT_TEST_FRAMEWORK_FOUND)
