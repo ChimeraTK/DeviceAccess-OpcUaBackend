@@ -477,7 +477,7 @@ namespace ChimeraTK {
       return;
     }
     else {
-      if(accessLevel == (UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE))
+      if(accessLevel & UA_ACCESSLEVELMASK_WRITE)
         entry._isReadonly = false;
       else
         entry._isReadonly = true;
