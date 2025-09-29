@@ -9,6 +9,7 @@
 
 #include "OPC-UA-Backend.h"
 
+#include "CatalogueCache.h"
 #include "MapFile.h"
 #include "OPC-UA-BackendRegisterAccessor.h"
 #include "SubscriptionManager.h"
@@ -168,8 +169,9 @@ namespace ChimeraTK {
      * Since in the registration the catalog is needed we connect already
      * here and create the catalog.
      */
-    connect();
-    fillCatalogue();
+    //    connect();
+    //    fillCatalogue();
+    _catalogue_mutable = Cache::readCatalogue("opcua_cache.xml");
     _catalogue_filled = true;
   }
 
@@ -318,11 +320,17 @@ namespace ChimeraTK {
 
       getNodesFromMapfile();
     }
+    Cache::saveCatalogue(_catalogue_mutable, "opcua_cache.xml");
   }
 
   void OpcUABackend::addCatalogueEntry(
       const UA_NodeId& node, std::shared_ptr<std::string> nodeName, const std::string& range) {
     // connection is locked in fillCatalogue
+    std::string rootNode, description;
+    UA_UInt32 dataType;
+    size_t arrayLength;
+    bool isReadonly;
+
     std::string localNodeName;
     if(nodeName == nullptr) {
       // used when reading nodes from server
@@ -349,29 +357,33 @@ namespace ChimeraTK {
       localNodeName = *(nodeName.get());
     }
 
-    OpcUABackendRegisterInfo entry{_connection->serverAddress, localNodeName};
     UA_NodeId* id = UA_NodeId_new();
     UA_StatusCode retval = UA_Client_readDataTypeAttribute(_connection->client.get(), node, id);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_NodeId_delete(id);
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read data type from variable: %s with reason: %s. Variable is not added to the catalog.",
-          entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
+          localNodeName.c_str(), UA_StatusCode_name(retval));
       return;
     }
-    entry._dataType = id->identifier.numeric;
+    dataType = id->identifier.numeric;
     UA_NodeId_delete(id);
+    if(id->identifier.numeric > 12 || id->identifier.numeric < 1) {
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+          "Failed to determine data type for node: %s  -> entry is not added to the catalogue.", localNodeName.c_str());
+      return;
+    }
 
     UA_LocalizedText* text = UA_LocalizedText_new();
     retval = UA_Client_readDescriptionAttribute(_connection->client.get(), node, text);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_LocalizedText_delete(text);
       UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-          "Failed to read data description from variable: %s with reason: %s.", entry._nodeBrowseName.c_str(),
+          "Failed to read data description from variable: %s with reason: %s.", localNodeName.c_str(),
           UA_StatusCode_name(retval));
     }
     else {
-      entry._description = std::string((char*)text->text.data, text->text.length);
+      description = std::string((char*)text->text.data, text->text.length);
       UA_LocalizedText_delete(text);
     }
 
@@ -381,22 +393,21 @@ namespace ChimeraTK {
       UA_Variant_delete(val);
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read data from variable: %s with reason: %s. Variable is not added to the catalog.",
-          entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
+          localNodeName.c_str(), UA_StatusCode_name(retval));
       return;
     }
-    entry._indexRange = range;
     if(UA_Variant_isScalar(val)) {
-      entry._arrayLength = 1;
+      arrayLength = 1;
     }
     else if(val->arrayLength == 0) {
       UA_Variant_delete(val);
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-          "Array length of variable: %s  is 0!. Variable is not added to the catalog.", entry._nodeBrowseName.c_str());
+          "Array length of variable: %s  is 0!. Variable is not added to the catalog.", localNodeName.c_str());
       return;
     }
     else {
       if(range.empty()) {
-        entry._arrayLength = val->arrayLength;
+        arrayLength = val->arrayLength;
       }
       else {
         auto uaRange = UA_NUMERICRANGE(range.c_str());
@@ -407,82 +418,29 @@ namespace ChimeraTK {
               uaRange.dimensionsSize);
           return;
         }
-        entry._arrayLength = (uaRange.dimensions->max - uaRange.dimensions->min) + 1;
+        arrayLength = (uaRange.dimensions->max - uaRange.dimensions->min) + 1;
         UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-            "Array length is set to %ld. You passed range string: %s", entry._arrayLength, entry._indexRange.c_str());
+            "Array length is set to %ld. You passed range string: %s", arrayLength, range.c_str());
       }
     }
     UA_Variant_delete(val);
-    UA_NodeId_copy(&node, &entry._id);
-    // Maximum number of decimal digits to display a float without loss in non-exponential display, including
-    // sign, leading 0, decimal dot and one extra digit to avoid rounding issues (hence the +4).
-    // This computation matches the one performed in the NumericAddressedBackend catalogue.
-    size_t floatMaxDigits =
-        std::max(std::log10(std::numeric_limits<float>::max()), -std::log10(std::numeric_limits<float>::denorm_min())) +
-        4;
 
-    switch(entry._dataType) {
-      case 1: /*BOOL*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::boolean, true, true, 320, 300);
-        break;
-      case 2: /*SByte aka int8*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, true, 4, 300);
-        break;
-      case 3: /*BYTE aka uint8*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, false, 3, 300);
-        break;
-      case 4: /*Int16*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, true, 5, 300);
-        break;
-      case 5: /*UInt16*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, false, 6, 300);
-        break;
-      case 6: /*Int32*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, true, 10, 300);
-        break;
-      case 7: /*UInt32*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, false, 11, 300);
-        break;
-      case 8: /*Int64*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, true, 320, 300);
-        break;
-      case 9: /*UInt64*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, false, 320, 300);
-        break;
-      case 10: /*Float*/
-        entry.dataDescriptor =
-            DataDescriptor(DataDescriptor::FundamentalType::numeric, false, true, floatMaxDigits, 300);
-        break;
-      case 11: /*Double*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, false, true, 300, 300);
-        break;
-      case 12: /*String*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::string, true, true, 320, 300);
-        break;
-      default:
-        UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-            "Failed to determine data type for node: %s  -> entry is not added to the catalogue.",
-            entry._nodeBrowseName.c_str());
-        return;
-    }
-
-    entry._accessModes.add(AccessMode::wait_for_new_data);
-    //\ToDo: Test this here!!
     UA_Byte accessLevel;
     retval = UA_Client_readAccessLevelAttribute(_connection->client.get(), node, &accessLevel);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read access level from variable: %s with reason: %s. Variable is not added to the catalog.",
-          entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
+          localNodeName.c_str(), UA_StatusCode_name(retval));
       return;
     }
     else {
       if(accessLevel & UA_ACCESSLEVELMASK_WRITE)
-        entry._isReadonly = false;
+        isReadonly = false;
       else
-        entry._isReadonly = true;
+        isReadonly = true;
     }
-    _catalogue_mutable.addRegister(entry);
+    _catalogue_mutable.addProperty(
+        node, localNodeName, range, dataType, arrayLength, _connection->serverAddress, description, isReadonly);
   }
 
   void OpcUABackend::resetClient() {

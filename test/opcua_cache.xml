@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalogue version="1.0">
+  <general>
+    <serverAddress>opc.tcp://fwllfcw1:11000</serverAddress>
+  </general>
+  <register>
+    <name>/test/doubleRO</name>
+    <description>Double RO</description>
+    <length>1</length>
+    <access_mode>wait_for_new_data</access_mode>
+    <readOnly>1</readOnly>
+    <typeId>11</typeId>
+    <nameSpace>1</nameSpace>
+    <isNumeric>0</isNumeric>
+    <indexRange></indexRange>
+  </register>
+  <register>
+    <name>/test/intRO</name>
+    <description>Int32 RO</description>
+    <length>1</length>
+    <access_mode>wait_for_new_data</access_mode>
+    <readOnly>1</readOnly>
+    <typeId>6</typeId>
+    <nameSpace>1</nameSpace>
+    <isNumeric>0</isNumeric>
+    <indexRange></indexRange>
+  </register>
+  <register>
+    <name>/test/stringRO</name>
+    <description>String RO</description>
+    <length>1</length>
+    <access_mode>wait_for_new_data</access_mode>
+    <readOnly>1</readOnly>
+    <typeId>12</typeId>
+    <nameSpace>1</nameSpace>
+    <isNumeric>0</isNumeric>
+    <indexRange></indexRange>
+  </register>
+  <register>
+    <name>/test/doubleRW</name>
+    <description>Double RW</description>
+    <length>1</length>
+    <access_mode>wait_for_new_data</access_mode>
+    <readOnly>1</readOnly>
+    <typeId>11</typeId>
+    <nameSpace>1</nameSpace>
+    <isNumeric>0</isNumeric>
+    <indexRange></indexRange>
+  </register>
+  <register>
+    <name>/test/intRW</name>
+    <description>Int32 RW</description>
+    <length>1</length>
+    <access_mode>wait_for_new_data</access_mode>
+    <readOnly>1</readOnly>
+    <typeId>6</typeId>
+    <nameSpace>1</nameSpace>
+    <isNumeric>0</isNumeric>
+    <indexRange></indexRange>
+  </register>
+  <register>
+    <name>/test/stringRW</name>
+    <description>String RW</description>
+    <length>1</length>
+    <access_mode>wait_for_new_data</access_mode>
+    <readOnly>1</readOnly>
+    <typeId>12</typeId>
+    <nameSpace>1</nameSpace>
+    <isNumeric>0</isNumeric>
+    <indexRange>1:45</indexRange>
+  </register>
+</catalogue>

@@ -8,6 +8,7 @@
  *      Author: Klaus Zenker (HZDR)
  */
 #include "OPC-UA-Connection.h"
+#include "RegisterInfo.h"
 #include "SubscriptionManager.h"
 
 #include <ChimeraTK/BackendRegisterCatalogue.h>
@@ -44,84 +45,6 @@ namespace ChimeraTK {
 
   typedef std::unordered_set<UA_NodeId, NodeHash, NodeComp> UASet;
   */
-
-  /**
-   *  RegisterInfo-derived class to be put into the RegisterCatalogue
-   */
-  class OpcUABackendRegisterInfo : public BackendRegisterInfoBase {
-    //\ToDo: Adopt for OPC UA
-   public:
-    OpcUABackendRegisterInfo(const std::string& serverAddress, const std::string& node_browseName, const UA_NodeId& id)
-    : _serverAddress(serverAddress), _nodeBrowseName(node_browseName), _id(id) {
-      path = RegisterPath(serverAddress) / RegisterPath(node_browseName);
-    }
-
-    OpcUABackendRegisterInfo(const std::string& serverAddress, const std::string& node_browseName)
-    : _serverAddress(serverAddress), _nodeBrowseName(node_browseName) {
-      path = RegisterPath(serverAddress) / RegisterPath(node_browseName);
-    }
-
-    OpcUABackendRegisterInfo() = default;
-
-    ~OpcUABackendRegisterInfo() override { UA_NodeId_clear(&_id); }
-
-    OpcUABackendRegisterInfo(const OpcUABackendRegisterInfo& other)
-    : path(other.path), _serverAddress(other._serverAddress), _nodeBrowseName(other._nodeBrowseName),
-      _description(other._description), _unit(other._unit), _dataType(other._dataType),
-      dataDescriptor(other.dataDescriptor), _isReadonly(other._isReadonly), _arrayLength(other._arrayLength),
-      _accessModes(other._accessModes), _indexRange(other._indexRange) {
-      UA_NodeId_copy(&other._id, &_id);
-    }
-
-    OpcUABackendRegisterInfo& operator=(const OpcUABackendRegisterInfo& other) {
-      path = other.path;
-      _serverAddress = other._serverAddress;
-      _nodeBrowseName = other._nodeBrowseName;
-      _description = other._description;
-      _unit = other._unit;
-      _dataType = other._dataType;
-      dataDescriptor = other.dataDescriptor;
-      _isReadonly = other._isReadonly;
-      _arrayLength = other._arrayLength;
-      _accessModes = other._accessModes;
-      _indexRange = other._indexRange;
-      UA_NodeId_copy(&other._id, &_id);
-      return *this;
-    }
-
-    RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
-
-    std::string getRegisterPath() const { return path; }
-
-    unsigned int getNumberOfElements() const override { return _arrayLength; }
-
-    unsigned int getNumberOfChannels() const override { return 1; }
-
-    const DataDescriptor& getDataDescriptor() const override { return dataDescriptor; }
-
-    bool isReadable() const override { return true; }
-
-    bool isWriteable() const override { return !_isReadonly; }
-
-    AccessModeFlags getSupportedAccessModes() const override { return _accessModes; }
-
-    std::unique_ptr<BackendRegisterInfoBase> clone() const override {
-      return std::unique_ptr<BackendRegisterInfoBase>(new OpcUABackendRegisterInfo(*this));
-    }
-
-    RegisterPath path;
-    std::string _serverAddress;
-    std::string _nodeBrowseName;
-    std::string _description;
-    std::string _unit;
-    UA_UInt32 _dataType{0};
-    DataDescriptor dataDescriptor;
-    bool _isReadonly{true};
-    size_t _arrayLength{0};
-    AccessModeFlags _accessModes{};
-    UA_NodeId _id;
-    std::string _indexRange{""};
-  };
 
   /**
    * \remark Closing the an application using SIGINT will trigger closing the session. Thus, the state handler will
@@ -225,7 +148,7 @@ namespace ChimeraTK {
     DEFINE_VIRTUAL_FUNCTION_TEMPLATE_VTABLE_FILLER(OpcUABackend, getRegisterAccessor_impl, 4);
 
     /** We need to make the catalogue mutable, since we fill it within getRegisterCatalogue() */
-    mutable BackendRegisterCatalogue<OpcUABackendRegisterInfo> _catalogue_mutable;
+    mutable OpcUaBackendRegisterCatalogue _catalogue_mutable;
 
     /** Class to register the backend type with the factory. */
     class BackendRegisterer {
