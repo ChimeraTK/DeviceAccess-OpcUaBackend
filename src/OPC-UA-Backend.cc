@@ -154,8 +154,8 @@ namespace ChimeraTK {
   OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username, const std::string& password,
       const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName,
       const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel,
-      const std::string& certificate, const std::string& privateKey, const bool trustAny,
-      const std::string trustListFolder, const std::string revocationListFolder)
+      const std::string& certificate, const std::string& privateKey, const bool& trustAny,
+      const std::string& trustListFolder, const std::string& revocationListFolder, const std::string& cacheFile)
   : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
     backendLogger = UA_Log_Stdout_withLevel(logLevel);
     _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval,
@@ -169,10 +169,24 @@ namespace ChimeraTK {
      * Since in the registration the catalog is needed we connect already
      * here and create the catalog.
      */
-    //    connect();
-    //    fillCatalogue();
-    _catalogue_mutable = Cache::readCatalogue("opcua_cache.xml");
-    _catalogue_filled = true;
+    if(cacheFile.empty()) {
+      connect();
+      fillCatalogue();
+    }
+    else {
+      UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Reading catalogue from cache file: %s.",
+          cacheFile.c_str());
+      try {
+        _catalogue_mutable = Cache::readCatalogue(cacheFile);
+        _catalogue_filled = true;
+      }
+      catch(ChimeraTK::logic_error& e) {
+        UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+            "Failed reading catalogue from cache file: %s. Will try to browse server now...", cacheFile.c_str());
+        connect();
+        fillCatalogue(cacheFile);
+      }
+    }
   }
 
   OpcUABackend::~OpcUABackend() {
@@ -295,7 +309,7 @@ namespace ChimeraTK {
     }
   }
 
-  void OpcUABackend::fillCatalogue() {
+  void OpcUABackend::fillCatalogue(const std::string& cacheFile) {
     std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(_mapfile.empty()) {
       if(_rootNode.empty()) {
@@ -320,7 +334,10 @@ namespace ChimeraTK {
 
       getNodesFromMapfile();
     }
-    Cache::saveCatalogue(_catalogue_mutable, "opcua_cache.xml");
+    if(!cacheFile.empty()) {
+      Cache::saveCatalogue(_catalogue_mutable, cacheFile);
+    }
+    _catalogue_filled = true;
   }
 
   void OpcUABackend::addCatalogueEntry(
@@ -483,10 +500,6 @@ namespace ChimeraTK {
       connect();
     }
 
-    if(!_catalogue_filled) {
-      fillCatalogue();
-      _catalogue_filled = true;
-    }
     // wait at maximum 100ms for the client to come up
     uint i = 0;
     while(!_connection->isConnected()) {
@@ -651,7 +664,7 @@ namespace ChimeraTK {
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance,
         {"port", "username", "password", "map", "publishingInterval", "rootNode", "connectionTimeout", "certificate",
-            "privateKey"});
+            "privateKey", "cacheFile"});
     std::cout << "BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -740,9 +753,9 @@ namespace ChimeraTK {
       }
     }
 
-    return boost::shared_ptr<DeviceBackend>(
-        new OpcUABackend(serverAddress, parameters["username"], parameters["password"], parameters["map"],
-            publishingInterval, rootName, rootNS, connetionTimeout, logLevel, parameters["certificate"],
-            parameters["privateKey"], trustAny, parameters["trustListFolder"], parameters["revocationListFolder"]));
+    return boost::shared_ptr<DeviceBackend>(new OpcUABackend(serverAddress, parameters["username"],
+        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout, logLevel,
+        parameters["certificate"], parameters["privateKey"], trustAny, parameters["trustListFolder"],
+        parameters["revocationListFolder"], parameters["cacheFile"]));
   }
 } // namespace ChimeraTK

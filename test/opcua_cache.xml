@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <catalogue version="1.0">
   <general>
-    <serverAddress>opc.tcp://fwllfcw1:11000</serverAddress>
+    <serverAddress>opc.tcp://localhost:11000</serverAddress>
   </general>
   <register>
     <name>/test/doubleRO</name>

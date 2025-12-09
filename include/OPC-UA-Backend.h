@@ -94,13 +94,15 @@ namespace ChimeraTK {
      * \param trustAny Trust any server certificate. If true trust and revocation list folders are ignored
      * \param trustListFolder Folder that includes trusted certificates, e.g. the server certificate
      * \param revocationListFolder Folder that includes revocation lists
+     * \param cacheFile Name of te cache file. If set the catalogue will be created from the cache and
+     *                  not by reading rhe map file or browsing the server.
      */
     OpcUABackend(const std::string& fileAddress, const std::string& username = "", const std::string& password = "",
         const std::string& mapfile = "", const unsigned long& subscriptonPublishingInterval = 500,
         const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000,
         const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR, const std::string& certificate = "",
-        const std::string& privateKey = "", const bool trustAny = true, const std::string trustListFolder = "",
-        const std::string revocationListFolder = "");
+        const std::string& privateKey = "", const bool& trustAny = true, const std::string& trustListFolder = "",
+        const std::string& revocationListFolder = "", const std::string& cacheFile = "");
 
     /**
      * Fill catalog.
@@ -113,8 +115,10 @@ namespace ChimeraTK {
      * Passing a _rootNode allows to prepend a certain hierarchy to the variables given in the map file.
      * E.g. if _rootNode is testServer and the variable in the map file is temperature/test fillCatalgogue will try to
      * add the node testServer/temperature/test.
+     *
+     * \param cacheFile: If not empty the created register catalogue is used to create a chache file using this file name.
      */
-    void fillCatalogue();
+    void fillCatalogue(const std::string& cacheFile = "");
 
     /**
      * Return the catalogue and if not filled yet fill it.

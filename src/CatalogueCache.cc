@@ -128,7 +128,7 @@ namespace ChimeraTK { namespace Cache {
 
   void parseRegister(
       xmlpp::Element const* registerNode, OpcUaBackendRegisterCatalogue& catalogue, const std::string& serverAddress) {
-    std::string name, description, indexRange;
+    std::string nodeId, name, description, indexRange;
     bool isReadonly, isNumeric;
     uint32_t typeId;
     uint16_t namespaceId;
@@ -146,6 +146,9 @@ namespace ChimeraTK { namespace Cache {
       if(nodeName == "name") {
         name = e->get_child_text()->get_content();
       }
+      else if(nodeName == "nodeId") {
+        nodeId = e->get_child_text()->get_content();
+      }
       else if(nodeName == "length") {
         length = parseLength(e);
       }
@@ -155,7 +158,7 @@ namespace ChimeraTK { namespace Cache {
       else if(nodeName == "description") {
         description = e->get_child_text()->get_content();
       }
-      else if(nodeName == "isReadonly") {
+      else if(nodeName == "readOnly") {
         isReadonly = (bool)parseTypeId(e);
       }
       else if(nodeName == "typeId") {
@@ -174,11 +177,11 @@ namespace ChimeraTK { namespace Cache {
       }
     }
     if(isNumeric) {
-      catalogue.addProperty(UA_NODEID_NUMERIC(namespaceId, std::stoul(name.substr(name.length() - 1))), name,
+      catalogue.addProperty(UA_NODEID_NUMERIC(namespaceId, std::stoul(nodeId.substr(nodeId.length() - 1))), name,
           indexRange, typeId, length, serverAddress, description, isReadonly);
     }
     else {
-      catalogue.addProperty(UA_NODEID_STRING(namespaceId, const_cast<char*>(name.c_str())), name, indexRange, typeId,
+      catalogue.addProperty(UA_NODEID_STRING(namespaceId, const_cast<char*>(nodeId.c_str())), name, indexRange, typeId,
           length, serverAddress, description, isReadonly);
     }
   }
@@ -264,8 +267,18 @@ namespace ChimeraTK { namespace Cache {
   void addRegInfoXmlNode(const OpcUABackendRegisterInfo& r, xmlpp::Node* rootNode) {
     auto registerTag = rootNode->add_child("register");
 
+    auto nodeIdTag = registerTag->add_child("nodeId");
+    std::string name;
+    if(r._isNumeric) {
+      name = std::to_string(r._id.identifier.numeric);
+    }
+    else {
+      name = std::string((char*)r._id.identifier.string.data, r._id.identifier.string.length);
+    }
+    nodeIdTag->set_child_text(name);
+
     auto nameTag = registerTag->add_child("name");
-    nameTag->set_child_text(static_cast<std::string>(r.getRegisterName()));
+    nameTag->set_child_text((std::string)r.getRegisterName());
 
     auto descriptionTag = registerTag->add_child("description");
     descriptionTag->set_child_text(static_cast<std::string>(r._description));
