@@ -30,6 +30,7 @@ The following optional parameters are supported and default values are indicated
   - `trustAny=false`
   - `trustListFolder`
   - `revocationListFolder`
+  - `cacheFile`
  
 Detailed information about the parameters are given in the following.
 
@@ -73,6 +74,19 @@ For manual catalog creation the mapping parameter `rootNode` can be used to prep
 If e.g. one wants to use a single map file for different servers, that differ in the root folder name this feature can be used.
 Consider variable `serverA/test` of a server and `serverB/test` of another server. In that case a common map file can be used mapping `test` 
 and the parameter `rootNode=serverA` and `rootNode=serverB` can be used as mapping parameter.
+
+### Cache file
+
+If a cache file is to be used it needs to be given using the parameter `cacheFile`. It allows e.g. to use the backend even if the connection to the target server fails. If no cache file is used in that casse an exception would be thrown. 
+
+If the backend is opened without an existing cache file, the register catalogue will be created normally by browsing or if a map file is given by reading the PVs from the map file. This means in that case an exception will be thrown even if the `cacheFile` parameter is used in case no connection can be established to the target server and the cache file does not yet exist. 
+If the register catalogue could be created the cache file will be created at the given location with the given name. 
+When the backend is opened next time the cache file will be used to set up the register catalogue. If no connecting to the target server can be established the device will go to an error state and the backend will try to revcover the device periodically.  
+
+In case it is not possible to connect to the target server but you need to start the backend you can create the cache file manually. 
+In case the PV tree of the target server changed and you need to update the cache file it is recommended to simply remove the cache file, which will cause a recreation on next backend start.
+
+The cache file can not be created from the map file, because the map file only includes basic information needed to identify nodes. Additional information needed to set up the register catalogue, like data type or access permissions, are collected directly from the server and stored in the cache file.
 
 ## Map file based catalog creation
 
