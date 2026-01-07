@@ -10,6 +10,7 @@
 #include "CatalogueCache.h"
 
 #include "RegisterInfo.h"
+#include "XmlTools.h"
 
 #include <libxml++/libxml++.h>
 
@@ -19,21 +20,14 @@
 #include <fstream>
 
 namespace ChimeraTK { namespace Cache {
-  static std::unique_ptr<xmlpp::DomParser> createDomParser(const std::string& xmlfile);
-  static xmlpp::Element* getRootNode(xmlpp::DomParser& parser);
-  static unsigned int convertToUint(const std::string& s, int line);
-  static int convertToInt(const std::string& s, int line);
   static void parseRegister(
       xmlpp::Element const* registerNode, OpcUaBackendRegisterCatalogue& catalogue, const std::string& serverAddress);
-  static unsigned int parseLength(xmlpp::Element const* c);
-  static int parseTypeId(xmlpp::Element const* c);
-  static ChimeraTK::AccessModeFlags parseAccessMode(xmlpp::Element const* c);
   static void addRegInfoXmlNode(const OpcUABackendRegisterInfo& r, xmlpp::Node* rootNode);
 
   OpcUaBackendRegisterCatalogue readCatalogue(const std::string& xmlfile) {
     OpcUaBackendRegisterCatalogue catalogue;
     auto parser = createDomParser(xmlfile);
-    auto registerList = getRootNode(*parser);
+    auto registerList = getRootNode(parser, "catalogue");
 
     std::string serverAddress;
     for(auto const node : registerList->get_children()) {
@@ -78,7 +72,7 @@ namespace ChimeraTK { namespace Cache {
   void saveCatalogue(const OpcUaBackendRegisterCatalogue& c, const std::string& xmlfile) {
     xmlpp::Document doc;
 
-    auto rootNode = doc.create_root_node("catalogue");
+    auto rootNode = doc.create_root_node("catalogue", "https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend", "csa");
     rootNode->set_attribute("version", "1.0");
 
     auto commonTag = rootNode->add_child("general");
@@ -183,82 +177,6 @@ namespace ChimeraTK { namespace Cache {
     else {
       catalogue.addProperty(UA_NODEID_STRING(namespaceId, const_cast<char*>(nodeId.c_str())), name, indexRange, typeId,
           length, serverAddress, description, isReadonly);
-    }
-  }
-
-  /********************************************************************************************************************/
-
-  unsigned int parseLength(xmlpp::Element const* c) {
-    return convertToUint(c->get_child_text()->get_content(), c->get_line());
-  }
-
-  /********************************************************************************************************************/
-
-  int parseTypeId(xmlpp::Element const* c) {
-    return convertToInt(c->get_child_text()->get_content(), c->get_line());
-  }
-
-  /********************************************************************************************************************/
-
-  ChimeraTK::AccessModeFlags parseAccessMode(xmlpp::Element const* c) {
-    std::string accessMode{};
-    auto t = c->get_child_text();
-    if(t != nullptr) {
-      accessMode = t->get_content();
-    }
-    return ChimeraTK::AccessModeFlags::deserialize(accessMode);
-  }
-
-  /********************************************************************************************************************/
-
-  std::unique_ptr<xmlpp::DomParser> createDomParser(const std::string& xmlfile) {
-    try {
-      return std::make_unique<xmlpp::DomParser>(xmlfile);
-    }
-    catch(std::exception& e) {
-      throw ChimeraTK::logic_error("Error opening " + xmlfile + ": " + e.what());
-    }
-  }
-
-  /********************************************************************************************************************/
-
-  xmlpp::Element* getRootNode(xmlpp::DomParser& parser) {
-    try {
-      auto root = parser.get_document()->get_root_node();
-      if(root->get_name() != "catalogue") {
-        ChimeraTK::logic_error("Expected tag 'catalog' got: " + root->get_name());
-      }
-      return root;
-    }
-    catch(std::exception& e) {
-      throw ChimeraTK::logic_error(e.what());
-    }
-  }
-
-  /********************************************************************************************************************/
-
-  unsigned int convertToUint(const std::string& s, int line) {
-    try {
-      return std::stoul(s);
-    }
-    catch(std::invalid_argument& e) {
-      throw ChimeraTK::logic_error("Failed to parse node at line " + std::to_string(line) + ":" + e.what());
-    }
-    catch(std::out_of_range& e) {
-      throw ChimeraTK::logic_error("Failed to parse node at line " + std::to_string(line) + ":" + e.what());
-    }
-  }
-  /********************************************************************************************************************/
-
-  int convertToInt(const std::string& s, int line) {
-    try {
-      return std::stol(s);
-    }
-    catch(std::invalid_argument& e) {
-      throw ChimeraTK::logic_error("Failed to parse node at line " + std::to_string(line) + ":" + e.what());
-    }
-    catch(std::out_of_range& e) {
-      throw ChimeraTK::logic_error("Failed to parse node at line " + std::to_string(line) + ":" + e.what());
     }
   }
 
