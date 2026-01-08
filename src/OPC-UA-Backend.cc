@@ -385,7 +385,7 @@ namespace ChimeraTK {
     }
     dataType = id->identifier.numeric;
     UA_NodeId_delete(id);
-    if(id->identifier.numeric > 12 || id->identifier.numeric < 1) {
+    if(dataType > 12 || dataType < 1) {
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to determine data type for node: %s  -> entry is not added to the catalogue.", localNodeName.c_str());
       return;
@@ -451,10 +451,7 @@ namespace ChimeraTK {
       return;
     }
     else {
-      if(accessLevel & UA_ACCESSLEVELMASK_WRITE)
-        isReadonly = false;
-      else
-        isReadonly = true;
+      isReadonly = !(accessLevel & UA_ACCESSLEVELMASK_WRITE);
     }
     _catalogue_mutable.addProperty(
         node, localNodeName, range, dataType, arrayLength, _connection->serverAddress, description, isReadonly);
