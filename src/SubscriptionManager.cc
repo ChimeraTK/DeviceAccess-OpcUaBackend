@@ -15,6 +15,7 @@
 
 #include <open62541/client.h>
 #include <open62541/client_subscriptions.h>
+#include <open62541/plugin/log.h>
 
 #include <chrono>
 
@@ -62,7 +63,7 @@ namespace ChimeraTK {
     UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Starting client iterate loop.");
     uint64_t i = 0;
     while(_run) {
-      UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Sending subscription request.");
+      UA_LOG_TRACE(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Sending subscription request.");
       {
         std::lock_guard<std::mutex> lock(_connection->client_lock);
         ret = UA_Client_run_iterate(_connection->client.get(), 0);
@@ -167,6 +168,8 @@ namespace ChimeraTK {
         // only lock the mutex if active. This is used when unsubscribing to avoid dead locks
         std::lock_guard<std::mutex> lock(base->_mutex);
         base->subscriptionMap[monId]->_hasException = false;
+        UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Pushing data to queue for %zu accessors.",
+            base->subscriptionMap[monId]->_accessors.size());
         for(auto& accessor : base->subscriptionMap[monId]->_accessors) {
           UA_DataValue data;
           UA_DataValue_init(&data);
@@ -304,11 +307,27 @@ namespace ChimeraTK {
         UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
             "Setting intial value for accessor with existing node subscription.");
         std::lock_guard<std::mutex> lock(tmp->_dataUpdateLock);
-        if(!UA_Variant_isEmpty(&tmp->_data.value)) {
-          UA_DataValue data;
-          UA_DataValue_init(&data);
-          UA_DataValue_copy(&tmp->_data, &data);
-          accessor->_notifications.push_overwrite(std::move(data));
+        // wait for intial values that might be process in postRead at the moment
+        if(tmp->_notifications.empty()) {
+          if(!UA_Variant_isEmpty(&tmp->_data.value)) {
+            UA_DataValue data;
+            UA_DataValue_init(&data);
+            UA_DataValue_copy(&tmp->_data, &data);
+            accessor->_notifications.push_overwrite(std::move(data));
+          }
+          else {
+            UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+                "No intial value available for accessor with existing node subscription.");
+          }
+        }
+        else {
+          auto dataFromQueue = tmp->_notifications.front();
+          if(!UA_Variant_isEmpty(&dataFromQueue.value)) {
+            UA_DataValue data;
+            UA_DataValue_init(&data);
+            UA_DataValue_copy(&tmp->_data, &data);
+            accessor->_notifications.push_overwrite(std::move(data));
+          }
         }
       }
       _mutex.unlock();
