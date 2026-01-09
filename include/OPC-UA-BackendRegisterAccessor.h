@@ -272,7 +272,6 @@ namespace ChimeraTK {
       _readQueue = _notifications.then<void>(
           [this](UA_DataValue& data) {
             std::lock_guard<std::mutex> lock(_dataUpdateLock);
-
             UA_DataValue_clear(&this->_data);
             if(UA_DataValue_copy(&data, &this->_data) != UA_STATUSCODE_GOOD) {
               UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Data copy failed!");

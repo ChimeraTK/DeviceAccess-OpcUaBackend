@@ -8,6 +8,7 @@
  */
 
 #include "DummyServer.h"
+
 #include <open62541/plugin/log_stdout.h>
 
 #include <chrono>

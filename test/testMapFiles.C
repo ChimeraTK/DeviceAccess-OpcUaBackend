@@ -25,7 +25,6 @@ void runTest(const std::string parameter, bool withRootNode = false) {
   ThreadedOPCUAServer dummy;
   dummy.start();
   BOOST_CHECK_EQUAL(true, dummy.checkConnection(ServerState::On));
-  std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
   ss << "(opcua:localhost?port=" << dummy._server.getPort() << parameter;
   ChimeraTK::Device d(ss.str());
@@ -48,7 +47,6 @@ BOOST_AUTO_TEST_CASE(testBrowsing) {
   ThreadedOPCUAServer dummy;
   dummy.start();
   BOOST_CHECK_EQUAL(true, dummy.checkConnection(ServerState::On));
-  std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
   ss << "(opcua:localhost?port=" << dummy._server.getPort() << ")";
   ChimeraTK::Device d(ss.str());
@@ -80,7 +78,6 @@ BOOST_AUTO_TEST_CASE(testMapFileSync) {
   ThreadedOPCUAServer dummy;
   dummy.start();
   BOOST_CHECK_EQUAL(true, dummy.checkConnection(ServerState::On));
-  std::this_thread::sleep_for(std::chrono::seconds(1));
 
   std::vector<int> v{1, 2, 3, 4, 5};
   dummy._server.setValue("Dummy/array/int32", v, 5);
@@ -116,7 +113,6 @@ BOOST_AUTO_TEST_CASE(testMapFileAsync) {
   ThreadedOPCUAServer dummy;
   dummy.start();
   BOOST_CHECK_EQUAL(true, dummy.checkConnection(ServerState::On));
-  std::this_thread::sleep_for(std::chrono::seconds(1));
 
   std::vector<int> v{1, 2, 3, 4, 5};
   dummy._server.setValue("Dummy/array/int32", v, 5);
