@@ -364,7 +364,7 @@ ThreadedOPCUAServer::~ThreadedOPCUAServer() {
 
 bool ThreadedOPCUAServer::checkConnection(const ServerState& state) {
   /** Connect **/
-  UA_StatusCode retval;
+  UA_StatusCode retval = UA_STATUSCODE_GOODINITIATEFAULTSTATE;
   std::string serverAddress("opc.tcp://localhost:" + std::to_string(_server._port));
   uint time = 0;
   while(retval != UA_STATUSCODE_GOOD) {
