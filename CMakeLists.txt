@@ -1,5 +1,5 @@
+cmake_minimum_required(VERSION 3.5.0)
 project(ChimeraTK-DeviceAccess-OPC-UA-Backend)
-cmake_minimum_required(VERSION 2.8.13)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 01)

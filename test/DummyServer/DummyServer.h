@@ -51,24 +51,24 @@ struct OPCUAServer {
 
   ~OPCUAServer();
 
-  UA_Server* _server;
+  UA_Server* server;
 
-  uint _port{0};
+  uint port{0};
 
-  bool _configured{false};
+  bool configured{false};
 
   std::atomic<UA_Boolean> running{true};
 
-  std::mutex _mux;
+  std::mutex mux;
 
   static UA_Logger logger;
 
   void start();
 
-  void lock() { _mux.lock(); }
-  void unlock() { _mux.unlock(); }
+  void lock() { mux.lock(); }
+  void unlock() { mux.unlock(); }
 
-  uint getPort() { return _port; }
+  [[nodiscard]] uint getPort() const { return port; }
 
   /*
    * Stop the server by setting running to false
@@ -99,7 +99,7 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UAType>& t, c
   else {
     UA_Variant_setArrayCopy(data, &t[0], length, &UA_TYPES[fusion::at_key<UAType>(dummyMap).second]);
   }
-  UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
+  UA_Server_writeValue(server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   UA_Variant_delete(data);
   // in the test the publish interval is set 100ms so after 150ms the handler should have been called/the server should
   // have published the result. Nevertheless problems were observed so use 300ms.
@@ -108,7 +108,7 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UAType>& t, c
 
 class ThreadedOPCUAServer {
  public:
-  std::thread _serverThread;
+  std::thread serverThread;
 
   ThreadedOPCUAServer();
   ~ThreadedOPCUAServer();
@@ -120,7 +120,7 @@ class ThreadedOPCUAServer {
    */
   bool checkConnection(const ServerState& state = ServerState::On);
 
-  OPCUAServer _server;
+  OPCUAServer server;
 
  private:
   std::shared_ptr<ChimeraTK::OPCUAConnection> _connection;

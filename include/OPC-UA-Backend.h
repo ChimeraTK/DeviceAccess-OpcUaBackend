@@ -23,7 +23,6 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
-#include <unordered_set>
 
 namespace ChimeraTK {
   class OPCUASubscriptionManager;
@@ -63,13 +62,13 @@ namespace ChimeraTK {
      * Used here to detect when the client connection is set up.
      */
     static void stateCallback(UA_Client* client, UA_SecureChannelState channelState, UA_SessionState sessionState,
-        UA_StatusCode recoveryStatus);
+        UA_StatusCode /*recoveryStatus*/);
 
     /**
      * Callback triggered if inactivity of a subscription is detected.
      * This can happen if the server connection is cut and no communication is possible any more.
      */
-    static void inactivityCallback(UA_Client* client, UA_UInt32 subId, void* subContext);
+    static void inactivityCallback(UA_Client* client, UA_UInt32 subId, void* /*subContext*/);
 
     /**
      * Callback triggered if a description is deleted.
@@ -97,12 +96,13 @@ namespace ChimeraTK {
      * \param cacheFile Name of te cache file. If set the catalogue will be created from the cache and
      *                  not by reading rhe map file or browsing the server.
      */
-    OpcUABackend(const std::string& fileAddress, const std::string& username = "", const std::string& password = "",
-        const std::string& mapfile = "", const unsigned long& subscriptonPublishingInterval = 500,
-        const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000,
-        const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR, const std::string& certificate = "",
-        const std::string& privateKey = "", const bool& trustAny = true, const std::string& trustListFolder = "",
-        const std::string& revocationListFolder = "", const std::string& cacheFile = "");
+    explicit OpcUABackend(const std::string& fileAddress, const std::string& username = "",
+        const std::string& password = "", const std::string& mapfile = "",
+        const double& subscriptonPublishingInterval = 500, const std::string& rootNode = "", const ulong& rootNS = 0,
+        const uint32_t& connectionTimeout = 5000, const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR,
+        const std::string& certificate = "", const std::string& privateKey = "", const bool& trustAny = true,
+        const std::string& trustListFolder = "", const std::string& revocationListFolder = "",
+        const std::string& cacheFile = "");
 
     /**
      * Fill catalog.
@@ -219,7 +219,7 @@ namespace ChimeraTK {
      * \param range OPC UA style range definition, e.g. "1,2:3". Here we only consider the first dimension!
      */
     void addCatalogueEntry(
-        const UA_NodeId& node, std::shared_ptr<std::string> nodeName = nullptr, const std::string& range = "");
+        const UA_NodeId& node, const std::shared_ptr<std::string>& nodeName = nullptr, const std::string& range = "");
 
     /**
      * Browse for nodes of type Variable.

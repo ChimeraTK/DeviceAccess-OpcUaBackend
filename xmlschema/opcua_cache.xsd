@@ -2,7 +2,7 @@
     elementFormDefault="qualified"
     xmlns:xs="http://www.w3.org/2001/XMLSchema"
     targetNamespace="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend"
-    xmlns:csabackend="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
+    xmlns:ctkbackend="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
     <xs:annotation>
         <xs:documentation xml:lang="en"> Map file description schema for ChimeraTK
             DeviceAccess-OpcUaBackend cache files. Cache files are created automatically if the
@@ -10,7 +10,7 @@
             be created manually. </xs:documentation>
     </xs:annotation>
 
-    <xs:element name="catalogue" type="csabackend:catalogueType" />
+    <xs:element name="catalogue" type="ctkbackend:catalogueType" />
 
     <xs:complexType name="generalType">
         <xs:sequence>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<csa:catalogue xmlns:csa="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend" version="1.0">
+<ctk:catalogue xmlns:ctk="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend" version="1.0">
   <general>
     <serverAddress>opc.tcp://localhost:11000</serverAddress>
   </general>
@@ -69,4 +69,4 @@
     <isNumeric>0</isNumeric>
     <indexRange>1:45</indexRange>
   </register>
-</csa:catalogue>
+</ctk:catalogue>

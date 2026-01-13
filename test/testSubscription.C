@@ -12,35 +12,36 @@
 #include <open62541/client_subscriptions.h>
 #include <open62541/plugin/log_stdout.h>
 
-#include <iostream>
 #include <stdio.h>
 #include <unistd.h>
 
+#include <iostream>
+
 bool changed;
 
-static void handler_TheAnswerChanged(
-    UA_Client* client, UA_UInt32 subId, void* subContext, UA_UInt32 monId, void* monContext, UA_DataValue* value) {
-  UA_UInt32* tmp = (UA_UInt32*)value->value.data;
+static void handlerTheAnswerChanged(UA_Client* /*client*/, UA_UInt32 /*subId*/, void* /*subContext*/,
+    UA_UInt32 /*monId*/, void* /*monContext*/, UA_DataValue* value) {
+  auto* tmp = (UA_UInt32*)value->value.data;
   printf("The Answer has changed: %d\n", *tmp);
   changed = true;
 }
 
-static void handler_TimeChanged(
-    UA_Client* client, UA_UInt32 subId, void* subContext, UA_UInt32 monId, void* monContext, UA_DataValue* value) {
-  UA_UInt32* tmp = (UA_UInt32*)value->value.data;
+static void handlerTimeChanged(UA_Client* /*client*/, UA_UInt32 /*subId*/, void* /*subContext*/, UA_UInt32 /*monId*/,
+    void* /*monContext*/, UA_DataValue* value) {
+  auto* tmp = (UA_UInt32*)value->value.data;
   printf("The time has changed: %d\n", *tmp);
 }
 
-static void deleteSubscriptionCallback(UA_Client* client, UA_UInt32 subscriptionId, void* subscriptionContext) {
+static void deleteSubscriptionCallback(UA_Client* /*client*/, UA_UInt32 subscriptionId, void* /*subscriptionContext*/) {
   UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Subscription Id %u was deleted", subscriptionId);
 }
 
-static void subscriptionInactivityCallback(UA_Client* client, UA_UInt32 subId, void* subContext) {
+static void subscriptionInactivityCallback(UA_Client* /*client*/, UA_UInt32 subId, void* /*subContext*/) {
   UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "Inactivity for subscription %u", subId);
 }
 
-static void stateCallback(
-    UA_Client* client, UA_SecureChannelState channelState, UA_SessionState sessionState, UA_StatusCode recoveryStatus) {
+static void stateCallback(UA_Client* client, UA_SecureChannelState channelState, UA_SessionState sessionState,
+    UA_StatusCode /*recoveryStatus*/) {
   switch(channelState) {
     case UA_SECURECHANNELSTATE_CLOSED:
       UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "The client is disconnected");
@@ -71,22 +72,24 @@ static void stateCallback(
       }
       /* Add a MonitoredItem */
       //  UA_NodeId monitorThis = UA_NODEID_STRING(1, "/system/status/uptimeSec");
-      UA_NodeId monitorThis = UA_NODEID_STRING(1, "watchdog_server/processes/0/config/killSig");
+      UA_NodeId monitorThis =
+          UA_NODEID_STRING(1, (char*)std::string("watchdog_server/processes/0/config/killSig").c_str());
       UA_UInt32 monId = 0;
       UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(monitorThis);
 
-      UA_MonitoredItemCreateResult monResponse = UA_Client_MonitoredItems_createDataChange(client,
-          response.subscriptionId, UA_TIMESTAMPSTORETURN_BOTH, monRequest, NULL, handler_TheAnswerChanged, NULL);
+      UA_MonitoredItemCreateResult monResponse = UA_Client_MonitoredItems_createDataChange(
+          client, response.subscriptionId, UA_TIMESTAMPSTORETURN_BOTH, monRequest, NULL, handlerTheAnswerChanged, NULL);
 
       if(monResponse.statusCode == UA_STATUSCODE_GOOD) {
         monId = monResponse.monitoredItemId;
         printf("Monitoring '/processes/0/config/killSig', id %u\n", subId);
       }
-      UA_NodeId monitorThis1 = UA_NODEID_STRING(1, "watchdog_server/system/status/uptimeSec");
+      UA_NodeId monitorThis1 =
+          UA_NODEID_STRING(1, (char*)std::string("watchdog_server/system/status/uptimeSec").c_str());
       monRequest = UA_MonitoredItemCreateRequest_default(monitorThis1);
 
-      monResponse = UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
-          UA_TIMESTAMPSTORETURN_BOTH, monRequest, NULL, handler_TheAnswerChanged, NULL);
+      monResponse = UA_Client_MonitoredItems_createDataChange(
+          client, response.subscriptionId, UA_TIMESTAMPSTORETURN_BOTH, monRequest, NULL, handlerTheAnswerChanged, NULL);
 
       if(monResponse.statusCode == UA_STATUSCODE_GOOD) {
         monId = monResponse.monitoredItemId;
@@ -117,13 +120,14 @@ int main() {
 
   /* Simple read */
   UA_Variant* var = UA_Variant_new();
-  retval = UA_Client_readValueAttribute(client, UA_NODEID_STRING(1, "watchdog_server/system/status/uptimeSec"), var);
+  retval = UA_Client_readValueAttribute(
+      client, UA_NODEID_STRING(1, (char*)std::string("watchdog_server/system/status/uptimeSec").c_str()), var);
 
   if(retval != UA_STATUSCODE_GOOD) {
     std::cout << "Failed reading simple." << std::endl;
   }
   else {
-    UA_UInt32* tmp = (UA_UInt32*)var->data;
+    auto* tmp = (UA_UInt32*)var->data;
     std::cout << "Data is: " << tmp[0] << std::endl;
   }
 

@@ -48,8 +48,8 @@ namespace ChimeraTK {
      * @param filePath Path to a xml file which you want to read
      * @param rootNode Root node name to be prepended to all nodes. Might left empty.
      */
-    OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode = "");
-    std::deque<MapElement> _elements; ///< Contains all elements listed in the map file.
+    explicit OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode = "");
+    std::deque<MapElement> elements; ///< Contains all elements listed in the map file.
    private:
     /** @brief Parse the map file and fill the element list.
      */

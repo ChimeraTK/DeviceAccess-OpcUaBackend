@@ -19,7 +19,7 @@ namespace ChimeraTK {
     // skipped.
     void addProperty(const UA_NodeId& node, const std::string& browseName, const std::string& range,
         const UA_UInt32& dataType, const size_t& arrayLength, const std::string& serverAddress,
-        const std::string& description, const bool isReadonly);
+        const std::string& description, const bool& isReadonly);
   };
 
   /**
@@ -28,55 +28,58 @@ namespace ChimeraTK {
   class OpcUABackendRegisterInfo : public BackendRegisterInfoBase {
     //\ToDo: Adopt for OPC UA
    public:
-    OpcUABackendRegisterInfo(const std::string& serverAddress, const std::string& node_browseName, const UA_NodeId& id)
-    : _serverAddress(serverAddress), _nodeBrowseName(node_browseName) {
+    OpcUABackendRegisterInfo(
+        const std::string& serverAddress, const std::string& node_browseName, const UA_NodeId& idPassed)
+    : serverAddress(serverAddress), nodeBrowseName(node_browseName) {
       path = RegisterPath(serverAddress) / RegisterPath(node_browseName);
-      UA_NodeId_copy(&id, &_id);
-      _namespaceIndex = _id.namespaceIndex;
-      _isNumeric = _id.identifierType == UA_NodeIdType::UA_NODEIDTYPE_NUMERIC;
+      UA_NodeId_init(&id);
+      UA_NodeId_copy(&idPassed, &id);
+      namespaceIndex = id.namespaceIndex;
+      isNumeric = id.identifierType == UA_NodeIdType::UA_NODEIDTYPE_NUMERIC;
     }
 
     OpcUABackendRegisterInfo(const std::string& serverAddress, const std::string& node_browseName)
-    : _serverAddress(serverAddress), _nodeBrowseName(node_browseName) {
+    : serverAddress(serverAddress), nodeBrowseName(node_browseName) {
       path = RegisterPath(serverAddress) / RegisterPath(node_browseName);
+      UA_NodeId_init(&id);
     }
 
     OpcUABackendRegisterInfo() = default;
 
-    ~OpcUABackendRegisterInfo() override { UA_NodeId_clear(&_id); }
+    ~OpcUABackendRegisterInfo() override { UA_NodeId_clear(&id); }
 
     OpcUABackendRegisterInfo(const OpcUABackendRegisterInfo& other)
-    : path(other.path), _serverAddress(other._serverAddress), _nodeBrowseName(other._nodeBrowseName),
-      _description(other._description), _unit(other._unit), _dataType(other._dataType),
-      dataDescriptor(other.dataDescriptor), _isReadonly(other._isReadonly), _isNumeric(other._isNumeric),
-      _arrayLength(other._arrayLength), _accessModes(other._accessModes), _indexRange(other._indexRange),
-      _namespaceIndex(other._namespaceIndex) {
-      UA_NodeId_copy(&other._id, &_id);
+    : path(other.path), serverAddress(other.serverAddress), nodeBrowseName(other.nodeBrowseName),
+      description(other.description), unit(other.unit), dataType(other.dataType), dataDescriptor(other.dataDescriptor),
+      isReadonly(other.isReadonly), isNumeric(other.isNumeric), arrayLength(other.arrayLength),
+      accessModes(other.accessModes), indexRange(other.indexRange), namespaceIndex(other.namespaceIndex) {
+      UA_NodeId_init(&id);
+      UA_NodeId_copy(&other.id, &id);
     }
 
     OpcUABackendRegisterInfo& operator=(const OpcUABackendRegisterInfo& other) {
       path = other.path;
-      _serverAddress = other._serverAddress;
-      _nodeBrowseName = other._nodeBrowseName;
-      _description = other._description;
-      _unit = other._unit;
-      _dataType = other._dataType;
+      serverAddress = other.serverAddress;
+      nodeBrowseName = other.nodeBrowseName;
+      description = other.description;
+      unit = other.unit;
+      dataType = other.dataType;
       dataDescriptor = other.dataDescriptor;
-      _isReadonly = other._isReadonly;
-      _isNumeric = other._isNumeric; //?< Needed for caching
-      _arrayLength = other._arrayLength;
-      _accessModes = other._accessModes;
-      _indexRange = other._indexRange;
-      _namespaceIndex = other._namespaceIndex; //?< Needed for caching
-      UA_NodeId_copy(&other._id, &_id);
+      isReadonly = other.isReadonly;
+      isNumeric = other.isNumeric; //?< Needed for caching
+      arrayLength = other.arrayLength;
+      accessModes = other.accessModes;
+      indexRange = other.indexRange;
+      namespaceIndex = other.namespaceIndex; //?< Needed for caching
+      UA_NodeId_copy(&other.id, &id);
       return *this;
     }
 
-    RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
+    RegisterPath getRegisterName() const override { return RegisterPath(nodeBrowseName); }
 
     std::string getRegisterPath() const { return path; }
 
-    unsigned int getNumberOfElements() const override { return _arrayLength; }
+    unsigned int getNumberOfElements() const override { return arrayLength; }
 
     unsigned int getNumberOfChannels() const override { return 1; }
 
@@ -84,27 +87,27 @@ namespace ChimeraTK {
 
     bool isReadable() const override { return true; }
 
-    bool isWriteable() const override { return !_isReadonly; }
+    bool isWriteable() const override { return !isReadonly; }
 
-    AccessModeFlags getSupportedAccessModes() const override { return _accessModes; }
+    AccessModeFlags getSupportedAccessModes() const override { return accessModes; }
 
     std::unique_ptr<BackendRegisterInfoBase> clone() const override {
       return std::unique_ptr<BackendRegisterInfoBase>(new OpcUABackendRegisterInfo(*this));
     }
 
     RegisterPath path;
-    std::string _serverAddress;
-    std::string _nodeBrowseName;
-    std::string _description;
-    std::string _unit;
-    UA_UInt32 _dataType{0};
+    std::string serverAddress;
+    std::string nodeBrowseName;
+    std::string description;
+    std::string unit;
+    UA_UInt32 dataType{0};
     DataDescriptor dataDescriptor;
-    bool _isReadonly{true};
-    bool _isNumeric{true};
-    uint16_t _namespaceIndex{0};
-    size_t _arrayLength{0};
-    AccessModeFlags _accessModes{};
-    UA_NodeId _id;
-    std::string _indexRange{""};
+    bool isReadonly{true};
+    bool isNumeric{true};
+    uint16_t namespaceIndex{0};
+    size_t arrayLength{0};
+    AccessModeFlags accessModes{};
+    UA_NodeId id{};
+    std::string indexRange{""};
   };
 } // namespace ChimeraTK

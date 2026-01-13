@@ -18,15 +18,19 @@
 namespace ChimeraTK {
   OPCUAMapFileReader::OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode)
   : _file(filePath), _serverRootNode(rootNode) {
-    auto parser = createDomParser(filePath.c_str());
+    auto parser = createDomParser(filePath);
     _rootNode = getRootNode(parser, "opcua_map");
     readElements();
+    if(elements.empty()) {
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+          "No valid entries found in opcua map file %s.", filePath.c_str());
+    }
   }
 
   void OPCUAMapFileReader::readElements() {
-    for(auto const i : _rootNode->get_children()) {
+    for(auto* const i : _rootNode->get_children()) {
       std::string nsString, name, range, node;
-      auto reg = dynamic_cast<const xmlpp::Element*>(i);
+      const auto* reg = dynamic_cast<const xmlpp::Element*>(i);
       if(reg == nullptr) {
         continue;
       }
@@ -47,12 +51,12 @@ namespace ChimeraTK {
         try {
           UA_UInt32 id = std::stoul(node);
           UA_UInt16 ns = std::stoul(nsString);
-          _elements.emplace_back(MapElement(id, ns, range, name));
+          elements.emplace_back(MapElement(id, ns, range, name));
         }
         catch(std::invalid_argument& e) {
           try {
             UA_UInt16 ns = std::stoul(nsString);
-            _elements.emplace_back(MapElement(_serverRootNode + node, ns, range, name));
+            elements.emplace_back(MapElement(_serverRootNode + node, ns, range, name));
           }
           catch(std::invalid_argument& innerError) {
             UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,

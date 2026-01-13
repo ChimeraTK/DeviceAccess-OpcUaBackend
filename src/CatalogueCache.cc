@@ -19,7 +19,7 @@
 
 #include <fstream>
 
-namespace ChimeraTK { namespace Cache {
+namespace ChimeraTK::Cache {
   static void parseRegister(
       xmlpp::Element const* registerNode, OpcUaBackendRegisterCatalogue& catalogue, const std::string& serverAddress);
   static void addRegInfoXmlNode(const OpcUABackendRegisterInfo& r, xmlpp::Node* rootNode);
@@ -27,17 +27,17 @@ namespace ChimeraTK { namespace Cache {
   OpcUaBackendRegisterCatalogue readCatalogue(const std::string& xmlfile) {
     OpcUaBackendRegisterCatalogue catalogue;
     auto parser = createDomParser(xmlfile);
-    auto registerList = getRootNode(parser, "catalogue");
+    auto* registerList = getRootNode(parser, "catalogue");
 
     std::string serverAddress;
-    for(auto const node : registerList->get_children()) {
-      auto reg = dynamic_cast<const xmlpp::Element*>(node);
+    for(auto* const node : registerList->get_children()) {
+      const auto* reg = dynamic_cast<const xmlpp::Element*>(node);
       if(reg == nullptr) {
         continue;
       }
       if(reg->get_name() == "general") {
         for(auto& subnode : node->get_children()) {
-          auto e = dynamic_cast<const xmlpp::Element*>(subnode);
+          const auto* e = dynamic_cast<const xmlpp::Element*>(subnode);
           if(e == nullptr) {
             continue;
           }
@@ -49,22 +49,24 @@ namespace ChimeraTK { namespace Cache {
         }
       }
     }
-    for(auto const node : registerList->get_children()) {
-      auto reg = dynamic_cast<const xmlpp::Element*>(node);
+    for(auto* const node : registerList->get_children()) {
+      const auto* reg = dynamic_cast<const xmlpp::Element*>(node);
       if(reg == nullptr) {
         continue;
       }
-      if(reg->get_name() != "general") parseRegister(reg, catalogue, serverAddress);
+      if(reg->get_name() != "general") {
+        parseRegister(reg, catalogue, serverAddress);
+      }
     }
     return catalogue;
   }
 
-  bool is_empty(std::ifstream& f) {
+  bool isEmpty(std::ifstream& f) {
     return f.peek() == std::ifstream::traits_type::eof();
   }
 
-  bool is_empty(std::ifstream&& f) {
-    return is_empty(f);
+  bool isEmpty(std::ifstream&& f) {
+    return isEmpty(f);
   }
 
   /********************************************************************************************************************/
@@ -72,17 +74,17 @@ namespace ChimeraTK { namespace Cache {
   void saveCatalogue(const OpcUaBackendRegisterCatalogue& c, const std::string& xmlfile) {
     xmlpp::Document doc;
 
-    auto rootNode = doc.create_root_node("catalogue", "https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend", "csa");
+    auto* rootNode = doc.create_root_node("catalogue", "https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend", "ctk");
     rootNode->set_attribute("version", "1.0");
 
-    auto commonTag = rootNode->add_child("general");
+    auto* commonTag = rootNode->add_child("general");
 
-    auto serverAddressTag = commonTag->add_child("serverAddress");
+    auto* serverAddressTag = commonTag->add_child("serverAddress");
 
     bool addressSet = false;
-    for(auto& regInfo : c) {
+    for(const auto& regInfo : c) {
       if(!addressSet) {
-        serverAddressTag->set_child_text(static_cast<std::string>(regInfo._serverAddress));
+        serverAddressTag->set_child_text(static_cast<std::string>(regInfo.serverAddress));
         addressSet = true;
       }
       addRegInfoXmlNode(regInfo, rootNode);
@@ -106,7 +108,7 @@ namespace ChimeraTK { namespace Cache {
     // check for empty tmp file:
     // xmlpp::Document::write_to_file_formatted sometimes misbehaves on exceptions, creating
     // empty files.
-    if(is_empty(std::ifstream(temporaryName))) {
+    if(isEmpty(std::ifstream(temporaryName))) {
       throw ChimeraTK::runtime_error(std::string{"Failed to save cache File"});
     }
 
@@ -130,8 +132,8 @@ namespace ChimeraTK { namespace Cache {
     ChimeraTK::DataDescriptor descriptor{};
     ChimeraTK::AccessModeFlags flags{};
 
-    for(auto& node : registerNode->get_children()) {
-      auto e = dynamic_cast<const xmlpp::Element*>(node);
+    for(const auto& node : registerNode->get_children()) {
+      const auto* e = dynamic_cast<const xmlpp::Element*>(node);
       if(e == nullptr) {
         continue;
       }
@@ -183,43 +185,43 @@ namespace ChimeraTK { namespace Cache {
   /********************************************************************************************************************/
 
   void addRegInfoXmlNode(const OpcUABackendRegisterInfo& r, xmlpp::Node* rootNode) {
-    auto registerTag = rootNode->add_child("register");
+    auto* registerTag = rootNode->add_child("register");
 
-    auto nodeIdTag = registerTag->add_child("nodeId");
+    auto* nodeIdTag = registerTag->add_child("nodeId");
     std::string name;
-    if(r._isNumeric) {
-      name = std::to_string(r._id.identifier.numeric);
+    if(r.isNumeric) {
+      name = std::to_string(r.id.identifier.numeric);
     }
     else {
-      name = std::string((char*)r._id.identifier.string.data, r._id.identifier.string.length);
+      name = std::string((char*)r.id.identifier.string.data, r.id.identifier.string.length);
     }
     nodeIdTag->set_child_text(name);
 
-    auto nameTag = registerTag->add_child("name");
+    auto* nameTag = registerTag->add_child("name");
     nameTag->set_child_text((std::string)r.getRegisterName());
 
-    auto descriptionTag = registerTag->add_child("description");
-    descriptionTag->set_child_text(static_cast<std::string>(r._description));
+    auto* descriptionTag = registerTag->add_child("description");
+    descriptionTag->set_child_text(static_cast<std::string>(r.description));
 
-    auto lengthTag = registerTag->add_child("length");
+    auto* lengthTag = registerTag->add_child("length");
     lengthTag->set_child_text(std::to_string(r.getNumberOfElements()));
 
-    auto accessMode = registerTag->add_child("access_mode");
-    accessMode->set_child_text(r._accessModes.serialize());
+    auto* accessMode = registerTag->add_child("access_mode");
+    accessMode->set_child_text(r.accessModes.serialize());
 
-    auto readOnlyTag = registerTag->add_child("readOnly");
-    readOnlyTag->set_child_text(std::to_string(r._isReadonly));
+    auto* readOnlyTag = registerTag->add_child("readOnly");
+    readOnlyTag->set_child_text(std::to_string(r.isReadonly));
 
-    auto typeTag = registerTag->add_child("typeId");
-    typeTag->set_child_text(std::to_string(r._dataType));
+    auto* typeTag = registerTag->add_child("typeId");
+    typeTag->set_child_text(std::to_string(r.dataType));
 
-    auto nsTag = registerTag->add_child("nameSpace");
-    nsTag->set_child_text(std::to_string(r._namespaceIndex));
+    auto* nsTag = registerTag->add_child("nameSpace");
+    nsTag->set_child_text(std::to_string(r.namespaceIndex));
 
-    auto nodeTypeTag = registerTag->add_child("isNumeric");
-    nodeTypeTag->set_child_text(std::to_string(r._isNumeric));
+    auto* nodeTypeTag = registerTag->add_child("isNumeric");
+    nodeTypeTag->set_child_text(std::to_string(r.isNumeric));
 
-    auto indexRangeTag = registerTag->add_child("indexRange");
-    indexRangeTag->set_child_text(static_cast<std::string>(r._indexRange));
+    auto* indexRangeTag = registerTag->add_child("indexRange");
+    indexRangeTag->set_child_text(static_cast<std::string>(r.indexRange));
   }
-}} // namespace ChimeraTK::Cache
+} // namespace ChimeraTK::Cache

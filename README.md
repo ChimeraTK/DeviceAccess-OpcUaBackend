@@ -21,7 +21,7 @@ The following optional parameters are supported and default values are indicated
   - `map`
   - `username`
   - `password`
-  - `publishingInterval=500`
+  - `publishingInterval=500.0`
   - `connectionTimeout=5000`
   - `rootNode`
   - `logLevel=info`
@@ -53,7 +53,7 @@ The loggingg severiy level of the client can be set using `logLevel`. Supported 
 
 ### Connection settings
 
-The parameter `publishingInterval` is relevant for asynchronous reading. It defines the shortest update time of the backend.
+The parameter `publishingInterval` is relevant for asynchronous reading. It defines the shortest update time of the backend given in ms.
 Server side data updates that happen faster than the publishing interval will not be seen by the backend. The unit of the publishing interval is ms and in case no publishing interval is given a publishing of 500ms is used. No queues are used on the backend side!
 
 If the connection to the server is lost the backend will try to recover the connection after a specified timeout. The default timeout is 5000ms.
@@ -96,14 +96,14 @@ The XML scheme is defined in [opcua_map.xsd](xmlschema/opcua_map.xsd). It includ
 The legacy example in the xml style looks as follows:
 
     <?xml version="1.0"?>
-    <csa:opcua_map xmlns:csa="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
+    <ctk:opcua_map xmlns:ctk="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
       <pv ns="1" >/dir/var1</pv>
       <pv ns="1">123</pv>
       <pv ns="1" name="myname1">/dir/var1</pv>
       <pv ns="1" name="myname1">123</pv>
       <pv range="2" ns="1" name="Test/singleElement">array</pv>
       <pv range="2:5" ns="1" name="Test/arraySubset">array</pv>
-    </csa:opcua_map>
+    </ctk:opcua_map>
 
 The last two mappings for `array` include a range. **This feature is only possible using xml based map file.**
 ### Legacy version

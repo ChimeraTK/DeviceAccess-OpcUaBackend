@@ -21,7 +21,7 @@ int parseTypeId(xmlpp::Element const* c) {
 
 ChimeraTK::AccessModeFlags parseAccessMode(xmlpp::Element const* c) {
   std::string accessMode{};
-  auto t = c->get_child_text();
+  const auto* t = c->get_child_text();
   if(t != nullptr) {
     accessMode = t->get_content();
   }

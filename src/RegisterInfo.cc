@@ -9,22 +9,21 @@
 
 #include "RegisterInfo.h"
 
-#include <memory>
 #include <string>
 
 namespace ChimeraTK {
   void OpcUaBackendRegisterCatalogue::addProperty(const UA_NodeId& node, const std::string& browseName,
       const std::string& range, const UA_UInt32& dataType, const size_t& arrayLength, const std::string& serverAddress,
-      const std::string& description, const bool isReadonly) {
+      const std::string& description, const bool& isReadonly) {
     //    OpcUABackendRegisterInfo entry{serverAddress, browseName};
     //    UA_NodeId_copy(&node, &entry._id);
     OpcUABackendRegisterInfo entry{serverAddress, browseName, node};
-    entry._dataType = dataType;
-    entry._description = description;
-    entry._arrayLength = arrayLength;
-    entry._isReadonly = isReadonly;
-    entry._accessModes.add(AccessMode::wait_for_new_data);
-    entry._indexRange = range;
+    entry.dataType = dataType;
+    entry.description = description;
+    entry.arrayLength = arrayLength;
+    entry.isReadonly = isReadonly;
+    entry.accessModes.add(AccessMode::wait_for_new_data);
+    entry.indexRange = range;
     // Maximum number of decimal digits to display a float without loss in non-exponential display, including
     // sign, leading 0, decimal dot and one extra digit to avoid rounding issues (hence the +4).
     // This computation matches the one performed in the NumericAddressedBackend catalogue.
@@ -32,7 +31,7 @@ namespace ChimeraTK {
         std::max(std::log10(std::numeric_limits<float>::max()), -std::log10(std::numeric_limits<float>::denorm_min())) +
         4;
 
-    switch(entry._dataType) {
+    switch(entry.dataType) {
       case 1: /*BOOL*/
         entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::boolean, true, true, 320, 300);
         break;

@@ -14,14 +14,11 @@
 #include <open62541/plugin/securitypolicy.h>
 
 #include <dirent.h>
-#include <stdio.h>
 
 #include <atomic>
-#include <chrono>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 
 namespace ChimeraTK {
 
@@ -53,15 +50,15 @@ namespace ChimeraTK {
     std::string certificate;
     std::string key;
 
-    unsigned long publishingInterval;
-    unsigned long connectionTimeout;
+    double publishingInterval;
+    uint32_t connectionTimeout;
 
     UA_Logger logger;
 
     OPCUAConnection(const std::string& address, const std::string& username, const std::string& password,
-        unsigned long publishingInterval, const long int& connectionTimeout, const UA_LogLevel& logLevel,
+        double publishingInterval, const uint32_t& connectionTimeout, const UA_LogLevel& logLevel,
         const std::string& certificate, const std::string& privateKey, const bool trustAny,
-        const std::string trustListFolder, const std::string revocationListFolder)
+        const std::string& trustListFolder, const std::string& revocationListFolder)
     : client(UA_Client_new()), config(UA_Client_getConfig(client.get())), serverAddress(address),
       channelState(UA_SECURECHANNELSTATE_CLOSED), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
       password(password), certificate(certificate), key(privateKey), publishingInterval(publishingInterval),
@@ -144,7 +141,9 @@ namespace ChimeraTK {
       if(fileContents.data) {
         fseek(fp, 0, SEEK_SET);
         size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
-        if(read != fileContents.length) UA_ByteString_clear(&fileContents);
+        if(read != fileContents.length) {
+          UA_ByteString_clear(&fileContents);
+        }
       }
       else {
         fileContents.length = 0;
@@ -162,7 +161,9 @@ namespace ChimeraTK {
       listSize = 0;
       if(dp != nullptr) {
         while((entry = readdir(dp))) {
-          if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
+          if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
+            continue;
+          }
           listSize++;
           list = (UA_ByteString*)UA_realloc(list, sizeof(UA_ByteString) * listSize);
           char sbuf[1024];
