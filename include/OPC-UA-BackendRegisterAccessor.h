@@ -327,16 +327,19 @@ namespace ChimeraTK {
     if(retval != UA_STATUSCODE_GOOD) {
       handleError(retval);
     }
-
+    UA_DataValue_clear(&data);
     // Write data to  the internal data buffer
     if(info->indexRange.empty()) {
       UA_Variant_copy(val->var, &data.value);
     }
     else {
-      //      UA_NumericRange range = UA_NUMERICRANGE(_info->_indexRange.c_str());
-      UA_Variant_copyRange(val->var, &data.value, UA_NUMERICRANGE(info->indexRange.c_str()));
+      UA_NumericRange range = UA_NUMERICRANGE(info->indexRange.c_str());
+      UA_Variant_copyRange(val->var, &data.value, range);
+      UA_free(range.dimensions);
     }
     data.sourceTimestamp = UA_DateTime_now();
+    data.hasSourceTimestamp = true;
+    data.hasValue = true;
   }
 
   template<typename UAType, typename CTKType>
@@ -424,5 +427,6 @@ namespace ChimeraTK {
     if(subscribed) {
       backend->_subscriptionManager->unsubscribe(info->nodeBrowseName, this);
     }
+    UA_DataValue_clear(&data);
   }
 } // namespace ChimeraTK
