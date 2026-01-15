@@ -181,6 +181,7 @@ namespace ChimeraTK {
           UA_DataValue data;
           UA_DataValue_init(&data);
           UA_DataValue_copy(value, &data);
+          data.hasValue = true;
           accessor->notifications.push_overwrite(std::move(data));
         }
       }
