@@ -63,6 +63,8 @@ namespace ChimeraTK {
       channelState(UA_SECURECHANNELSTATE_CLOSED), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
       password(password), certificate(certificate), key(privateKey), publishingInterval(publishingInterval),
       connectionTimeout(connectionTimeout), logger(UA_Log_Stdout_withLevel(logLevel)) {
+      // store pointer to original logging to be cleared in the end to avoid memory leak
+      defaultLogger = config->logging;
       config->logging = &logger;
       config->eventLoop->logger = &logger;
       if(!certificate.empty() && !key.empty()) {
@@ -104,6 +106,8 @@ namespace ChimeraTK {
       config->timeout = connectionTimeout;
     };
 
+    ~OPCUAConnection() { defaultLogger->clear(defaultLogger); }
+
     void close() {
       auto ret = UA_Client_disconnect(client.get());
       if(ret != UA_STATUSCODE_GOOD) {
@@ -118,6 +122,7 @@ namespace ChimeraTK {
     }
 
    private:
+    UA_Logger* defaultLogger{nullptr};
     /**
      * loadFile parses the certificate file.
      *
