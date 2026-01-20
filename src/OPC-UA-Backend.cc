@@ -31,19 +31,6 @@
 
 using tokenizer = boost::tokenizer<boost::char_separator<char>>;
 
-extern "C" {
-boost::shared_ptr<ChimeraTK::DeviceBackend> ChimeraTK_DeviceAccess_createBackend(
-    std::string address, std::map<std::string, std::string> parameters) {
-  return ChimeraTK::OpcUABackend::createInstance(address, parameters);
-}
-
-std::vector<std::string> ChimeraTK_DeviceAccess_sdmParameterNames{"port", "username", "password", "map"};
-
-std::string ChimeraTK_DeviceAccess_version{CHIMERATK_DEVICEACCESS_VERSION};
-
-std::string backend_name = "opcua";
-}
-
 namespace ChimeraTK {
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
   std::map<UA_Client*, OpcUABackend*> OpcUABackend::backendClients;
