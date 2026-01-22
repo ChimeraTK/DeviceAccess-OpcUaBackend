@@ -83,7 +83,7 @@ namespace ChimeraTK {
      * \param username User name used when connecting to the OPC UA server.
      * \param password Password used when connecting to the OPC UA server.
      * \param mapfile The map file name.
-     * \param subscriptonPublishingInterval Publishing interval used for the subscription in ms.
+     * \param subscriptionPublishingInterval Publishing interval used for the subscription in ms.
      * \param rootNode The root node specified.
      * \param rootNS The root node name space.
      * \param connectionTimeout
@@ -98,7 +98,7 @@ namespace ChimeraTK {
      */
     explicit OpcUABackend(const std::string& fileAddress, const std::string& username = "",
         const std::string& password = "", const std::string& mapfile = "",
-        const double& subscriptonPublishingInterval = 500, const std::string& rootNode = "", const ulong& rootNS = 0,
+        const double& subscriptionPublishingInterval = 500, const std::string& rootNode = "", const ulong& rootNS = 0,
         const uint32_t& connectionTimeout = 5000, const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR,
         const std::string& certificate = "", const std::string& privateKey = "", const bool& trustAny = true,
         const std::string& trustListFolder = "", const std::string& revocationListFolder = "",
@@ -113,10 +113,10 @@ namespace ChimeraTK {
      *
      * If a mapfile is given only node specified in the mapfile are considered.
      * Passing a _rootNode allows to prepend a certain hierarchy to the variables given in the map file.
-     * E.g. if _rootNode is testServer and the variable in the map file is temperature/test fillCatalgogue will try to
+     * E.g. if _rootNode is testServer and the variable in the map file is temperature/test fillCatalogue will try to
      * add the node testServer/temperature/test.
      *
-     * \param cacheFile: If not empty the created register catalogue is used to create a chache file using this file name.
+     * \param cacheFile: If not empty the created register catalogue is used to create a cache file using this file name.
      */
     void fillCatalogue(const std::string& cacheFile = "");
 
@@ -185,7 +185,7 @@ namespace ChimeraTK {
     ulong _rootNS;
 
     /**
-     * Protect against multiple calles of activateAsyncRead().
+     * Protect against multiple calls of activateAsyncRead().
      *
      * This was observed for multiple LogicalNameMapping devices that reference the same device.
      * In the end OPCUASubscriptionManager::start() was called multiple times because the new thread was not yet created

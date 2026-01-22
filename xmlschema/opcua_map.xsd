@@ -10,7 +10,7 @@
 			that are to be subscribed from the target OPC UA server. Alternatively, it is also
 			possible to connect to an OPC UA server without a map file. In that case the server will
 			be browsed and all PVs are added to the device. This only works for OPC UA servers that
-			are created using the ChimarTK OPC UA control system adapter! </xs:documentation>
+			are created using the ChimeraTK OPC UA control system adapter! </xs:documentation>
 	</xs:annotation>
 
 	<xs:element name="opcua_map" type="ctkbackend:opcua_mapType" />
@@ -25,7 +25,7 @@
 					name="range">
 					<xs:annotation>
 						<xs:documentation xml:lang="en"> An indexRange string as defined in the OPC
-							UA standard. Here we only handle one dimension so poosible ranges are: -
+							UA standard. Here we only handle one dimension so possible ranges are: -
 							"2" to select the second element only - "2:5" to select the array
 							elements 2 to 5 </xs:documentation>
 					</xs:annotation>
@@ -40,7 +40,7 @@
 					name="name">
 					<xs:annotation>
 						<xs:documentation xml:lang="en"> Name of the node as it will appear in the
-							device. If not given the name will be constucted from the node name. </xs:documentation>
+							device. If not given the name will be constructed from the node name. </xs:documentation>
 					</xs:annotation>
 				</xs:attribute>
 			</xs:extension>

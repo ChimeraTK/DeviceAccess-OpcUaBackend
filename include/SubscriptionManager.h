@@ -68,7 +68,7 @@ namespace ChimeraTK {
      * Disable pushing values to the TransferElement future queue in the OPC UA callback function.
      * \ToDo: Should the following actions really be part of that method?
      * Unsubscribe all PVs from the OPC UA subscription.
-     * Stop the runClient loop in case it was acitve.
+     * Stop the runClient loop in case it was active.
      * To work again a resetClient is required.
      *
      * \remark This method is called when holding the client lock
@@ -203,7 +203,7 @@ namespace ChimeraTK {
     std::map<UA_UInt32, MonitorItem*> subscriptionMap;
 
     /*
-     *  Send exception to all accesors via the future queue.
+     *  Send exception to all accessors via the future queue.
      * \remark Holds item lock.
      */
     void handleException(const std::string& message);

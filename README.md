@@ -7,7 +7,7 @@
 [api-platforms]: https://img.shields.io/badge/platforms-linux%20-blue.svg "Supported Platforms"
 
 
-This backend uses the opcua client from open62541. The version of open62541 is the same as the one used in the ConstrolsystemAdapter-OPC-UA. 
+This backend uses the opcua client from open62541. The version of open62541 is the same as the one used in the ControlsystemAdapter-OPC-UA. 
 `port` is a required parameter in the device mapping file and the syntax in the device mapping file is as following:
        
       # using target name 
@@ -43,7 +43,7 @@ Else you need to set `trustListFolder` to a directory that includes the server c
 
 ### Logging level
 
-The loggingg severiy level of the client can be set using `logLevel`. Supported log levels are:
+The logging severity level of the client can be set using `logLevel`. Supported log levels are:
   - `trace`
   - `debug`
   - `info`
@@ -77,11 +77,11 @@ and the parameter `rootNode=serverA` and `rootNode=serverB` can be used as mappi
 
 ### Cache file
 
-If a cache file is to be used it needs to be given using the parameter `cacheFile`. It allows e.g. to use the backend even if the connection to the target server fails. If no cache file is used in that casse an exception would be thrown. 
+If a cache file is to be used it needs to be given using the parameter `cacheFile`. It allows e.g. to use the backend even if the connection to the target server fails. If no cache file is used in that case an exception would be thrown. 
 
 If the backend is opened without an existing cache file, the register catalogue will be created normally by browsing or if a map file is given by reading the PVs from the map file. This means in that case an exception will be thrown even if the `cacheFile` parameter is used in case no connection can be established to the target server and the cache file does not yet exist. 
 If the register catalogue could be created the cache file will be created at the given location with the given name. 
-When the backend is opened next time the cache file will be used to set up the register catalogue. If no connecting to the target server can be established the device will go to an error state and the backend will try to revcover the device periodically.  
+When the backend is opened next time the cache file will be used to set up the register catalogue. If no connecting to the target server can be established the device will go to an error state and the backend will try to recover the device periodically.  
 
 In case it is not possible to connect to the target server but you need to start the backend you can create the cache file manually. 
 In case the PV tree of the target server changed and you need to update the cache file it is recommended to simply remove the cache file, which will cause a recreation on next backend start.
@@ -126,7 +126,7 @@ In case a numeric id is used and no new name is given it will appear with the re
 
 ## Technical details
 
-### Behaviour after server restart
+### Behavior after server restart
 
 During the development, the reconnection after a connection error was tested. This was done by killing the server the backend was connected to. After, the server was restarted. On the backend side the client read server data very fast for 5 times and the result was always 0.
 The 5 subsequent reads happen, because there is a full queue of read triggers. The que was filled during the server was down by the PeriodicTrigger module that was used in the test. After the client recovered from the error state this queue was emptied first. 

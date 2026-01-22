@@ -145,7 +145,7 @@ namespace ChimeraTK {
           /*
            *  Manually set session state to closed.
            *  When backend is recovered a new session will be created and thus the sessionState will be
-           *  updated accordinly.
+           *  updated accordingly.
            */
           OpcUABackend::backendClients[client]->_connection->sessionState = UA_SessionState::UA_SESSIONSTATE_CLOSED;
         }
@@ -154,13 +154,13 @@ namespace ChimeraTK {
   }
 
   OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username, const std::string& password,
-      const std::string& mapfile, const double& subscriptonPublishingInterval, const std::string& rootNode,
+      const std::string& mapfile, const double& subscriptionPublishingInterval, const std::string& rootNode,
       const ulong& rootNS, const uint32_t& connectionTimeout, const UA_LogLevel& logLevel,
       const std::string& certificate, const std::string& privateKey, const bool& trustAny,
       const std::string& trustListFolder, const std::string& revocationListFolder, const std::string& cacheFile)
   : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootNode), _rootNS(rootNS) {
     backendLogger = UA_Log_Stdout_withLevel(logLevel);
-    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval,
+    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptionPublishingInterval,
         connectionTimeout, logLevel, certificate, privateKey, trustAny, trustListFolder, revocationListFolder);
     _connection->config->stateCallback = stateCallback;
     _connection->config->subscriptionInactivityCallback = inactivityCallback;
@@ -336,7 +336,7 @@ namespace ChimeraTK {
           browseRecursive(UA_NODEID_STRING(_rootNS, (char*)_rootNode.c_str()));
         }
         catch(...) {
-          throw ChimeraTK::runtime_error("root node not formated correct. Expected ns:nodeid or ns:nodename!");
+          throw ChimeraTK::runtime_error("root node not formatted correct. Expected ns:nodeid or ns:nodename!");
         }
       }
     }
@@ -576,7 +576,7 @@ namespace ChimeraTK {
     // after a first one called activateAsyncRead already
     if(_subscriptionManager->opcuaThread == nullptr) {
       _subscriptionManager->start();
-      // sleep twice the publishing interval to make sure intital values are written
+      // sleep twice the publishing interval to make sure initial values are written
       std::this_thread::sleep_for(std::chrono::milliseconds(2 * (uint32_t)_connection->publishingInterval));
     }
   }
@@ -719,7 +719,7 @@ namespace ChimeraTK {
         auto pos = parameters["rootNode"].find_first_of(':');
         if(pos == std::string::npos) {
           throw ChimeraTK::runtime_error(
-              "root node does not contain delimter ':' formated correct. Expected ns:nodeid or ns:nodename!");
+              "root node does not contain delimiter ':' formatted correct. Expected ns:nodeid or ns:nodename!");
         }
         try {
           rootNS = std::stoul(parameters["rootNode"].substr(0, pos));
@@ -738,12 +738,12 @@ namespace ChimeraTK {
         rootName = parameters["rootNode"];
       }
     }
-    uint32_t connetionTimeout = 5000;
+    uint32_t connectionTimeout = 5000;
     if(!parameters["connectionTimeout"].empty()) {
-      connetionTimeout = std::stoul(parameters["connectionTimeout"]);
+      connectionTimeout = std::stoul(parameters["connectionTimeout"]);
     }
     UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %uld ms",
-        connetionTimeout);
+        connectionTimeout);
 
     UA_LogLevel logLevel = UA_LOGLEVEL_INFO;
     if(!parameters["logLevel"].empty()) {
@@ -775,7 +775,7 @@ namespace ChimeraTK {
     }
 
     return boost::shared_ptr<DeviceBackend>(new OpcUABackend(serverAddress, parameters["username"],
-        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connetionTimeout, logLevel,
+        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connectionTimeout, logLevel,
         parameters["certificate"], parameters["privateKey"], trustAny, parameters["trustListFolder"],
         parameters["revocationListFolder"], parameters["cacheFile"]));
   }

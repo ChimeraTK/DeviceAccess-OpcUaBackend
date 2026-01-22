@@ -260,7 +260,7 @@ void OPCUAServer::start() {
    * Here we use UA_Server_run_iterate to allow to lock in between
    */
   UA_Server_run_startup(server);
-  // make sure to kepp the lock until UA_Server_run_iterate is called once to emit initial values
+  // make sure to keep the lock until UA_Server_run_iterate is called once to emit initial values
   bool isFirstLock = true;
   while(running) {
     if(!isFirstLock) {

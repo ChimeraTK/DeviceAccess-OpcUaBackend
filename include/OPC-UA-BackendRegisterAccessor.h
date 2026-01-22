@@ -305,7 +305,7 @@ namespace ChimeraTK {
       if(backend->_subscriptionManager->isAsyncReadActive()) {
         if(backend->_subscriptionManager->opcuaThread == nullptr) {
           backend->_subscriptionManager->start();
-          // sleep twice the publishing interval to make sure intital values are written
+          // sleep twice the publishing interval to make sure initial values are written
           std::this_thread::sleep_for(
               std::chrono::milliseconds(2 * (uint32_t)backend->_connection->publishingInterval));
         }

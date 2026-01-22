@@ -46,7 +46,7 @@ namespace ChimeraTK {
 
   void OPCUASubscriptionManager::start() {
     //\ToDo: In fact this thread will always run since the subscription is always activated by the backend (Needed for
-    // adding subscription after device open and resynActivate).
+    // adding subscription after device open and activateAsyncRead).
     if(_subscriptionActive) {
       _run = true;
       UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
@@ -149,7 +149,7 @@ namespace ChimeraTK {
 
   void OPCUASubscriptionManager::removeSubscription() {
     if(!UA_Client_Subscriptions_deleteSingle(_connection->client.get(), _subscriptionID)) {
-      UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Sucessfully removed old subscription.");
+      UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Successfully removed old subscription.");
     }
     // reset ID even subscription deletion fails - this avoids removing it later again
     _subscriptionID = 0;
@@ -189,7 +189,7 @@ namespace ChimeraTK {
       // When calling unsubscribe the item is removed before it is unsubscribed from the client, which might trigger the
       // response handler.
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-          "Responsehandler for monitored item with id %d called but item is already removed.", subId);
+          "Response handler for monitored item with id %d called but item is already removed.", subId);
     }
   }
 
@@ -298,7 +298,7 @@ namespace ChimeraTK {
       mutex.unlock();
       // check if device was already opened
       if(_asyncReadActive) {
-        // This can happen if async read was activated without any RegisterAccesors using the subscription.
+        // This can happen if async read was activated without any RegisterAccessors using the subscription.
         // In this case it is closed due to inactivity.
         if(!_subscriptionActive) {
           UA_LOG_WARNING(
@@ -316,9 +316,9 @@ namespace ChimeraTK {
       if(it->active) {
         // if already active add initial value
         UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-            "Setting intial value for accessor with existing node subscription.");
+            "Setting initial value for accessor with existing node subscription.");
         std::lock_guard<std::mutex> lock(tmp->dataUpdateLock);
-        // wait for intial values that might be process in postRead at the moment
+        // wait for initial values that might be process in postRead at the moment
         if(tmp->notifications.empty()) {
           if(!UA_Variant_isEmpty(&tmp->data.value)) {
             UA_DataValue data;
@@ -328,7 +328,7 @@ namespace ChimeraTK {
           }
           else {
             UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-                "No intial value available for accessor with existing node subscription.");
+                "No initial value available for accessor with existing node subscription.");
           }
         }
         else {
