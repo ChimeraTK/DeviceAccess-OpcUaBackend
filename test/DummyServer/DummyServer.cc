@@ -39,29 +39,30 @@ TypeMapWithName dummyMap(fusion::make_pair<UA_Int16>(std::make_pair("int16", UA_
     fusion::make_pair<UA_Boolean>(std::make_pair("bool", UA_TYPES_BOOLEAN)));
 
 struct VariableAttacher {
-  UA_NodeId _parent;
-  UA_Server* _server;
-  bool _isArray;
-  bool _readOnly;
+  UA_NodeId parent;
+  UA_Server* server;
+  bool isArray;
+  bool readOnly;
 
   VariableAttacher(UA_NodeId parent, UA_Server* server, bool isArray = false, bool readOnly = false)
-  : _parent(parent), _server(server), _isArray(isArray), _readOnly(readOnly) {}
+  : parent(parent), server(server), isArray(isArray), readOnly(readOnly) {}
 
-  ~VariableAttacher() { UA_NodeId_clear(&_parent); }
+  ~VariableAttacher() { UA_NodeId_clear(&parent); }
 
   template<typename PAIR>
   void operator()(PAIR& pair) const {
-    typedef typename PAIR::first_type UAType;
+    // typedef typename PAIR::first_type UAType;
+    using UAType = typename PAIR::first_type;
     auto mypair = pair.second;
     /* Define the attribute of the myInteger variable node */
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     attr.dataType = UA_TYPES[mypair.second].typeId;
     UAType data = 42;
     std::vector<UAType> v = {42, 42, 42, 42, 42};
-    std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
+    std::string name = std::string((char*)parent.identifier.string.data, parent.identifier.string.length);
     name = name + "/" + mypair.first;
     //    UA_DataType t = mypair.second;
-    if(_isArray) {
+    if(isArray) {
       // passing mypair.second directly does not work!
       //      UA_Variant_setArray(&attr.value, &v[0], 5, &UA_TYPES[mypair.second.typeId.identifier.numeric]);
       UA_Variant_setArray(&attr.value, &v[0], 5, &UA_TYPES[mypair.second]);
@@ -81,7 +82,7 @@ struct VariableAttacher {
     attr.displayName = locText;
     attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
     attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
-    if(_readOnly) {
+    if(readOnly) {
       attr.accessLevel = UA_ACCESSLEVELMASK_READ;
       attr.userAccessLevel = UA_ACCESSLEVELMASK_READ;
     }
@@ -93,7 +94,7 @@ struct VariableAttacher {
     /* Add the variable node to the information model */
     UA_NodeId nodeId = UA_NODEID_STRING(1, &name[0]);
     UA_QualifiedName nodeName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-    UA_Server_addVariableNode(_server, nodeId, _parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), nodeName,
+    UA_Server_addVariableNode(server, nodeId, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), nodeName,
         UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
@@ -114,9 +115,9 @@ struct VariableAttacher {
     std::vector<UA_String> v = {UA_String_fromChars("42"), UA_String_fromChars("42"), UA_String_fromChars("42"),
         UA_String_fromChars("42"), UA_String_fromChars("42")};
     UA_String data = UA_STRING((char*)strData.c_str());
-    std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
+    std::string name = std::string((char*)parent.identifier.string.data, parent.identifier.string.length);
     name = name + "/" + mypair.first;
-    if(_isArray) {
+    if(isArray) {
       // passing mypair.second directly does not work!
       UA_Variant_setArray(&attr.value, &v[0], 5, &UA_TYPES[UA_TYPES_STRING]);
       attr.valueRank = 1;
@@ -135,7 +136,7 @@ struct VariableAttacher {
     attr.dataType = UA_TYPES[UA_TYPES_STRING].typeId;
     attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
     attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
-    if(_readOnly) {
+    if(readOnly) {
       attr.accessLevel = UA_ACCESSLEVELMASK_READ;
       attr.userAccessLevel = UA_ACCESSLEVELMASK_READ;
     }
@@ -148,7 +149,7 @@ struct VariableAttacher {
     /* Add the variable node to the information model */
     UA_NodeId myNodeId = UA_NODEID_STRING(1, &name[0]);
     UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-    UA_Server_addVariableNode(_server, myNodeId, _parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
+    UA_Server_addVariableNode(server, myNodeId, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
         UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
@@ -167,9 +168,9 @@ struct VariableAttacher {
     UA_VariableAttributes_init(&attr);
     UA_Boolean data = true;
     bool p[5] = {true, true, true, true, true};
-    std::string name = std::string((char*)_parent.identifier.string.data, _parent.identifier.string.length);
+    std::string name = std::string((char*)parent.identifier.string.data, parent.identifier.string.length);
     name = name + "/" + mypair.first;
-    if(_isArray) {
+    if(isArray) {
       // passing mypair.second directly does not work!
       //      UA_Variant_setArray(&attr.value, &boolVector.data(), 5,  &UA_TYPES[mypair.second.typeIndex]);
       UA_Variant_setArray(&attr.value, &p[0], 5, &UA_TYPES[UA_TYPES_BOOLEAN]);
@@ -190,7 +191,7 @@ struct VariableAttacher {
     attr.dataType = UA_TYPES[UA_TYPES_BOOLEAN].typeId;
     attr.userWriteMask = UA_ACCESSLEVELMASK_WRITE;
     attr.writeMask = UA_ACCESSLEVELMASK_WRITE;
-    if(_readOnly) {
+    if(readOnly) {
       attr.accessLevel = UA_ACCESSLEVELMASK_READ;
       attr.userAccessLevel = UA_ACCESSLEVELMASK_READ;
     }
@@ -202,7 +203,7 @@ struct VariableAttacher {
     /* Add the variable node to the information model */
     UA_NodeId myNodeId = UA_NODEID_STRING(1, &name[0]);
     UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-    UA_Server_addVariableNode(_server, myNodeId, _parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
+    UA_Server_addVariableNode(server, myNodeId, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
         UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
@@ -210,24 +211,24 @@ struct VariableAttacher {
   }
 };
 
-OPCUAServer::OPCUAServer() : _server(nullptr) {
+OPCUAServer::OPCUAServer() : server(nullptr) {
   /**
    *  A single random port will be used for all tests.
    *  This protects against problems when running the unit tests on the same machine multiple times.
    */
   std::random_device rd;
   std::uniform_int_distribution<uint> dist(20000, 22000);
-  _port = dist(rd);
-  _configured = false;
+  port = dist(rd);
+  configured = false;
   OPCUAServer::logger = UA_Log_Stdout_withLevel(testServerLogLevel);
 }
 
 OPCUAServer::~OPCUAServer() {
-  UA_Server_delete(_server);
+  UA_Server_delete(server);
   UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Destroyed OPCUAServer object.");
 }
 
-static UA_INLINE UA_DurationRange UA_DURATIONRANGE(UA_Duration min, UA_Duration max) {
+static UA_INLINE UA_DurationRange getDuration(UA_Duration min, UA_Duration max) {
   UA_DurationRange range = {min, max};
   return range;
 }
@@ -235,20 +236,20 @@ static UA_INLINE UA_DurationRange UA_DURATIONRANGE(UA_Duration min, UA_Duration 
 void OPCUAServer::start() {
   lock();
   // delete server if it was used already before
-  if(_configured) {
+  if(configured) {
     UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Destroying OPCUAServer object.");
-    UA_Server_delete(_server);
+    UA_Server_delete(server);
   }
   // set up the server
   auto config = UA_ServerConfig();
   config.logging = &OPCUAServer::logger;
-  UA_ServerConfig_setMinimal(&config, _port, NULL);
-  config.publishingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 3600.0 * 1000.0);
-  config.samplingIntervalLimits = UA_DURATIONRANGE(publishingInterval, 24.0 * 3600.0 * 1000.0);
-  _server = UA_Server_newWithConfig(&config);
+  UA_ServerConfig_setMinimal(&config, port, NULL);
+  config.publishingIntervalLimits = getDuration(publishingInterval, 3600.0 * 1000.0);
+  config.samplingIntervalLimits = getDuration(publishingInterval, 24.0 * 3600.0 * 1000.0);
+  server = UA_Server_newWithConfig(&config);
 
   addVariables();
-  _configured = true;
+  configured = true;
   running = true;
   // run the server
   /**
@@ -258,15 +259,17 @@ void OPCUAServer::start() {
   /**
    * Here we use UA_Server_run_iterate to allow to lock in between
    */
-  UA_Server_run_startup(_server);
-  // make sure to kepp the lock until UA_Server_run_iterate is called once to emit initial values
+  UA_Server_run_startup(server);
+  // make sure to keep the lock until UA_Server_run_iterate is called once to emit initial values
   bool isFirstLock = true;
   while(running) {
-    if(!isFirstLock)
+    if(!isFirstLock) {
       lock();
-    else
+    }
+    else {
       isFirstLock = false;
-    auto nextUpdate = UA_Server_run_iterate(_server, true);
+    }
+    auto nextUpdate = UA_Server_run_iterate(server, true);
     //    usleep(nextUpdate);
     unlock();
     usleep(1000);
@@ -274,20 +277,20 @@ void OPCUAServer::start() {
   UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Finished iterate loop in the server.");
 
   lock();
-  UA_Server_run_shutdown(_server);
+  UA_Server_run_shutdown(server);
   unlock();
   UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Finished running the server.");
 }
 
 void OPCUAServer::addFolder(std::string name, UA_NodeId parent) {
-  std::string displayName = name.substr(name.find_last_of("/") + 1, name.size());
+  std::string displayName = name.substr(name.find_last_of('/') + 1, name.size());
   UA_ObjectAttributes attrObj = UA_ObjectAttributes_default;
   attrObj.description = UA_LOCALIZEDTEXT_ALLOC("en_US", &displayName[0]);
   attrObj.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US", &displayName[0]);
   UA_QualifiedName qname = UA_QUALIFIEDNAME(1, &displayName[0]);
   UA_NodeId objNode = UA_NODEID_STRING(1, &name[0]);
   UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-  UA_Server_addObjectNode(_server, objNode, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
+  UA_Server_addObjectNode(server, objNode, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
       UA_QUALIFIEDNAME(1, (char*)name.c_str()), UA_NODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), attrObj, NULL, NULL);
   UA_ObjectAttributes_clear(&attrObj);
 }
@@ -300,24 +303,24 @@ void OPCUAServer::addVariables() {
   oAttr.description = UA_LOCALIZEDTEXT_ALLOC("en_US", "Dummy");
   UA_NodeId id = UA_NODEID("ns=1;s=Dummy");
   UA_QualifiedName qName = UA_QUALIFIEDNAME_ALLOC(1, "Dummy");
-  UA_Server_addObjectNode(_server, id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
+  UA_Server_addObjectNode(server, id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
       UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), qName, UA_NODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), oAttr, NULL, NULL);
   UA_QualifiedName_clear(&qName);
   addFolder("Dummy/scalar", id);
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar"), _server, false, false));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar"), server, false, false));
   addFolder("Dummy/array", id);
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/array"), _server, true, false));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/array"), server, true, false));
   addFolder("Dummy/scalar_ro", id);
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar_ro"), _server, false, true));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar_ro"), server, false, true));
   addFolder("Dummy/array_ro", id);
-  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/array_ro"), _server, true, true));
+  boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/array_ro"), server, true, true));
   UA_NodeId_clear(&id);
   UA_ObjectAttributes_clear(&oAttr);
 }
 
 UA_Variant* OPCUAServer::getValue(std::string nodeName) {
   UA_Variant* data = UA_Variant_new();
-  UA_Server_readValue(_server, UA_NODEID_STRING(1, &nodeName[0]), data);
+  UA_Server_readValue(server, UA_NODEID_STRING(1, &nodeName[0]), data);
   return data;
 }
 
@@ -338,7 +341,7 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean>& 
     UA_Variant_setArrayCopy(data, &p[0], length, &UA_TYPES[UA_TYPES_BOOLEAN]);
   }
   lock();
-  UA_Server_writeValue(_server, UA_NODEID_STRING(1, &nodeName[0]), *data);
+  UA_Server_writeValue(server, UA_NODEID_STRING(1, &nodeName[0]), *data);
   unlock();
   UA_Variant_delete(data);
   // In the test new data is set in a sequence. Since the sampling interval is set equal to the publishing interval we
@@ -347,9 +350,13 @@ void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean>& 
 }
 
 void ThreadedOPCUAServer::start() {
-  if(_serverThread.joinable()) _serverThread.join();
-  _serverThread = std::thread{&OPCUAServer::start, &_server};
-  if(!checkConnection(ServerState::On)) throw std::runtime_error("Failed to connect to the test server!");
+  if(serverThread.joinable()) {
+    serverThread.join();
+  }
+  serverThread = std::thread{&OPCUAServer::start, &server};
+  if(!checkConnection(ServerState::On)) {
+    throw std::runtime_error("Failed to connect to the test server!");
+  }
   UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Test server is set up and running.");
 }
 
@@ -358,22 +365,26 @@ ThreadedOPCUAServer::ThreadedOPCUAServer()
       "", "", "", publishingInterval, 5000, testServerLogLevel, "", "", true, "", "")) {}
 
 ThreadedOPCUAServer::~ThreadedOPCUAServer() {
-  _server.stop();
-  _serverThread.join();
+  server.stop();
+  serverThread.join();
 }
 
 bool ThreadedOPCUAServer::checkConnection(const ServerState& state) {
   /** Connect **/
-  UA_StatusCode retval;
-  std::string serverAddress("opc.tcp://localhost:" + std::to_string(_server._port));
+  UA_StatusCode retval = UA_STATUSCODE_GOODINITIATEFAULTSTATE;
+  std::string serverAddress("opc.tcp://localhost:" + std::to_string(server.port));
   uint time = 0;
   while(retval != UA_STATUSCODE_GOOD) {
     retval = UA_Client_connect(_connection->client.get(), serverAddress.c_str());
     if(state == ServerState::On) {
-      if(retval == UA_STATUSCODE_GOOD) break;
+      if(retval == UA_STATUSCODE_GOOD) {
+        break;
+      }
     }
     else {
-      if(retval != UA_STATUSCODE_GOOD) break;
+      if(retval != UA_STATUSCODE_GOOD) {
+        break;
+      }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(publishingInterval));
 

@@ -10,8 +10,7 @@
  */
 #include "OPC-UA-Backend.h"
 
-#include <libxml2/libxml/tree.h>
-#include <libxml2/libxml/xpath.h>
+#include <libxml++/libxml++.h>
 #include <open62541/types.h>
 
 #include <deque>
@@ -49,23 +48,14 @@ namespace ChimeraTK {
      * @param filePath Path to a xml file which you want to read
      * @param rootNode Root node name to be prepended to all nodes. Might left empty.
      */
-    OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode = "");
-    std::deque<MapElement> _elements; ///< Contains all elements listed in the map file.
+    explicit OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode = "");
+    std::deque<MapElement> elements; ///< Contains all elements listed in the map file.
    private:
-    xmlXPathObjectPtr getNodeSet(const std::string& xPathStr);
     /** @brief Parse the map file and fill the element list.
      */
     void readElements();
-    /** @brief This method returns a value of the given attribute from the given node you want to know
-     *
-     * @param node Node with the attribute of interest
-     * @param attributeName Name of the wanted attribute
-     *
-     * @return Returns a string of the attribute
-     */
-    std::string getAttributeValueFromNode(xmlNode* node, const std::string& attributeName);
-    xmlDocPtr doc{nullptr};
-    std::string _file;     ///< Name of the map file
-    std::string _rootNode; ///< Name of the root Node
+    xmlpp::Element* _rootNode{nullptr};
+    std::string _file; ///< Name of the map file
+    std::string _serverRootNode;
   };
 } // namespace ChimeraTK

@@ -9,96 +9,69 @@
 
 #include "MapFile.h"
 
-#include <libxml2/libxml/parser.h>
-#include <libxml2/libxml/xpathInternals.h>
+#include "XmlTools.h"
+
+#include <libxml++/libxml++.h>
 
 #include <boost/algorithm/string.hpp>
 
 namespace ChimeraTK {
   OPCUAMapFileReader::OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode)
-  : _file(filePath), _rootNode(rootNode) {
-    doc = xmlReadFile(filePath.c_str(), nullptr, XML_PARSE_NOERROR);
-    if(!doc) {
-      throw ChimeraTK::runtime_error(std::string("OPC UA device failed parsing map file ") + filePath);
-    }
+  : _file(filePath), _serverRootNode(rootNode) {
+    auto parser = createDomParser(filePath);
+    _rootNode = getRootNode(parser, "opcua_map");
     readElements();
-  }
-
-  xmlXPathObjectPtr OPCUAMapFileReader::getNodeSet(const std::string& xPathStr) {
-    auto* xpath = (xmlChar*)xPathStr.c_str();
-    xmlXPathContextPtr context;
-    xmlXPathObjectPtr result;
-
-    context = xmlXPathNewContext(doc);
-    if(context == nullptr) {
-      return nullptr;
+    if(elements.empty()) {
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+          "No valid entries found in opcua map file %s.", filePath.c_str());
     }
-    if(xmlXPathRegisterNs(
-           context, (xmlChar*)"csa", (xmlChar*)"https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend") != 0) {
-      throw ChimeraTK::runtime_error(
-          "Failed to register xml namespace: https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend");
-    }
-
-    result = xmlXPathEvalExpression(xpath, context);
-    xmlXPathFreeContext(context);
-    if(result == nullptr) {
-      return nullptr;
-    }
-    if(xmlXPathNodeSetIsEmpty(result->nodesetval)) {
-      xmlXPathFreeObject(result);
-      return nullptr;
-    }
-    return result;
-  }
-
-  std::string OPCUAMapFileReader::getAttributeValueFromNode(xmlNode* node, const std::string& attributeName) {
-    xmlAttrPtr attr = xmlHasProp(node, (xmlChar*)attributeName.c_str());
-    if(attr != nullptr) {
-      std::string merker = (std::string)((char*)attr->children->content);
-      return merker;
-    }
-    return "";
   }
 
   void OPCUAMapFileReader::readElements() {
-    auto result = getNodeSet("//pv");
-    if(result) {
-      auto nodeset = result->nodesetval;
-      for(size_t i = 0; i < nodeset->nodeNr; i++) {
-        std::string nsString, name, range, node;
-        auto content = xmlNodeGetContent(nodeset->nodeTab[i]->xmlChildrenNode);
-        if(content != nullptr) {
-          node = (std::string)((char*)content);
-          xmlFree(content);
-          boost::algorithm::trim(node);
+    for(auto* const i : _rootNode->get_children()) {
+      std::string nsString, name, range, node;
+      const auto* reg = dynamic_cast<const xmlpp::Element*>(i);
+      if(reg == nullptr) {
+        continue;
+      }
+      if(reg->get_name() == "pv") {
+        node = reg->get_child_text()->get_content();
+        auto* nsAttribute = reg->get_attribute("ns");
+        if(nsAttribute) {
+          nsString = nsAttribute->get_value();
         }
-        nsString = getAttributeValueFromNode(nodeset->nodeTab[i], "ns");
-        range = getAttributeValueFromNode(nodeset->nodeTab[i], "range");
-        name = getAttributeValueFromNode(nodeset->nodeTab[i], "name");
+        auto* nameAttribute = reg->get_attribute("name");
+        if(nameAttribute) {
+          name = nameAttribute->get_value();
+        }
+        auto* rangeAttribute = reg->get_attribute("range");
+        if(rangeAttribute) {
+          range = rangeAttribute->get_value();
+        }
         try {
           UA_UInt32 id = std::stoul(node);
           UA_UInt16 ns = std::stoul(nsString);
-          _elements.push_back(MapElement(id, ns, range, name));
+          elements.emplace_back(MapElement(id, ns, range, name));
         }
         catch(std::invalid_argument& e) {
           try {
             UA_UInt16 ns = std::stoul(nsString);
-            _elements.push_back(MapElement(_rootNode + node, ns, range, name));
+            elements.emplace_back(MapElement(_serverRootNode + node, ns, range, name));
           }
           catch(std::invalid_argument& innerError) {
             UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-                "Failed reading line %d from opcua map file %s.", nodeset->nodeTab[i]->line, _file.c_str());
+                "Failed reading line %d from opcua map file %s.", reg->get_line(), _file.c_str());
           }
           catch(std::out_of_range& e) {
             UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-                "Failed reading the line %d from mapping file %s (Namespace id is out of range!).",
-                nodeset->nodeTab[i]->line, _file.c_str());
+                "Failed reading the line %d from mapping file %s (Namespace id is out of range!).", reg->get_line(),
+                _file.c_str());
           }
         }
         catch(std::out_of_range& e) {
           UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
               "Failed reading line %d from mapping file %s (Namespace id or Node id is out of range!).",
-              nodeset->nodeTab[i]->line, _file.c_str());
+              reg->get_line(), _file.c_str());
         }
       }
     }

@@ -1,5 +1,5 @@
+cmake_minimum_required(VERSION 3.5.0)
 project(ChimeraTK-DeviceAccess-OPC-UA-Backend)
-cmake_minimum_required(VERSION 2.8.13)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 set(${PROJECT_NAME}_MAJOR_VERSION 01)
@@ -8,10 +8,13 @@ set(${PROJECT_NAME}_PATCH_VERSION 01)
 include(cmake/set_version_numbers.cmake)
 
 find_package(Boost COMPONENTS unit_test_framework)
-find_package(LibXml2 REQUIRED)
 
 find_package(ChimeraTK-DeviceAccess 03.14 REQUIRED)
 find_package(open62541 01.04 REQUIRED)
+FIND_PACKAGE(PkgConfig REQUIRED)
+set(LIBXML++_VERSION "libxml++-2.6")
+PKG_CHECK_MODULES(LibXML++ REQUIRED IMPORTED_TARGET ${LIBXML++_VERSION})
+
 
 # add support for latest C++ standard to compiler flags
 include(cmake/enable_latest_cxx_support.cmake)
@@ -26,7 +29,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_FULL_
 target_link_libraries(${PROJECT_NAME}
       PUBLIC ChimeraTK::ChimeraTK-DeviceAccess
       PRIVATE open62541::open62541
-      PRIVATE ${LIBXML2_LIBRARIES})
+      PRIVATE ${LIBXML2_LIBRARIES}
+      PRIVATE PkgConfig::LibXML++)
 
 # --no-as-needed: force linking against this library. This is required for proper registering.
 target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--no-as-needed")

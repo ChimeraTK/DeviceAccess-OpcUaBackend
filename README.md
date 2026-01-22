@@ -7,7 +7,7 @@
 [api-platforms]: https://img.shields.io/badge/platforms-linux%20-blue.svg "Supported Platforms"
 
 
-This backend uses the opcua client from open62541. The version of open62541 is the same as the one used in the ConstrolsystemAdapter-OPC-UA. 
+This backend uses the opcua client from open62541. The version of open62541 is the same as the one used in the ControlsystemAdapter-OPC-UA. 
 `port` is a required parameter in the device mapping file and the syntax in the device mapping file is as following:
        
       # using target name 
@@ -21,7 +21,7 @@ The following optional parameters are supported and default values are indicated
   - `map`
   - `username`
   - `password`
-  - `publishingInterval=500`
+  - `publishingInterval=500.0`
   - `connectionTimeout=5000`
   - `rootNode`
   - `logLevel=info`
@@ -30,6 +30,7 @@ The following optional parameters are supported and default values are indicated
   - `trustAny=false`
   - `trustListFolder`
   - `revocationListFolder`
+  - `cacheFile`
  
 Detailed information about the parameters are given in the following.
 
@@ -42,7 +43,7 @@ Else you need to set `trustListFolder` to a directory that includes the server c
 
 ### Logging level
 
-The loggingg severiy level of the client can be set using `logLevel`. Supported log levels are:
+The logging severity level of the client can be set using `logLevel`. Supported log levels are:
   - `trace`
   - `debug`
   - `info`
@@ -52,7 +53,7 @@ The loggingg severiy level of the client can be set using `logLevel`. Supported 
 
 ### Connection settings
 
-The parameter `publishingInterval` is relevant for asynchronous reading. It defines the shortest update time of the backend.
+The parameter `publishingInterval` is relevant for asynchronous reading. It defines the shortest update time of the backend given in ms.
 Server side data updates that happen faster than the publishing interval will not be seen by the backend. The unit of the publishing interval is ms and in case no publishing interval is given a publishing of 500ms is used. No queues are used on the backend side!
 
 If the connection to the server is lost the backend will try to recover the connection after a specified timeout. The default timeout is 5000ms.
@@ -74,6 +75,19 @@ If e.g. one wants to use a single map file for different servers, that differ in
 Consider variable `serverA/test` of a server and `serverB/test` of another server. In that case a common map file can be used mapping `test` 
 and the parameter `rootNode=serverA` and `rootNode=serverB` can be used as mapping parameter.
 
+### Cache file
+
+If a cache file is to be used it needs to be given using the parameter `cacheFile`. It allows e.g. to use the backend even if the connection to the target server fails. If no cache file is used in that case an exception would be thrown. 
+
+If the backend is opened without an existing cache file, the register catalogue will be created normally by browsing or if a map file is given by reading the PVs from the map file. This means in that case an exception will be thrown even if the `cacheFile` parameter is used in case no connection can be established to the target server and the cache file does not yet exist. 
+If the register catalogue could be created the cache file will be created at the given location with the given name. 
+When the backend is opened next time the cache file will be used to set up the register catalogue. If no connecting to the target server can be established the device will go to an error state and the backend will try to recover the device periodically.  
+
+In case it is not possible to connect to the target server but you need to start the backend you can create the cache file manually. 
+In case the PV tree of the target server changed and you need to update the cache file it is recommended to simply remove the cache file, which will cause a recreation on next backend start.
+
+The cache file can not be created from the map file, because the map file only includes basic information needed to identify nodes. Additional information needed to set up the register catalogue, like data type or access permissions, are collected directly from the server and stored in the cache file.
+
 ## Map file based catalog creation
 
 ### XML version
@@ -82,14 +96,14 @@ The XML scheme is defined in [opcua_map.xsd](xmlschema/opcua_map.xsd). It includ
 The legacy example in the xml style looks as follows:
 
     <?xml version="1.0"?>
-    <csa:opcua_map xmlns:csa="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
+    <ctk:opcua_map xmlns:ctk="https://github.com/ChimeraTK/DeviceAccess-OpcUaBackend">
       <pv ns="1" >/dir/var1</pv>
       <pv ns="1">123</pv>
       <pv ns="1" name="myname1">/dir/var1</pv>
       <pv ns="1" name="myname1">123</pv>
       <pv range="2" ns="1" name="Test/singleElement">array</pv>
       <pv range="2:5" ns="1" name="Test/arraySubset">array</pv>
-    </csa:opcua_map>
+    </ctk:opcua_map>
 
 The last two mappings for `array` include a range. **This feature is only possible using xml based map file.**
 ### Legacy version
@@ -112,7 +126,7 @@ In case a numeric id is used and no new name is given it will appear with the re
 
 ## Technical details
 
-### Behaviour after server restart
+### Behavior after server restart
 
 During the development, the reconnection after a connection error was tested. This was done by killing the server the backend was connected to. After, the server was restarted. On the backend side the client read server data very fast for 5 times and the result was always 0.
 The 5 subsequent reads happen, because there is a full queue of read triggers. The que was filled during the server was down by the PeriodicTrigger module that was used in the test. After the client recovered from the error state this queue was emptied first. 

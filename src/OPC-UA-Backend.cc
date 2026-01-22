@@ -9,6 +9,7 @@
 
 #include "OPC-UA-Backend.h"
 
+#include "CatalogueCache.h"
 #include "MapFile.h"
 #include "OPC-UA-BackendRegisterAccessor.h"
 #include "SubscriptionManager.h"
@@ -21,13 +22,14 @@
 #include <open62541/client_config_default.h>
 #include <open62541/plugin/log_stdout.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/tokenizer.hpp>
 
 #include <fstream>
 #include <string>
 
-typedef boost::tokenizer<boost::char_separator<char>> tokenizer;
+using tokenizer = boost::tokenizer<boost::char_separator<char>>;
 
 extern "C" {
 boost::shared_ptr<ChimeraTK::DeviceBackend> ChimeraTK_DeviceAccess_createBackend(
@@ -48,7 +50,7 @@ namespace ChimeraTK {
   UA_Logger OpcUABackend::backendLogger;
 
   void OpcUABackend::stateCallback(UA_Client* client, UA_SecureChannelState channelState, UA_SessionState sessionState,
-      UA_StatusCode recoveryStatus) {
+      UA_StatusCode /*recoveryStatus*/) {
     if(OpcUABackend::backendClients.count(client) == 0) {
       UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "No client found in the stateCallback.");
       return;
@@ -122,14 +124,15 @@ namespace ChimeraTK {
     if(OpcUABackend::backendClients[client]->_opened) {
       if(!OpcUABackend::backendClients[client]->_connection->isConnected() &&
           OpcUABackend::backendClients[client]->_subscriptionManager) {
-        if(OpcUABackend::backendClients[client]->_subscriptionManager->isRunning())
+        if(OpcUABackend::backendClients[client]->_subscriptionManager->isRunning()) {
           OpcUABackend::backendClients[client]->_subscriptionManager->deactivateAllAndPushException(
               "Client session is not open any more.");
+        }
       }
     }
   }
 
-  void OpcUABackend::inactivityCallback(UA_Client* client, UA_UInt32 subId, void* subContext) {
+  void OpcUABackend::inactivityCallback(UA_Client* client, UA_UInt32 subId, void* /*subContext*/) {
     // when closing the device this does not need to be done
     if(OpcUABackend::backendClients[client]->isFunctional()) {
       if(OpcUABackend::backendClients[client]->_connection->isConnected() &&
@@ -142,7 +145,7 @@ namespace ChimeraTK {
           /*
            *  Manually set session state to closed.
            *  When backend is recovered a new session will be created and thus the sessionState will be
-           *  updated accordinly.
+           *  updated accordingly.
            */
           OpcUABackend::backendClients[client]->_connection->sessionState = UA_SessionState::UA_SESSIONSTATE_CLOSED;
         }
@@ -151,13 +154,13 @@ namespace ChimeraTK {
   }
 
   OpcUABackend::OpcUABackend(const std::string& fileAddress, const std::string& username, const std::string& password,
-      const std::string& mapfile, const unsigned long& subscriptonPublishingInterval, const std::string& rootName,
-      const ulong& rootNS, const long int& connectionTimeout, const UA_LogLevel& logLevel,
-      const std::string& certificate, const std::string& privateKey, const bool trustAny,
-      const std::string trustListFolder, const std::string revocationListFolder)
-  : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootName), _rootNS(rootNS) {
+      const std::string& mapfile, const double& subscriptionPublishingInterval, const std::string& rootNode,
+      const ulong& rootNS, const uint32_t& connectionTimeout, const UA_LogLevel& logLevel,
+      const std::string& certificate, const std::string& privateKey, const bool& trustAny,
+      const std::string& trustListFolder, const std::string& revocationListFolder, const std::string& cacheFile)
+  : _subscriptionManager(nullptr), _catalogue_filled(false), _mapfile(mapfile), _rootNode(rootNode), _rootNS(rootNS) {
     backendLogger = UA_Log_Stdout_withLevel(logLevel);
-    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptonPublishingInterval,
+    _connection = std::make_unique<OPCUAConnection>(fileAddress, username, password, subscriptionPublishingInterval,
         connectionTimeout, logLevel, certificate, privateKey, trustAny, trustListFolder, revocationListFolder);
     _connection->config->stateCallback = stateCallback;
     _connection->config->subscriptionInactivityCallback = inactivityCallback;
@@ -168,13 +171,30 @@ namespace ChimeraTK {
      * Since in the registration the catalog is needed we connect already
      * here and create the catalog.
      */
-    connect();
-    fillCatalogue();
-    _catalogue_filled = true;
+    if(cacheFile.empty()) {
+      connect();
+      fillCatalogue();
+    }
+    else {
+      UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Reading catalogue from cache file: %s.",
+          cacheFile.c_str());
+      try {
+        _catalogue_mutable = Cache::readCatalogue(cacheFile);
+        _catalogue_filled = true;
+      }
+      catch(ChimeraTK::logic_error& e) {
+        UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+            "Failed reading catalogue from cache file: %s. Will try to browse server now...", cacheFile.c_str());
+        connect();
+        fillCatalogue(cacheFile);
+      }
+    }
   }
 
   OpcUABackend::~OpcUABackend() {
-    if(_opened) close();
+    if(_opened) {
+      close();
+    }
     OpcUABackend::backendClients.erase(_connection->client.get());
   };
   void OpcUABackend::browseRecursive(UA_NodeId startingNode) {
@@ -212,7 +232,10 @@ namespace ChimeraTK {
   void OpcUABackend::getNodesFromMapfile() {
     try {
       OPCUAMapFileReader reader(_mapfile, _rootNode);
-      for(auto element : reader._elements) {
+      if(reader.elements.empty()) {
+        throw ChimeraTK::runtime_error("No elements found in the map file!");
+      }
+      for(const auto& element : reader.elements) {
         if(element._name.empty()) {
           addCatalogueEntry(element._node, nullptr, element._range);
         }
@@ -233,10 +256,12 @@ namespace ChimeraTK {
       std::ifstream mapfile(_mapfile);
       if(mapfile.is_open()) {
         while(std::getline(mapfile, line)) {
-          if(line.empty() || line[0] == '#') continue;
+          if(line.empty() || line[0] == '#' || line[0] == '<') {
+            continue;
+          }
           tokenizer tok{line, sep};
           size_t nTokens = std::distance(tok.begin(), tok.end());
-          if(!(nTokens == 2 || nTokens == 3)) {
+          if(nTokens != 2 && nTokens != 3) {
             UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
                 "Wrong number of tokens (%s) in opcua mapfile %s line (-> line is ignored): \n %s",
                 std::to_string(nTokens).c_str(), _mapfile.c_str(), line.c_str());
@@ -291,9 +316,12 @@ namespace ChimeraTK {
         throw ChimeraTK::runtime_error(std::string("Failed reading opcua mapfile: ") + _mapfile);
       }
     }
+    if(_catalogue_mutable.getNumberOfRegisters() == 0) {
+      throw ChimeraTK::runtime_error(std::string("No elements added to the catalogue from the map file: ") + _mapfile);
+    }
   }
 
-  void OpcUABackend::fillCatalogue() {
+  void OpcUABackend::fillCatalogue(const std::string& cacheFile) {
     std::lock_guard<std::mutex> lock(_connection->client_lock);
     if(_mapfile.empty()) {
       if(_rootNode.empty()) {
@@ -308,7 +336,7 @@ namespace ChimeraTK {
           browseRecursive(UA_NODEID_STRING(_rootNS, (char*)_rootNode.c_str()));
         }
         catch(...) {
-          throw ChimeraTK::runtime_error("root node not formated correct. Expected ns:nodeid or ns:nodename!");
+          throw ChimeraTK::runtime_error("root node not formatted correct. Expected ns:nodeid or ns:nodename!");
         }
       }
     }
@@ -318,11 +346,20 @@ namespace ChimeraTK {
 
       getNodesFromMapfile();
     }
+    if(!cacheFile.empty()) {
+      Cache::saveCatalogue(_catalogue_mutable, cacheFile);
+    }
+    _catalogue_filled = true;
   }
 
   void OpcUABackend::addCatalogueEntry(
-      const UA_NodeId& node, std::shared_ptr<std::string> nodeName, const std::string& range) {
+      const UA_NodeId& node, const std::shared_ptr<std::string>& nodeName, const std::string& range) {
     // connection is locked in fillCatalogue
+    std::string description;
+    UA_UInt32 dataType;
+    size_t arrayLength;
+    bool isReadonly;
+
     std::string localNodeName;
     if(nodeName == nullptr) {
       // used when reading nodes from server
@@ -349,29 +386,33 @@ namespace ChimeraTK {
       localNodeName = *(nodeName.get());
     }
 
-    OpcUABackendRegisterInfo entry{_connection->serverAddress, localNodeName};
     UA_NodeId* id = UA_NodeId_new();
     UA_StatusCode retval = UA_Client_readDataTypeAttribute(_connection->client.get(), node, id);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_NodeId_delete(id);
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read data type from variable: %s with reason: %s. Variable is not added to the catalog.",
-          entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
+          localNodeName.c_str(), UA_StatusCode_name(retval));
       return;
     }
-    entry._dataType = id->identifier.numeric;
+    dataType = id->identifier.numeric;
     UA_NodeId_delete(id);
+    if(dataType > 12 || dataType < 1) {
+      UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
+          "Failed to determine data type for node: %s  -> entry is not added to the catalogue.", localNodeName.c_str());
+      return;
+    }
 
     UA_LocalizedText* text = UA_LocalizedText_new();
     retval = UA_Client_readDescriptionAttribute(_connection->client.get(), node, text);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_LocalizedText_delete(text);
       UA_LOG_WARNING(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-          "Failed to read data description from variable: %s with reason: %s.", entry._nodeBrowseName.c_str(),
+          "Failed to read data description from variable: %s with reason: %s.", localNodeName.c_str(),
           UA_StatusCode_name(retval));
     }
     else {
-      entry._description = std::string((char*)text->text.data, text->text.length);
+      description = std::string((char*)text->text.data, text->text.length);
       UA_LocalizedText_delete(text);
     }
 
@@ -381,22 +422,21 @@ namespace ChimeraTK {
       UA_Variant_delete(val);
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read data from variable: %s with reason: %s. Variable is not added to the catalog.",
-          entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
+          localNodeName.c_str(), UA_StatusCode_name(retval));
       return;
     }
-    entry._indexRange = range;
     if(UA_Variant_isScalar(val)) {
-      entry._arrayLength = 1;
+      arrayLength = 1;
     }
     else if(val->arrayLength == 0) {
       UA_Variant_delete(val);
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-          "Array length of variable: %s  is 0!. Variable is not added to the catalog.", entry._nodeBrowseName.c_str());
+          "Array length of variable: %s  is 0!. Variable is not added to the catalog.", localNodeName.c_str());
       return;
     }
     else {
       if(range.empty()) {
-        entry._arrayLength = val->arrayLength;
+        arrayLength = val->arrayLength;
       }
       else {
         auto uaRange = UA_NUMERICRANGE(range.c_str());
@@ -407,82 +447,24 @@ namespace ChimeraTK {
               uaRange.dimensionsSize);
           return;
         }
-        entry._arrayLength = (uaRange.dimensions->max - uaRange.dimensions->min) + 1;
+        arrayLength = (uaRange.dimensions->max - uaRange.dimensions->min) + 1;
         UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-            "Array length is set to %ld. You passed range string: %s", entry._arrayLength, entry._indexRange.c_str());
+            "Array length is set to %ld. You passed range string: %s", arrayLength, range.c_str());
       }
     }
     UA_Variant_delete(val);
-    UA_NodeId_copy(&node, &entry._id);
-    // Maximum number of decimal digits to display a float without loss in non-exponential display, including
-    // sign, leading 0, decimal dot and one extra digit to avoid rounding issues (hence the +4).
-    // This computation matches the one performed in the NumericAddressedBackend catalogue.
-    size_t floatMaxDigits =
-        std::max(std::log10(std::numeric_limits<float>::max()), -std::log10(std::numeric_limits<float>::denorm_min())) +
-        4;
 
-    switch(entry._dataType) {
-      case 1: /*BOOL*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::boolean, true, true, 320, 300);
-        break;
-      case 2: /*SByte aka int8*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, true, 4, 300);
-        break;
-      case 3: /*BYTE aka uint8*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, false, 3, 300);
-        break;
-      case 4: /*Int16*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, true, 5, 300);
-        break;
-      case 5: /*UInt16*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, false, 6, 300);
-        break;
-      case 6: /*Int32*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, true, 10, 300);
-        break;
-      case 7: /*UInt32*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, false, 11, 300);
-        break;
-      case 8: /*Int64*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, true, 320, 300);
-        break;
-      case 9: /*UInt64*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, true, false, 320, 300);
-        break;
-      case 10: /*Float*/
-        entry.dataDescriptor =
-            DataDescriptor(DataDescriptor::FundamentalType::numeric, false, true, floatMaxDigits, 300);
-        break;
-      case 11: /*Double*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::numeric, false, true, 300, 300);
-        break;
-      case 12: /*String*/
-        entry.dataDescriptor = DataDescriptor(DataDescriptor::FundamentalType::string, true, true, 320, 300);
-        break;
-      default:
-        UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
-            "Failed to determine data type for node: %s  -> entry is not added to the catalogue.",
-            entry._nodeBrowseName.c_str());
-        return;
-    }
-
-    entry._accessModes.add(AccessMode::wait_for_new_data);
-    //\ToDo: Test this here!!
     UA_Byte accessLevel;
     retval = UA_Client_readAccessLevelAttribute(_connection->client.get(), node, &accessLevel);
     if(retval != UA_STATUSCODE_GOOD) {
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
           "Failed to read access level from variable: %s with reason: %s. Variable is not added to the catalog.",
-          entry._nodeBrowseName.c_str(), UA_StatusCode_name(retval));
+          localNodeName.c_str(), UA_StatusCode_name(retval));
       return;
     }
-    else {
-      if(accessLevel & UA_ACCESSLEVELMASK_WRITE)
-        entry._isReadonly = false;
-      else
-        entry._isReadonly = true;
-    }
-    _catalogue_mutable.addRegister(entry);
+    isReadonly = !(accessLevel & UA_ACCESSLEVELMASK_WRITE);
+    _catalogue_mutable.addProperty(
+        node, localNodeName, range, dataType, arrayLength, _connection->serverAddress, description, isReadonly);
   }
 
   void OpcUABackend::resetClient() {
@@ -525,16 +507,14 @@ namespace ChimeraTK {
       connect();
     }
 
-    if(!_catalogue_filled) {
-      fillCatalogue();
-      _catalogue_filled = true;
-    }
     // wait at maximum 100ms for the client to come up
     uint i = 0;
     while(!_connection->isConnected()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
       ++i;
-      if(i > 4) throw ChimeraTK::runtime_error("Connection could not be established.");
+      if(i > 4) {
+        throw ChimeraTK::runtime_error("Connection could not be established.");
+      }
     }
     setOpenedAndClearException();
   }
@@ -574,35 +554,43 @@ namespace ChimeraTK {
          << " with reason: " << UA_StatusCode_name(retval);
       throw ChimeraTK::runtime_error(ss.str());
     }
-    else {
-      UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Connection established:  %s ",
-          _connection->serverAddress.c_str());
-    }
+    UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Connection established:  %s ",
+        _connection->serverAddress.c_str());
     // if already setup subscriptions where used
-    if(_subscriptionManager) _subscriptionManager->prepare();
+    if(_subscriptionManager) {
+      _subscriptionManager->prepare();
+    }
   }
 
   void OpcUABackend::activateAsyncRead() noexcept {
     std::lock_guard<std::mutex> lock(_asyncReadLock);
-    if(!isFunctional()) return;
-    if(!_subscriptionManager) _subscriptionManager = std::make_unique<OPCUASubscriptionManager>(_connection);
+    if(!isFunctional()) {
+      return;
+    }
+    if(!_subscriptionManager) {
+      _subscriptionManager = std::make_unique<OPCUASubscriptionManager>(_connection);
+    }
     _subscriptionManager->activate();
 
     // Check if thread is already running-> happens if a second logicalNameMappingBackend is calling activateAsyncRead
     // after a first one called activateAsyncRead already
-    if(_subscriptionManager->_opcuaThread == nullptr) {
+    if(_subscriptionManager->opcuaThread == nullptr) {
       _subscriptionManager->start();
-      // sleep twice the publishing interval to make sure intital values are written
-      std::this_thread::sleep_for(std::chrono::milliseconds(2 * _connection->publishingInterval));
+      // sleep twice the publishing interval to make sure initial values are written
+      std::this_thread::sleep_for(std::chrono::milliseconds(2 * (uint32_t)_connection->publishingInterval));
     }
   }
 
   void OpcUABackend::activateSubscriptionSupport() {
-    if(!_subscriptionManager) _subscriptionManager = std::make_unique<OPCUASubscriptionManager>(_connection);
+    if(!_subscriptionManager) {
+      _subscriptionManager = std::make_unique<OPCUASubscriptionManager>(_connection);
+    }
   }
 
   void OpcUABackend::setExceptionImpl() noexcept {
-    if(_subscriptionManager) _subscriptionManager->deactivateAllAndPushException();
+    if(_subscriptionManager) {
+      _subscriptionManager->deactivateAllAndPushException();
+    }
   }
 
   template<typename UserType>
@@ -626,16 +614,18 @@ namespace ChimeraTK {
           std::string("Requested register (") + registerPathName + ") was not found in the catalog.");
     }
 
-    if(numberOfWords + wordOffsetInRegister > info->_arrayLength || (numberOfWords == 0 && wordOffsetInRegister > 0)) {
+    if(numberOfWords + wordOffsetInRegister > info->arrayLength || (numberOfWords == 0 && wordOffsetInRegister > 0)) {
       std::stringstream ss;
       ss << "Requested number of words/elements ( " << numberOfWords << ") with offset " << wordOffsetInRegister
-         << " exceeds the number of available words/elements: " << info->_arrayLength;
+         << " exceeds the number of available words/elements: " << info->arrayLength;
       throw ChimeraTK::logic_error(ss.str());
     }
 
-    if(numberOfWords == 0) numberOfWords = info->_arrayLength;
+    if(numberOfWords == 0) {
+      numberOfWords = info->arrayLength;
+    }
 
-    switch(info->_dataType) {
+    switch(info->dataType) {
       case 1:
         return boost::make_shared<OpcUABackendRegisterAccessor<UA_Boolean, UserType>>(
             path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
@@ -685,7 +675,7 @@ namespace ChimeraTK {
             path, shared_from_this(), registerPathName, info, flags, numberOfWords, wordOffsetInRegister);
         break;
       default:
-        throw ChimeraTK::runtime_error(std::string("Type ") + std::to_string(info->_dataType) + " not implemented.");
+        throw ChimeraTK::runtime_error(std::string("Type ") + std::to_string(info->dataType) + " not implemented.");
         break;
     }
   }
@@ -693,7 +683,7 @@ namespace ChimeraTK {
   OpcUABackend::BackendRegisterer::BackendRegisterer() {
     BackendFactory::getInstance().registerBackendType("opcua", &OpcUABackend::createInstance,
         {"port", "username", "password", "map", "publishingInterval", "rootNode", "connectionTimeout", "certificate",
-            "privateKey"});
+            "privateKey", "cacheFile"});
     std::cout << "BackendRegisterer: registered backend type opcua" << std::endl;
   }
 
@@ -708,26 +698,28 @@ namespace ChimeraTK {
     }
 
     std::string serverAddress = std::string("opc.tcp://") + address + ":" + parameters["port"];
-    unsigned long publishingInterval = 500;
-    if(!parameters["publishingInterval"].empty()) publishingInterval = std::stoul(parameters["publishingInterval"]);
+    double publishingInterval = 500.0;
+    if(!parameters["publishingInterval"].empty()) {
+      publishingInterval = std::stod(parameters["publishingInterval"]);
+    }
 
     bool trustAny = false;
     if(!parameters["trustAny"].empty()) {
       auto testStr = parameters["trustAny"];
-      std::transform(testStr.begin(), testStr.end(), testStr.begin(), ::toupper);
+      testStr = boost::algorithm::to_upper_copy(testStr);
       if(testStr == "1" || testStr == "TRUE" || testStr == "YES") {
         trustAny = true;
       }
     }
     ulong rootNS;
-    std::string rootName("");
+    std::string rootName;
     if(parameters["map"].empty()) {
       if(!parameters["rootNode"].empty()) {
         // prepare automatic browsing
-        auto pos = parameters["rootNode"].find_first_of(":");
+        auto pos = parameters["rootNode"].find_first_of(':');
         if(pos == std::string::npos) {
           throw ChimeraTK::runtime_error(
-              "root node does not contain delimter ':' formated correct. Expected ns:nodeid or ns:nodename!");
+              "root node does not contain delimiter ':' formatted correct. Expected ns:nodeid or ns:nodename!");
         }
         try {
           rootNS = std::stoul(parameters["rootNode"].substr(0, pos));
@@ -746,33 +738,33 @@ namespace ChimeraTK {
         rootName = parameters["rootNode"];
       }
     }
-    long int connetionTimeout = 5000;
+    uint32_t connectionTimeout = 5000;
     if(!parameters["connectionTimeout"].empty()) {
-      connetionTimeout = std::stoi(parameters["connectionTimeout"]);
+      connectionTimeout = std::stoul(parameters["connectionTimeout"]);
     }
-    UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %ld ms",
-        connetionTimeout);
+    UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Connection timeout is set to: %uld ms",
+        connectionTimeout);
 
     UA_LogLevel logLevel = UA_LOGLEVEL_INFO;
     if(!parameters["logLevel"].empty()) {
       std::transform(
           parameters["logLevel"].begin(), parameters["logLevel"].end(), parameters["logLevel"].begin(), ::toupper);
-      if(parameters["logLevel"].compare("DEBUG") == 0) {
+      if(parameters["logLevel"] == "DEBUG") {
         logLevel = UA_LOGLEVEL_DEBUG;
       }
-      else if(parameters["logLevel"].compare("INFO") == 0) {
+      else if(parameters["logLevel"] == "INFO") {
         logLevel = UA_LOGLEVEL_INFO;
       }
-      else if(parameters["logLevel"].compare("WARNING") == 0) {
+      else if(parameters["logLevel"] == "WARNING") {
         logLevel = UA_LOGLEVEL_WARNING;
       }
-      else if(parameters["logLevel"].compare("TRACE") == 0) {
+      else if(parameters["logLevel"] == "TRACE") {
         logLevel = UA_LOGLEVEL_TRACE;
       }
-      else if(parameters["logLevel"].compare("FATAL") == 0) {
+      else if(parameters["logLevel"] == "FATAL") {
         logLevel = UA_LOGLEVEL_FATAL;
       }
-      else if(parameters["logLevel"].compare("ERROR") == 0) {
+      else if(parameters["logLevel"] == "ERROR") {
         logLevel = UA_LOGLEVEL_ERROR;
       }
       else {
@@ -782,9 +774,9 @@ namespace ChimeraTK {
       }
     }
 
-    return boost::shared_ptr<DeviceBackend>(
-        new OpcUABackend(serverAddress, parameters["username"], parameters["password"], parameters["map"],
-            publishingInterval, rootName, rootNS, connetionTimeout, logLevel, parameters["certificate"],
-            parameters["privateKey"], trustAny, parameters["trustListFolder"], parameters["revocationListFolder"]));
+    return boost::shared_ptr<DeviceBackend>(new OpcUABackend(serverAddress, parameters["username"],
+        parameters["password"], parameters["map"], publishingInterval, rootName, rootNS, connectionTimeout, logLevel,
+        parameters["certificate"], parameters["privateKey"], trustAny, parameters["trustListFolder"],
+        parameters["revocationListFolder"], parameters["cacheFile"]));
   }
 } // namespace ChimeraTK

@@ -8,6 +8,7 @@
  *      Author: Klaus Zenker (HZDR)
  */
 #include "OPC-UA-Connection.h"
+#include "RegisterInfo.h"
 #include "SubscriptionManager.h"
 
 #include <ChimeraTK/BackendRegisterCatalogue.h>
@@ -22,7 +23,6 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
-#include <unordered_set>
 
 namespace ChimeraTK {
   class OPCUASubscriptionManager;
@@ -46,84 +46,6 @@ namespace ChimeraTK {
   */
 
   /**
-   *  RegisterInfo-derived class to be put into the RegisterCatalogue
-   */
-  class OpcUABackendRegisterInfo : public BackendRegisterInfoBase {
-    //\ToDo: Adopt for OPC UA
-   public:
-    OpcUABackendRegisterInfo(const std::string& serverAddress, const std::string& node_browseName, const UA_NodeId& id)
-    : _serverAddress(serverAddress), _nodeBrowseName(node_browseName), _id(id) {
-      path = RegisterPath(serverAddress) / RegisterPath(node_browseName);
-    }
-
-    OpcUABackendRegisterInfo(const std::string& serverAddress, const std::string& node_browseName)
-    : _serverAddress(serverAddress), _nodeBrowseName(node_browseName) {
-      path = RegisterPath(serverAddress) / RegisterPath(node_browseName);
-    }
-
-    OpcUABackendRegisterInfo() = default;
-
-    ~OpcUABackendRegisterInfo() override { UA_NodeId_clear(&_id); }
-
-    OpcUABackendRegisterInfo(const OpcUABackendRegisterInfo& other)
-    : path(other.path), _serverAddress(other._serverAddress), _nodeBrowseName(other._nodeBrowseName),
-      _description(other._description), _unit(other._unit), _dataType(other._dataType),
-      dataDescriptor(other.dataDescriptor), _isReadonly(other._isReadonly), _arrayLength(other._arrayLength),
-      _accessModes(other._accessModes), _indexRange(other._indexRange) {
-      UA_NodeId_copy(&other._id, &_id);
-    }
-
-    OpcUABackendRegisterInfo& operator=(const OpcUABackendRegisterInfo& other) {
-      path = other.path;
-      _serverAddress = other._serverAddress;
-      _nodeBrowseName = other._nodeBrowseName;
-      _description = other._description;
-      _unit = other._unit;
-      _dataType = other._dataType;
-      dataDescriptor = other.dataDescriptor;
-      _isReadonly = other._isReadonly;
-      _arrayLength = other._arrayLength;
-      _accessModes = other._accessModes;
-      _indexRange = other._indexRange;
-      UA_NodeId_copy(&other._id, &_id);
-      return *this;
-    }
-
-    RegisterPath getRegisterName() const override { return RegisterPath(_nodeBrowseName); }
-
-    std::string getRegisterPath() const { return path; }
-
-    unsigned int getNumberOfElements() const override { return _arrayLength; }
-
-    unsigned int getNumberOfChannels() const override { return 1; }
-
-    const DataDescriptor& getDataDescriptor() const override { return dataDescriptor; }
-
-    bool isReadable() const override { return true; }
-
-    bool isWriteable() const override { return !_isReadonly; }
-
-    AccessModeFlags getSupportedAccessModes() const override { return _accessModes; }
-
-    std::unique_ptr<BackendRegisterInfoBase> clone() const override {
-      return std::unique_ptr<BackendRegisterInfoBase>(new OpcUABackendRegisterInfo(*this));
-    }
-
-    RegisterPath path;
-    std::string _serverAddress;
-    std::string _nodeBrowseName;
-    std::string _description;
-    std::string _unit;
-    UA_UInt32 _dataType{0};
-    DataDescriptor dataDescriptor;
-    bool _isReadonly{true};
-    size_t _arrayLength{0};
-    AccessModeFlags _accessModes{};
-    UA_NodeId _id;
-    std::string _indexRange{""};
-  };
-
-  /**
    * \remark Closing the an application using SIGINT will trigger closing the session. Thus, the state handler will
    * trigger OPCUASubscriptionManager::deactivateAllAndPushException. At the same time, in the destructor of the
    * Accessors the monitored items will be removed. This includes UA_Client_MonitoredItems_deleteSingle, which uses a
@@ -140,13 +62,13 @@ namespace ChimeraTK {
      * Used here to detect when the client connection is set up.
      */
     static void stateCallback(UA_Client* client, UA_SecureChannelState channelState, UA_SessionState sessionState,
-        UA_StatusCode recoveryStatus);
+        UA_StatusCode /*recoveryStatus*/);
 
     /**
      * Callback triggered if inactivity of a subscription is detected.
      * This can happen if the server connection is cut and no communication is possible any more.
      */
-    static void inactivityCallback(UA_Client* client, UA_UInt32 subId, void* subContext);
+    static void inactivityCallback(UA_Client* client, UA_UInt32 subId, void* /*subContext*/);
 
     /**
      * Callback triggered if a description is deleted.
@@ -161,7 +83,7 @@ namespace ChimeraTK {
      * \param username User name used when connecting to the OPC UA server.
      * \param password Password used when connecting to the OPC UA server.
      * \param mapfile The map file name.
-     * \param subscriptonPublishingInterval Publishing interval used for the subscription in ms.
+     * \param subscriptionPublishingInterval Publishing interval used for the subscription in ms.
      * \param rootNode The root node specified.
      * \param rootNS The root node name space.
      * \param connectionTimeout
@@ -171,13 +93,16 @@ namespace ChimeraTK {
      * \param trustAny Trust any server certificate. If true trust and revocation list folders are ignored
      * \param trustListFolder Folder that includes trusted certificates, e.g. the server certificate
      * \param revocationListFolder Folder that includes revocation lists
+     * \param cacheFile Name of te cache file. If set the catalogue will be created from the cache and
+     *                  not by reading rhe map file or browsing the server.
      */
-    OpcUABackend(const std::string& fileAddress, const std::string& username = "", const std::string& password = "",
-        const std::string& mapfile = "", const unsigned long& subscriptonPublishingInterval = 500,
-        const std::string& rootNode = "", const ulong& rootNS = 0, const long int& connectionTimeout = 5000,
-        const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR, const std::string& certificate = "",
-        const std::string& privateKey = "", const bool trustAny = true, const std::string trustListFolder = "",
-        const std::string revocationListFolder = "");
+    explicit OpcUABackend(const std::string& fileAddress, const std::string& username = "",
+        const std::string& password = "", const std::string& mapfile = "",
+        const double& subscriptionPublishingInterval = 500, const std::string& rootNode = "", const ulong& rootNS = 0,
+        const uint32_t& connectionTimeout = 5000, const UA_LogLevel& logLevel = UA_LOGLEVEL_ERROR,
+        const std::string& certificate = "", const std::string& privateKey = "", const bool& trustAny = true,
+        const std::string& trustListFolder = "", const std::string& revocationListFolder = "",
+        const std::string& cacheFile = "");
 
     /**
      * Fill catalog.
@@ -188,10 +113,12 @@ namespace ChimeraTK {
      *
      * If a mapfile is given only node specified in the mapfile are considered.
      * Passing a _rootNode allows to prepend a certain hierarchy to the variables given in the map file.
-     * E.g. if _rootNode is testServer and the variable in the map file is temperature/test fillCatalgogue will try to
+     * E.g. if _rootNode is testServer and the variable in the map file is temperature/test fillCatalogue will try to
      * add the node testServer/temperature/test.
+     *
+     * \param cacheFile: If not empty the created register catalogue is used to create a cache file using this file name.
      */
-    void fillCatalogue();
+    void fillCatalogue(const std::string& cacheFile = "");
 
     /**
      * Return the catalogue and if not filled yet fill it.
@@ -225,7 +152,7 @@ namespace ChimeraTK {
     DEFINE_VIRTUAL_FUNCTION_TEMPLATE_VTABLE_FILLER(OpcUABackend, getRegisterAccessor_impl, 4);
 
     /** We need to make the catalogue mutable, since we fill it within getRegisterCatalogue() */
-    mutable BackendRegisterCatalogue<OpcUABackendRegisterInfo> _catalogue_mutable;
+    mutable OpcUaBackendRegisterCatalogue _catalogue_mutable;
 
     /** Class to register the backend type with the factory. */
     class BackendRegisterer {
@@ -258,7 +185,7 @@ namespace ChimeraTK {
     ulong _rootNS;
 
     /**
-     * Protect against multiple calles of activateAsyncRead().
+     * Protect against multiple calls of activateAsyncRead().
      *
      * This was observed for multiple LogicalNameMapping devices that reference the same device.
      * In the end OPCUASubscriptionManager::start() was called multiple times because the new thread was not yet created
@@ -292,7 +219,7 @@ namespace ChimeraTK {
      * \param range OPC UA style range definition, e.g. "1,2:3". Here we only consider the first dimension!
      */
     void addCatalogueEntry(
-        const UA_NodeId& node, std::shared_ptr<std::string> nodeName = nullptr, const std::string& range = "");
+        const UA_NodeId& node, const std::shared_ptr<std::string>& nodeName = nullptr, const std::string& range = "");
 
     /**
      * Browse for nodes of type Variable.

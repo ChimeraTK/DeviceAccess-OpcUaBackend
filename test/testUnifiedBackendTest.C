@@ -8,6 +8,7 @@
  */
 
 #include "DummyServer.h"
+
 #include <open62541/plugin/log_stdout.h>
 
 #include <chrono>
@@ -24,7 +25,7 @@ using namespace ChimeraTK;
 class OPCUALauncher {
  public:
   OPCUALauncher() {
-    port = server._server.getPort();
+    port = server.server.getPort();
     path = "opcua:localhost";
     threadedServer = &server;
     server.start();
@@ -41,13 +42,13 @@ ThreadedOPCUAServer* OPCUALauncher::threadedServer;
 struct AllRegisterDefaults {
   virtual ~AllRegisterDefaults() {}
   virtual bool isWriteable() { return true; }
-  bool isReadable() { return true; }
-  AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
-  size_t nChannels() { return 1; }
-  size_t writeQueueLength() { return std::numeric_limits<size_t>::max(); }
-  size_t nRuntimeErrorCases() { return 2; }
-  typedef std::nullptr_t rawUserType;
-  typedef int32_t minimumUserType;
+  static bool isReadable() { return true; }
+  static AccessModeFlags supportedFlags() { return {AccessMode::wait_for_new_data}; }
+  static size_t nChannels() { return 1; }
+  static size_t writeQueueLength() { return std::numeric_limits<size_t>::max(); }
+  static size_t nRuntimeErrorCases() { return 2; }
+  using rawType = std::nullptr_t;
+  using maximumUserType = int32_t;
 
   static constexpr auto capabilities = TestCapabilities<>()
                                            .disableForceDataLossWrite()
@@ -56,11 +57,11 @@ struct AllRegisterDefaults {
                                            .disableSwitchWriteOnly()
                                            .disableTestRawTransfer();
 
-  void setForceRuntimeError(bool enable, size_t test) {
+  static void setForceRuntimeError(bool enable, size_t test) {
     switch(test) {
       case 1:
         if(enable) {
-          OPCUALauncher::threadedServer->_server.stop();
+          OPCUALauncher::threadedServer->server.stop();
           // check if the server is really off
           if(!OPCUALauncher::threadedServer->checkConnection(ServerState::Off)) {
             throw std::runtime_error("Failed to force runtime error.");
@@ -77,11 +78,11 @@ struct AllRegisterDefaults {
       case 0:
         if(enable) {
           UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Locking server.");
-          OPCUALauncher::threadedServer->_server._mux.lock();
+          OPCUALauncher::threadedServer->server.mux.lock();
         }
         else {
           UA_LOG_INFO(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Unlocking server.");
-          OPCUALauncher::threadedServer->_server._mux.unlock();
+          OPCUALauncher::threadedServer->server.mux.unlock();
           std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
         }
         break;
@@ -112,7 +113,7 @@ struct ScalarDefaults : AllRegisterDefaults {
 
   template<typename UserType>
   std::vector<std::vector<UserType>> getRemoteValue() {
-    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    auto variant = OPCUALauncher::threadedServer->server.getValue(path());
     data = (UAType*)variant->data;
     auto d = ChimeraTK::numericToUserType<UserType>(*data);
     UA_Variant_delete(variant);
@@ -126,7 +127,7 @@ struct ScalarDefaults : AllRegisterDefaults {
     std::stringstream ss;
     ss << value.at(0);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(), value);
+    OPCUALauncher::threadedServer->server.setValue(path(), value);
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 };
@@ -137,14 +138,14 @@ struct ScalarDefaultsRO : ScalarDefaults<UAType> {
 };
 
 template<typename T>
-struct identity {
-  typedef T type;
+struct Identity {
+  using type = T;
 };
 
 template<>
 struct ScalarDefaults<UA_String> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
-  size_t nElementsPerChannel() { return 1; }
+  static size_t nElementsPerChannel() { return 1; }
   virtual std::string path() = 0;
 
   // \ToDo: Is that needed for OPC UA?
@@ -154,12 +155,12 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults {
 
   template<typename UserType>
   std::vector<std::vector<UserType>> generateValue() {
-    return generateValue(identity<UserType>());
+    return generateValue(Identity<UserType>());
   }
 
   template<typename UserType>
   std::vector<std::vector<UserType>> getRemoteValue() {
-    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    auto* variant = OPCUALauncher::threadedServer->server.getValue(path());
     data = (UA_String*)variant->data;
     std::stringstream ss(std::string((char*)data->data, data->length));
     int tmpInt;
@@ -174,19 +175,19 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults {
     std::string tmp = generateValue<std::string>().at(0).at(0);
     value.push_back(UA_STRING((char*)tmp.c_str()));
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", tmp.c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(), value);
+    OPCUALauncher::threadedServer->server.setValue(path(), value);
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 
  private:
   template<typename UserType>
-  std::vector<std::vector<UserType>> generateValue(identity<UserType>) {
+  std::vector<std::vector<UserType>> generateValue(Identity<UserType>) {
     UserType increment(3);
     auto currentData = getRemoteValue<UserType>();
     UserType data = currentData.at(0).at(0) + increment;
     return {{data}};
   }
-  std::vector<std::vector<std::string>> generateValue(identity<std::string>) {
+  std::vector<std::vector<std::string>> generateValue(Identity<std::string>) {
     int increment(3);
     auto currentData = getRemoteValue<int>();
     int data = currentData.at(0).at(0) + increment;
@@ -202,7 +203,7 @@ struct ScalarDefaultsRO<UA_String> : ScalarDefaults<UA_String> {
 template<>
 struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
-  size_t nElementsPerChannel() { return 1; }
+  static size_t nElementsPerChannel() { return 1; }
   virtual std::string path() = 0;
 
   // \ToDo: Is that needed for OPC UA?
@@ -212,7 +213,7 @@ struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults {
 
   template<typename UserType>
   std::vector<std::vector<UserType>> getRemoteValue() {
-    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    auto* variant = OPCUALauncher::threadedServer->server.getValue(path());
     data = (UA_Boolean*)variant->data;
     // convert to int
     int idata = *data;
@@ -227,7 +228,7 @@ struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults {
     std::stringstream ss;
     ss << value.at(0);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(), value);
+    OPCUALauncher::threadedServer->server.setValue(path(), value);
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 
@@ -239,10 +240,8 @@ struct ScalarDefaults<UA_Boolean> : AllRegisterDefaults {
       UserType data = currentData.at(0).at(0) - increment;
       return {{data}};
     }
-    else {
-      UserType data = currentData.at(0).at(0) + increment;
-      return {{data}};
-    }
+    UserType data = currentData.at(0).at(0) + increment;
+    return {{data}};
   }
 };
 
@@ -274,7 +273,7 @@ struct ArrayDefaults : AllRegisterDefaults {
 
   template<typename UserType>
   std::vector<std::vector<UserType>> getRemoteValue() {
-    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    auto variant = OPCUALauncher::threadedServer->server.getValue(path());
     data = (UAType*)variant->data;
     std::vector<UserType> values;
     for(size_t i = 0; i < nElementsPerChannel(); ++i) {
@@ -295,7 +294,7 @@ struct ArrayDefaults : AllRegisterDefaults {
       ss << " " << t;
     }
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
+    OPCUALauncher::threadedServer->server.setValue(path(), values, nElementsPerChannel());
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 };
@@ -308,7 +307,7 @@ struct ArrayDefaultsRO : ArrayDefaults<UAType> {
 template<>
 struct ArrayDefaults<UA_String> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
-  size_t nElementsPerChannel() { return 5; }
+  static size_t nElementsPerChannel() { return 5; }
   virtual std::string path() = 0;
   UA_String* data;
 
@@ -317,17 +316,16 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
 
   template<typename UserType>
   std::vector<std::vector<UserType>> generateValue() {
-    return generateValue(identity<UserType>());
+    return generateValue(Identity<UserType>());
   }
 
   template<typename UserType>
   std::vector<std::vector<UserType>> getRemoteValue() {
-    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    auto* variant = OPCUALauncher::threadedServer->server.getValue(path());
     data = (UA_String*)variant->data;
     std::vector<UserType> values;
     int tmpInt;
     for(size_t i = 0; i < nElementsPerChannel(); ++i) {
-      std::string tmp = std::string((char*)data[i].data, data[i].length);
       std::stringstream ss(std::string((char*)data[i].data, data[i].length));
       ss >> tmpInt;
       auto value = ChimeraTK::numericToUserType<UserType>(tmpInt);
@@ -339,7 +337,6 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
 
   void setRemoteValue() {
     std::vector<UA_String> values;
-    //\ToDo: Should this be UserType instead of UAType?
     auto v = generateValue<std::string>().at(0);
     std::stringstream ss;
     for(auto& t : v) {
@@ -347,13 +344,13 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
       ss << " " << t;
     }
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
+    OPCUALauncher::threadedServer->server.setValue(path(), values, nElementsPerChannel());
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 
  private:
   template<typename UserType>
-  std::vector<std::vector<UserType>> generateValue(identity<UserType>) {
+  std::vector<std::vector<UserType>> generateValue(Identity<UserType>) {
     auto currentData = getRemoteValue<UserType>();
     UserType increment(3);
     std::vector<UserType> val;
@@ -363,12 +360,12 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
     return {val};
   }
 
-  std::vector<std::vector<std::string>> generateValue(identity<std::string>) {
+  std::vector<std::vector<std::string>> generateValue(Identity<std::string>) {
     auto currentData = getRemoteValue<int>();
     int increment(3);
-    std::vector<std::string> val;
+    std::vector<std::string> val(nElementsPerChannel());
     for(size_t i = 0; i < nElementsPerChannel(); ++i) {
-      val.push_back(std::to_string(currentData.at(0).at(i) + (i + 1) * increment));
+      val.at(i) = std::to_string(currentData.at(0).at(i) + (i + 1) * increment);
     }
     return {val};
   }
@@ -382,7 +379,7 @@ struct ArrayDefaultsRO<UA_String> : ArrayDefaults<UA_String> {
 template<>
 struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
-  size_t nElementsPerChannel() { return 5; }
+  static size_t nElementsPerChannel() { return 5; }
   virtual std::string path() = 0;
   UA_Boolean* data;
 
@@ -391,7 +388,7 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
 
   template<typename UserType>
   std::vector<std::vector<UserType>> getRemoteValue() {
-    auto variant = OPCUALauncher::threadedServer->_server.getValue(path());
+    auto* variant = OPCUALauncher::threadedServer->server.getValue(path());
     data = (UA_Boolean*)variant->data;
     // convert to int
     int idata;
@@ -405,7 +402,6 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
 
   void setRemoteValue() {
     std::vector<UA_Boolean> values;
-    //\ToDo: Should this be UserType instead of UAType?
     auto v = generateValue<int>().at(0);
     std::stringstream ss;
     for(auto& t : v) {
@@ -413,7 +409,7 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
       ss << " " << t;
     }
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
-    OPCUALauncher::threadedServer->_server.setValue(path(), values, nElementsPerChannel());
+    OPCUALauncher::threadedServer->server.setValue(path(), values, nElementsPerChannel());
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
   }
 
@@ -423,10 +419,12 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
     UserType increment(1);
     std::vector<UserType> val;
     for(size_t i = 0; i < nElementsPerChannel(); ++i) {
-      if(currentData.at(0).at(i) > 0)
+      if(currentData.at(0).at(i) > 0) {
         val.push_back(currentData.at(0).at(i) - increment);
-      else
+      }
+      else {
         val.push_back(currentData.at(0).at(i) + increment);
+      }
     }
     return {val};
   }
@@ -439,203 +437,203 @@ struct ArrayDefaultsRO<UA_Boolean> : ArrayDefaults<UA_Boolean> {
 
 struct RegSomeBool : ScalarDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/scalar/bool"; }
-  typedef Boolean minimumUserType;
+  using minimumUserType = Boolean;
 };
 
 struct RegSomeInt64 : ScalarDefaults<UA_Int64> {
   std::string path() override { return "Dummy/scalar/int64"; }
-  typedef int64_t minimumUserType;
+  using minimumUserType = int64_t;
 };
 
 struct RegSomeUInt64 : ScalarDefaults<UA_UInt64> {
   std::string path() override { return "Dummy/scalar/uint64"; }
-  typedef uint64_t minimumUserType;
+  using minimumUserType = uint64_t;
 };
 
 struct RegSomeInt32 : ScalarDefaults<UA_Int32> {
   std::string path() override { return "Dummy/scalar/int32"; }
-  typedef int32_t minimumUserType;
+  using minimumUserType = int32_t;
 };
 
 struct RegSomeUInt32 : ScalarDefaults<UA_UInt32> {
   std::string path() override { return "Dummy/scalar/uint32"; }
-  typedef uint32_t minimumUserType;
+  using minimumUserType = uint32_t;
 };
 
 struct RegSomeInt16 : ScalarDefaults<UA_Int16> {
   std::string path() override { return "Dummy/scalar/int16"; }
-  typedef int16_t minimumUserType;
+  using minimumUserType = int16_t;
 };
 
 struct RegSomeUInt16 : ScalarDefaults<UA_UInt16> {
   std::string path() override { return "Dummy/scalar/uint16"; }
-  typedef uint16_t minimumUserType;
+  using minimumUserType = uint16_t;
 };
 
 struct RegSomeFloat : ScalarDefaults<UA_Float> {
   std::string path() override { return "Dummy/scalar/float"; }
-  typedef float minimumUserType;
+  using minimumUserType = float;
 };
 
 struct RegSomeDouble : ScalarDefaults<UA_Double> {
   std::string path() override { return "Dummy/scalar/double"; }
-  typedef double minimumUserType;
+  using minimumUserType = double;
 };
 
 struct RegSomeString : ScalarDefaults<UA_String> {
   std::string path() override { return "Dummy/scalar/string"; }
-  typedef std::string minimumUserType;
+  using minimumUserType = std::string;
 };
 
 struct RegSomeBoolArray : ArrayDefaults<UA_Boolean> {
   std::string path() override { return "Dummy/array/bool"; }
-  typedef Boolean minimumUserType;
+  using minimumUserType = Boolean;
 };
 
 struct RegSomeInt64Array : ArrayDefaults<UA_Int64> {
   std::string path() override { return "Dummy/array/int64"; }
-  typedef int64_t minimumUserType;
+  using minimumUserType = int64_t;
 };
 
 struct RegSomeUInt64Array : ArrayDefaults<UA_UInt64> {
   std::string path() override { return "Dummy/array/uint64"; }
-  typedef uint64_t minimumUserType;
+  using minimumUserType = uint64_t;
 };
 
 struct RegSomeInt32Array : ArrayDefaults<UA_Int32> {
   std::string path() override { return "Dummy/array/int32"; }
-  typedef int32_t minimumUserType;
+  using minimumUserType = int32_t;
 };
 
 struct RegSomeUInt32Array : ArrayDefaults<UA_UInt32> {
   std::string path() override { return "Dummy/array/uint32"; }
-  typedef uint32_t minimumUserType;
+  using minimumUserType = uint32_t;
 };
 
 struct RegSomeInt16Array : ArrayDefaults<UA_Int16> {
   std::string path() override { return "Dummy/array/int16"; }
-  typedef int16_t minimumUserType;
+  using minimumUserType = int16_t;
 };
 
 struct RegSomeUInt16Array : ArrayDefaults<UA_UInt16> {
   std::string path() override { return "Dummy/array/uint16"; }
-  typedef uint16_t minimumUserType;
+  using minimumUserType = uint16_t;
 };
 
 struct RegSomeFloatArray : ArrayDefaults<UA_Float> {
   std::string path() override { return "Dummy/array/float"; }
-  typedef float minimumUserType;
+  using minimumUserType = float;
 };
 
 struct RegSomeDoubleArray : ArrayDefaults<UA_Double> {
   std::string path() override { return "Dummy/array/double"; }
-  typedef double minimumUserType;
+  using minimumUserType = double;
 };
 
 struct RegSomeStringArray : ArrayDefaults<UA_String> {
   std::string path() override { return "Dummy/array/string"; }
-  typedef std::string minimumUserType;
+  using minimumUserType = std::string;
 };
 
 // read only part
 struct RegSomeBoolRO : ScalarDefaultsRO<UA_Boolean> {
   std::string path() override { return "Dummy/scalar_ro/bool"; }
-  typedef Boolean minimumUserType;
+  using minimumUserType = Boolean;
 };
 
 struct RegSomeInt64RO : ScalarDefaultsRO<UA_Int64> {
   std::string path() override { return "Dummy/scalar_ro/int64"; }
-  typedef int64_t minimumUserType;
+  using minimumUserType = int64_t;
 };
 
 struct RegSomeUInt64RO : ScalarDefaultsRO<UA_UInt64> {
   std::string path() override { return "Dummy/scalar_ro/uint64"; }
-  typedef uint64_t minimumUserType;
+  using minimumUserType = uint64_t;
 };
 
 struct RegSomeInt32RO : ScalarDefaultsRO<UA_Int32> {
   std::string path() override { return "Dummy/scalar_ro/int32"; }
-  typedef int32_t minimumUserType;
+  using minimumUserType = int32_t;
 };
 
 struct RegSomeUInt32RO : ScalarDefaultsRO<UA_UInt32> {
   std::string path() override { return "Dummy/scalar_ro/uint32"; }
-  typedef uint32_t minimumUserType;
+  using minimumUserType = uint32_t;
 };
 
 struct RegSomeInt16RO : ScalarDefaultsRO<UA_Int16> {
   std::string path() override { return "Dummy/scalar_ro/int16"; }
-  typedef int16_t minimumUserType;
+  using minimumUserType = int16_t;
 };
 
 struct RegSomeUInt16RO : ScalarDefaultsRO<UA_UInt16> {
   std::string path() override { return "Dummy/scalar_ro/uint16"; }
-  typedef uint16_t minimumUserType;
+  using minimumUserType = uint16_t;
 };
 
 struct RegSomeFloatRO : ScalarDefaultsRO<UA_Float> {
   std::string path() override { return "Dummy/scalar_ro/float"; }
-  typedef float minimumUserType;
+  using minimumUserType = float;
 };
 
 struct RegSomeDoubleRO : ScalarDefaultsRO<UA_Double> {
   std::string path() override { return "Dummy/scalar_ro/double"; }
-  typedef double minimumUserType;
+  using minimumUserType = double;
 };
 
 struct RegSomeStringRO : ScalarDefaultsRO<UA_String> {
   std::string path() override { return "Dummy/scalar_ro/string"; }
-  typedef std::string minimumUserType;
+  using minimumUserType = std::string;
 };
 
 struct RegSomeBoolArrayRO : ArrayDefaultsRO<UA_Boolean> {
   std::string path() override { return "Dummy/array_ro/bool"; }
-  typedef Boolean minimumUserType;
+  using minimumUserType = Boolean;
 };
 
 struct RegSomeInt64ArrayRO : ArrayDefaultsRO<UA_Int64> {
   std::string path() override { return "Dummy/array_ro/int64"; }
-  typedef int64_t minimumUserType;
+  using minimumUserType = int64_t;
 };
 
 struct RegSomeUInt64ArrayRO : ArrayDefaultsRO<UA_UInt64> {
   std::string path() override { return "Dummy/array_ro/uint64"; }
-  typedef uint64_t minimumUserType;
+  using minimumUserType = uint64_t;
 };
 
 struct RegSomeInt32ArrayRO : ArrayDefaultsRO<UA_Int32> {
   std::string path() override { return "Dummy/array_ro/int32"; }
-  typedef int32_t minimumUserType;
+  using minimumUserType = int32_t;
 };
 
 struct RegSomeUInt32ArrayRO : ArrayDefaultsRO<UA_UInt32> {
   std::string path() override { return "Dummy/array_ro/uint32"; }
-  typedef uint32_t minimumUserType;
+  using minimumUserType = uint32_t;
 };
 
 struct RegSomeInt16ArrayRO : ArrayDefaultsRO<UA_Int16> {
   std::string path() override { return "Dummy/array_ro/int16"; }
-  typedef int16_t minimumUserType;
+  using minimumUserType = int16_t;
 };
 
 struct RegSomeUInt16ArrayRO : ArrayDefaultsRO<UA_UInt16> {
   std::string path() override { return "Dummy/array_ro/uint16"; }
-  typedef uint16_t minimumUserType;
+  using minimumUserType = uint16_t;
 };
 
 struct RegSomeFloatArrayRO : ArrayDefaultsRO<UA_Float> {
   std::string path() override { return "Dummy/array_ro/float"; }
-  typedef float minimumUserType;
+  using minimumUserType = float;
 };
 
 struct RegSomeDoubleArrayRO : ArrayDefaultsRO<UA_Double> {
   std::string path() override { return "Dummy/array_ro/double"; }
-  typedef double minimumUserType;
+  using minimumUserType = double;
 };
 
 struct RegSomeStringArrayRO : ArrayDefaultsRO<UA_String> {
   std::string path() override { return "Dummy/array_ro/string"; }
-  typedef std::string minimumUserType;
+  using minimumUserType = std::string;
 };
 
 // use test fixture suite to have access to the fixture class members
