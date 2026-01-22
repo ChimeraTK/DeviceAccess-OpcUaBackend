@@ -152,7 +152,9 @@ namespace ChimeraTK::Cache {
         flags = parseAccessMode(e);
       }
       else if(nodeName == "description") {
-        description = e->get_child_text()->get_content();
+        if(e->has_child_text()) {
+          description = e->get_child_text()->get_content();
+        }
       }
       else if(nodeName == "readOnly") {
         isReadonly = (bool)parseTypeId(e);
@@ -173,8 +175,8 @@ namespace ChimeraTK::Cache {
       }
     }
     if(isNumeric) {
-      catalogue.addProperty(UA_NODEID_NUMERIC(namespaceId, std::stoul(nodeId.substr(nodeId.length() - 1))), name,
-          indexRange, typeId, length, serverAddress, description, isReadonly);
+      catalogue.addProperty(UA_NODEID_NUMERIC(namespaceId, std::stoul(nodeId)), name, indexRange, typeId, length,
+          serverAddress, description, isReadonly);
     }
     else {
       catalogue.addProperty(UA_NODEID_STRING(namespaceId, const_cast<char*>(nodeId.c_str())), name, indexRange, typeId,
