@@ -291,10 +291,13 @@ namespace ChimeraTK {
       _readQueue = notifications.then<void>(
           [this](UA_DataValue& data) {
             std::lock_guard<std::mutex> lock(dataUpdateLock);
-            UA_DataValue_clear(&this->data);
+            if(this->data.hasValue) {
+              UA_DataValue_clear(&this->data);
+            }
             if(UA_DataValue_copy(&data, &this->data) != UA_STATUSCODE_GOOD) {
               UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Data copy failed!");
             }
+            this->data.hasValue = true;
             UA_DataValue_clear(&data);
           },
           std::launch::deferred);
@@ -327,7 +330,9 @@ namespace ChimeraTK {
     if(retval != UA_STATUSCODE_GOOD) {
       handleError(retval);
     }
-    UA_DataValue_clear(&data);
+    if(data.hasValue) {
+      UA_DataValue_clear(&data);
+    }
     // Write data to  the internal data buffer
     if(info->indexRange.empty()) {
       UA_Variant_copy(val->var, &data.value);
@@ -337,6 +342,7 @@ namespace ChimeraTK {
       UA_Variant_copyRange(val->var, &data.value, range);
       UA_free(range.dimensions);
     }
+    data.hasValue = true;
     data.sourceTimestamp = UA_DateTime_now();
     data.hasSourceTimestamp = true;
     data.hasValue = true;
@@ -348,7 +354,7 @@ namespace ChimeraTK {
       return;
     }
     // check if no data is present -> nullptr
-    if(!data.value.data) {
+    if(!data.hasValue) {
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Data status error for node: %s Error: %s",
           info->nodeBrowseName.c_str(), UA_StatusCode_name(data.status));
       this->setDataValidity(DataValidity::faulty);
@@ -369,7 +375,8 @@ namespace ChimeraTK {
   template<typename UAType, typename CTKType>
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber) {
     backend->checkActiveException();
-    UAType* arr;
+    // create empty array
+    UAType* arr = (UAType*)UA_Array_new(this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
     if(isPartial) {
       // read array first before changing only relevant parts of it
       OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferSynchronously();
@@ -378,11 +385,10 @@ namespace ChimeraTK {
     std::shared_ptr<ManagedVariant> val(new ManagedVariant());
 
     if(isPartial) {
-      arr = (UAType*)(data.value.data);
-    }
-    else {
-      // create empty array
-      arr = (UAType*)UA_Array_new(this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
+      //      UA_Array_copy(&data.value.data, info->arrayLength, &((void*)arr), &fusion::at_key<UAType>(m));
+      for(size_t i = 0; i < info->arrayLength; i++) {
+        arr[i] = ((UAType*)data.value.data)[i];
+      }
     }
     for(size_t i = 0; i < numberOfWords; i++) {
       arr[offsetWords + i] = toOpcUA.convert(this->accessData(i));
@@ -427,6 +433,8 @@ namespace ChimeraTK {
     if(subscribed) {
       backend->_subscriptionManager->unsubscribe(info->nodeBrowseName, this);
     }
-    UA_DataValue_clear(&data);
+    if(data.hasValue) {
+      UA_DataValue_clear(&data);
+    }
   }
 } // namespace ChimeraTK
