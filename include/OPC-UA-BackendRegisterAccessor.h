@@ -291,13 +291,19 @@ namespace ChimeraTK {
       _readQueue = notifications.then<void>(
           [this](UA_DataValue& data) {
             std::lock_guard<std::mutex> lock(dataUpdateLock);
+            if(!data.hasValue) {
+              throw ChimeraTK::runtime_error("No data in found in the data queue.");
+            }
             if(this->data.hasValue) {
               UA_DataValue_clear(&this->data);
+              this->data.hasValue = false;
             }
             if(UA_DataValue_copy(&data, &this->data) != UA_STATUSCODE_GOOD) {
               UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Data copy failed!");
             }
-            this->data.hasValue = true;
+            else {
+              this->data.hasValue = true;
+            }
             UA_DataValue_clear(&data);
           },
           std::launch::deferred);
@@ -332,6 +338,7 @@ namespace ChimeraTK {
     }
     if(data.hasValue) {
       UA_DataValue_clear(&data);
+      data.hasValue = false;
     }
     // Write data to  the internal data buffer
     if(info->indexRange.empty()) {
@@ -376,36 +383,17 @@ namespace ChimeraTK {
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber) {
     backend->checkActiveException();
     // create empty array
-    UAType* arr;
-    if(isPartial) {
+    if(isPartial || !data.hasValue) {
       // read array first before changing only relevant parts of it
       OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferSynchronously();
-      UA_StatusCode retval =
-          UA_Array_copy(data.value.data, info->arrayLength, ((void**)&arr), &fusion::at_key<UAType>(m));
-      if(retval != UA_STATUSCODE_GOOD) {
-        handleError(retval);
-      };
-    }
-    else {
-      arr = (UAType*)UA_Array_new(info->arrayLength, &fusion::at_key<UAType>(m));
     }
     for(size_t i = 0; i < numberOfWords; i++) {
-      if(isPartial) {
-        // avoid memory leak and clear the entries to be overwritten here
-        UA_clear(&arr[offsetWords + i], &fusion::at_key<UAType>(m));
-      }
-      arr[offsetWords + i] = toOpcUA.convert(this->accessData(i));
-    }
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-    if(numberOfWords == 1) {
-      UA_Variant_setScalarCopy(val->var, arr, &fusion::at_key<UAType>(m));
-    }
-    else {
-      UA_Variant_setArrayCopy(val->var, arr, info->arrayLength, &fusion::at_key<UAType>(m));
+      // avoid memory leak and clear the entries to be overwritten here
+      UA_clear(&(((UAType*)data.value.data)[offsetWords + i]), &fusion::at_key<UAType>(m));
+      ((UAType*)data.value.data)[offsetWords + i] = toOpcUA.convert(this->accessData(i));
     }
     std::lock_guard<std::mutex> lock(backend->_connection->client_lock);
-    UA_StatusCode retval = UA_Client_writeValueAttribute(backend->_connection->client.get(), info->id, val->var);
-    UA_Array_delete(arr, info->arrayLength, &fusion::at_key<UAType>(m));
+    UA_StatusCode retval = UA_Client_writeValueAttribute(backend->_connection->client.get(), info->id, &data.value);
     currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD) {
       return true;
@@ -440,6 +428,7 @@ namespace ChimeraTK {
     }
     if(data.hasValue) {
       UA_DataValue_clear(&data);
+      data.hasValue = false;
     }
   }
 } // namespace ChimeraTK
