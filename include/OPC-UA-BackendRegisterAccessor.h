@@ -376,31 +376,36 @@ namespace ChimeraTK {
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber) {
     backend->checkActiveException();
     // create empty array
-    UAType* arr = (UAType*)UA_Array_new(this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
+    UAType* arr;
     if(isPartial) {
       // read array first before changing only relevant parts of it
       OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferSynchronously();
+      UA_StatusCode retval =
+          UA_Array_copy(data.value.data, info->arrayLength, ((void**)&arr), &fusion::at_key<UAType>(m));
+      if(retval != UA_STATUSCODE_GOOD) {
+        handleError(retval);
+      };
     }
-    std::lock_guard<std::mutex> lock(backend->_connection->client_lock);
-    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
-
-    if(isPartial) {
-      //      UA_Array_copy(&data.value.data, info->arrayLength, &((void*)arr), &fusion::at_key<UAType>(m));
-      for(size_t i = 0; i < info->arrayLength; i++) {
-        arr[i] = ((UAType*)data.value.data)[i];
-      }
+    else {
+      arr = (UAType*)UA_Array_new(info->arrayLength, &fusion::at_key<UAType>(m));
     }
     for(size_t i = 0; i < numberOfWords; i++) {
+      if(isPartial) {
+        // avoid memory leak and clear the entries to be overwritten here
+        UA_clear(&arr[offsetWords + i], &fusion::at_key<UAType>(m));
+      }
       arr[offsetWords + i] = toOpcUA.convert(this->accessData(i));
     }
+    std::shared_ptr<ManagedVariant> val(new ManagedVariant());
     if(numberOfWords == 1) {
       UA_Variant_setScalarCopy(val->var, arr, &fusion::at_key<UAType>(m));
     }
     else {
       UA_Variant_setArrayCopy(val->var, arr, info->arrayLength, &fusion::at_key<UAType>(m));
     }
+    std::lock_guard<std::mutex> lock(backend->_connection->client_lock);
     UA_StatusCode retval = UA_Client_writeValueAttribute(backend->_connection->client.get(), info->id, val->var);
-    UA_Array_delete(arr, this->getNumberOfSamples(), &fusion::at_key<UAType>(m));
+    UA_Array_delete(arr, info->arrayLength, &fusion::at_key<UAType>(m));
     currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD) {
       return true;
