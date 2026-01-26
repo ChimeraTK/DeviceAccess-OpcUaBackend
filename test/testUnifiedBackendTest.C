@@ -684,7 +684,8 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
-  ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=10000"
+  // \attention In order to run valgrind on tests increase connectionTimeout to e.g. 2000
+  ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=50"
      << "&logLevel=error"
      << ")";
   // server side logging severity level can be changed in DummyServer.h -> testServerLogLevel
