@@ -106,7 +106,10 @@ namespace ChimeraTK {
       config->timeout = connectionTimeout;
     };
 
-    ~OPCUAConnection() { defaultLogger->clear(defaultLogger); }
+    ~OPCUAConnection() {
+      client.reset();
+      defaultLogger->clear(defaultLogger);
+    }
 
     void close() {
       auto ret = UA_Client_disconnect(client.get());
