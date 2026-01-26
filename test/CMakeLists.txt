@@ -22,8 +22,15 @@ target_link_libraries(testMapFiles
       PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ChimeraTK::ChimeraTK-DeviceAccess ${PROJECT_NAME})
 target_include_directories(testMapFiles
       PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
-
 add_test(testMapFiles testMapFiles)
+
+add_executable(testWrite ${CMAKE_SOURCE_DIR}/test/DummyServer/DummyServer.cc ${CMAKE_SOURCE_DIR}/test/testWrite.C)
+target_link_libraries(testWrite
+      PRIVATE open62541::open62541 ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ChimeraTK::ChimeraTK-DeviceAccess ${PROJECT_NAME})
+target_include_directories(testWrite
+      PRIVATE ${CMAKE_SOURCE_DIR}/test/DummyServer)
+add_test(testMapFiles testWrite)
+
 
 add_executable(testCatalogueCache ${CMAKE_SOURCE_DIR}/test/testCatalogueCache.C)
 target_link_libraries(testCatalogueCache
