@@ -337,7 +337,7 @@ namespace ChimeraTK {
           if(!UA_Variant_isEmpty(&dataFromQueue.value)) {
             UA_DataValue data;
             UA_DataValue_init(&data);
-            UA_DataValue_copy(&tmp->data, &data);
+            UA_DataValue_copy(&dataFromQueue, &data);
             accessor->notifications.push_overwrite(std::move(data));
           }
         }
