@@ -397,6 +397,7 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
       idata = data[i];
       d.push_back(ChimeraTK::numericToUserType<UserType>(idata));
     }
+    UA_Variant_delete(variant);
     return {d};
   }
 
@@ -683,7 +684,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
-  ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=50"
+  ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=10000"
      << "&logLevel=error"
      << ")";
   // server side logging severity level can be changed in DummyServer.h -> testServerLogLevel
