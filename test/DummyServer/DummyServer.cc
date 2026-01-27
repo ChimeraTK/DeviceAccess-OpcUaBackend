@@ -326,12 +326,12 @@ UA_Variant* OPCUAServer::getValue(std::string nodeName) {
 
 void OPCUAServer::setValue(std::string nodeName, const std::vector<UA_Boolean>& t, const size_t& length) {
   UA_Variant* data = UA_Variant_new();
-  if(t.size() > 100) {
+  if(t.size() > length) {
     throw std::runtime_error("Vector size is too big");
   }
-  bool p[100];
-  for(size_t i = 0; i < 100; ++i) {
-    p[i] = t[i];
+  bool p[length];
+  for(size_t i = 0; i < length; ++i) {
+    p[i] = (bool)t[i];
   }
 
   if(t.size() == 1) {
