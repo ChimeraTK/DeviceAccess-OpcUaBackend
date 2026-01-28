@@ -8,6 +8,7 @@
  *  Created on: Nov 19, 2018
  *      Author: Klaus Zenker (HZDR)
  */
+#include "ManagedTypes.h"
 #include "OPC-UA-Backend.h"
 #include "SubscriptionManager.h"
 #include "VersionMapper.h"
@@ -29,13 +30,6 @@
 namespace fusion = boost::fusion;
 
 namespace ChimeraTK {
-
-  struct ManagedVariant {
-    ManagedVariant() { var = UA_Variant_new(); }
-    ~ManagedVariant() { UA_Variant_delete(var); }
-
-    UA_Variant* var;
-  };
 
   using myMap = fusion::map<fusion::pair<UA_Int16, UA_DataType>, fusion::pair<UA_UInt16, UA_DataType>,
       fusion::pair<UA_Int32, UA_DataType>, fusion::pair<UA_UInt32, UA_DataType>, fusion::pair<UA_Int64, UA_DataType>,
@@ -160,11 +154,11 @@ namespace ChimeraTK {
     OpcUABackendRegisterAccessorBase(boost::shared_ptr<OpcUABackend> backend, OpcUABackendRegisterInfo* info)
     : backend(std::move(backend)), info(info) {}
     // future_queue used to notify the TransferFuture about completed transfers
-    cppext::future_queue<UA_DataValue> notifications;
+    cppext::future_queue<ManagedDataValue> notifications;
 
     boost::shared_ptr<OpcUABackend> backend;
 
-    UA_DataValue data{};
+    ManagedDataValue data{};
 
     OpcUABackendRegisterInfo* info;
 
@@ -189,7 +183,7 @@ namespace ChimeraTK {
         fusion::make_pair<UA_Byte>(UA_TYPES[UA_TYPES_BYTE]), fusion::make_pair<UA_Boolean>(UA_TYPES[UA_TYPES_BOOLEAN])};
     /**
      * Convert the actual UA_DataValue to a VersionNumber.
-     * The VersionNumeber is constructed from the source time stamp.
+     * The VersionNumber is constructed from the source time stamp.
      */
     [[nodiscard]] VersionNumber convertToTimePoint() const {
       /**
@@ -197,7 +191,7 @@ namespace ChimeraTK {
        * which represents the number of 100 nanosecond intervals since January 1, 1601
        * (UTC)
        * */
-      int64_t sourceTimeStampUnixEpoch = (data.sourceTimestamp - UA_DATETIME_UNIX_EPOCH);
+      int64_t sourceTimeStampUnixEpoch = (data.getSourceTime() - UA_DATETIME_UNIX_EPOCH);
       std::chrono::duration<int64_t, std::nano> d(sourceTimeStampUnixEpoch * 100);
       std::chrono::time_point<std::chrono::system_clock, std::chrono::duration<int64_t, std::nano>> tp(d);
 
@@ -280,31 +274,20 @@ namespace ChimeraTK {
       throw ChimeraTK::logic_error("Raw access mode is not supported.");
     }
 
-    UA_DataValue_init(&data);
     NDRegisterAccessor<CTKType>::buffer_2D.resize(1);
     this->accessChannel(0).resize(numberOfWords);
     if(flags.has(AccessMode::wait_for_new_data)) {
       UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Adding subscription for node: %s",
           info->nodeBrowseName.c_str());
       // Create notification queue.
-      notifications = cppext::future_queue<UA_DataValue>(3);
+      notifications = cppext::future_queue<ManagedDataValue>(3);
       _readQueue = notifications.then<void>(
-          [this](UA_DataValue& data) {
+          [this](ManagedDataValue& data) {
             std::lock_guard<std::mutex> lock(dataUpdateLock);
-            if(!data.hasValue) {
+            if(!data.hasValue()) {
               throw ChimeraTK::runtime_error("No data in found in the data queue.");
             }
-            if(this->data.hasValue) {
-              UA_DataValue_clear(&this->data);
-              this->data.hasValue = false;
-            }
-            if(UA_DataValue_copy(&data, &this->data) != UA_STATUSCODE_GOOD) {
-              UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Data copy failed!");
-            }
-            else {
-              this->data.hasValue = true;
-            }
-            UA_DataValue_clear(&data);
+            this->data = std::move(data);
           },
           std::launch::deferred);
       if(!backend->_subscriptionManager) {
@@ -336,23 +319,7 @@ namespace ChimeraTK {
     if(retval != UA_STATUSCODE_GOOD) {
       handleError(retval);
     }
-    if(data.hasValue) {
-      UA_DataValue_clear(&data);
-      data.hasValue = false;
-    }
-    // Write data to  the internal data buffer
-    if(info->indexRange.empty()) {
-      UA_Variant_copy(val->var, &data.value);
-    }
-    else {
-      UA_NumericRange range = UA_NUMERICRANGE(info->indexRange.c_str());
-      UA_Variant_copyRange(val->var, &data.value, range);
-      UA_free(range.dimensions);
-    }
-    data.hasValue = true;
-    data.sourceTimestamp = UA_DateTime_now();
-    data.hasSourceTimestamp = true;
-    data.hasValue = true;
+    data.copyVariant(*val->var, info->indexRange);
   }
 
   template<typename UAType, typename CTKType>
@@ -361,13 +328,13 @@ namespace ChimeraTK {
       return;
     }
     // check if no data is present -> nullptr
-    if(!data.hasValue) {
+    if(!data.hasValue()) {
       UA_LOG_ERROR(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Data status error for node: %s Error: %s",
-          info->nodeBrowseName.c_str(), UA_StatusCode_name(data.status));
+          info->nodeBrowseName.c_str(), UA_StatusCode_name(data.getStatus()));
       this->setDataValidity(DataValidity::faulty);
     }
     else {
-      UAType* tmp = (UAType*)(data.value.data);
+      UAType* tmp = (UAType*)(data.getValue());
       for(size_t i = 0; i < numberOfWords; i++) {
         UAType value = tmp[offsetWords + i];
         // Fill the NDRegisterAccessor buffer
@@ -375,7 +342,7 @@ namespace ChimeraTK {
       }
       this->setDataValidity(DataValidity::ok);
     }
-    currentVersion = VersionMapper::getInstance().getVersion(data.sourceTimestamp);
+    currentVersion = VersionMapper::getInstance().getVersion(data.getSourceTime());
     TransferElement::_versionNumber = currentVersion;
   }
 
@@ -383,17 +350,18 @@ namespace ChimeraTK {
   bool OpcUABackendRegisterAccessor<UAType, CTKType>::doWriteTransfer(ChimeraTK::VersionNumber versionNumber) {
     backend->checkActiveException();
     // create empty array
-    if(isPartial || !data.hasValue) {
+    if(isPartial || !data.hasValue()) {
       // read array first before changing only relevant parts of it
       OpcUABackendRegisterAccessor<UAType, CTKType>::doReadTransferSynchronously();
     }
     for(size_t i = 0; i < numberOfWords; i++) {
       // avoid memory leak and clear the entries to be overwritten here
-      UA_clear(&(((UAType*)data.value.data)[offsetWords + i]), &fusion::at_key<UAType>(m));
-      ((UAType*)data.value.data)[offsetWords + i] = toOpcUA.convert(this->accessData(i));
+      UA_clear(&(((UAType*)data.getValue())[offsetWords + i]), &fusion::at_key<UAType>(m));
+      ((UAType*)data.getValue())[offsetWords + i] = toOpcUA.convert(this->accessData(i));
     }
     std::lock_guard<std::mutex> lock(backend->_connection->client_lock);
-    UA_StatusCode retval = UA_Client_writeValueAttribute(backend->_connection->client.get(), info->id, &data.value);
+    UA_StatusCode retval =
+        UA_Client_writeValueAttribute(backend->_connection->client.get(), info->id, data.getVariant());
     currentVersion = versionNumber;
     if(retval == UA_STATUSCODE_GOOD) {
       return true;
@@ -425,10 +393,6 @@ namespace ChimeraTK {
   OpcUABackendRegisterAccessor<UAType, CTKType>::~OpcUABackendRegisterAccessor() {
     if(subscribed) {
       backend->_subscriptionManager->unsubscribe(info->nodeBrowseName, this);
-    }
-    if(data.hasValue) {
-      UA_DataValue_clear(&data);
-      data.hasValue = false;
     }
   }
 } // namespace ChimeraTK
