@@ -37,7 +37,10 @@ namespace ChimeraTK {
     ManagedDataValue();
 
     /**
-     * Takes ownership by making sure the internal UA_DataVale will be cleared.
+     * Does not take ownership of the internal UA_DataVale - will not be cleared.
+     * This method is used to create a temporary object before moving it to the accessors
+     * FutureQueue, when a second accessor is added for a Node that has already an accessor.
+     *
      */
     ManagedDataValue(const ManagedDataValue& other);
 
@@ -48,6 +51,9 @@ namespace ChimeraTK {
 
     /**
      * Does not take ownership of the internal UA_DataVale - will not be cleared.
+     *
+     * This method is used to create a temporary object before moving it to the accessors
+     * FutureQueue
      */
     explicit ManagedDataValue(UA_DataValue* data);
     ~ManagedDataValue();

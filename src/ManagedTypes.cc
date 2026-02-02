@@ -27,35 +27,36 @@ namespace ChimeraTK {
   ManagedDataValue::ManagedDataValue(UA_DataValue* data) {
     UA_DataValue_init(&_val);
     UA_DataValue_copy(data, &_val);
-    _val.hasValue = true;
   }
 
   ManagedDataValue::ManagedDataValue(const ManagedDataValue& other) {
     UA_DataValue_init(&_val);
     _val.status = UA_DataValue_copy(&other._val, &_val);
-    _clearData = true;
   }
 
   ManagedDataValue::ManagedDataValue(const ManagedDataValue&& other) noexcept {
     UA_DataValue_init(&_val);
-    if(other.hasValue()) {
-      // set data pointer to the others data pointer
-      _val.value.data = other._val.value.data;
-      _val.value.arrayLength = other._val.value.arrayLength;
-      _val.value.type = other._val.value.type;
-      _val.hasValue = true;
-      if(other._val.hasSourceTimestamp) {
-        _val.hasSourceTimestamp = true;
-        _val.sourceTimestamp = other._val.sourceTimestamp;
-      }
-      if(other._val.hasServerTimestamp) {
-        _val.hasServerTimestamp = true;
-        _val.sourceTimestamp = other._val.serverTimestamp;
-      }
+    // copy variant
+    _val.value.data = other._val.value.data;
+    _val.value.arrayLength = other._val.value.arrayLength;
+    _val.value.type = other._val.value.type;
+    _val.value.storageType = other._val.value.storageType;
+    _val.value.arrayDimensions = other._val.value.arrayDimensions;
+    _val.value.arrayDimensionsSize = other._val.value.arrayDimensionsSize;
+    // copy DataValue
+    _val.hasStatus = other._val.hasStatus;
+    _val.status = other._val.status;
+    _val.hasServerTimestamp = other._val.hasServerTimestamp;
+    _val.serverTimestamp = other._val.serverTimestamp;
+    _val.hasSourceTimestamp = other._val.hasSourceTimestamp;
+    _val.sourceTimestamp = other._val.sourceTimestamp;
+    _val.hasValue = other._val.hasValue;
+    _val.hasSourcePicoseconds = other._val.hasSourcePicoseconds;
+    _val.sourcePicoseconds = other._val.sourcePicoseconds;
+    _val.hasServerPicoseconds = other._val.hasServerPicoseconds;
+    _val.serverPicoseconds = other._val.serverPicoseconds;
+    if(_val.hasValue) {
       _clearData = true;
-    }
-    else {
-      _val.hasValue = false;
     }
   }
 
@@ -68,24 +69,27 @@ namespace ChimeraTK {
 
   ManagedDataValue& ManagedDataValue::operator=(ManagedDataValue&& other) noexcept {
     prepare();
+    // copy variant
+    _val.value.data = other._val.value.data;
+    _val.value.arrayLength = other._val.value.arrayLength;
+    _val.value.type = other._val.value.type;
+    _val.value.storageType = other._val.value.storageType;
+    _val.value.arrayDimensions = other._val.value.arrayDimensions;
+    _val.value.arrayDimensionsSize = other._val.value.arrayDimensionsSize;
+    // copy DataValue
+    _val.hasStatus = other._val.hasStatus;
+    _val.status = other._val.status;
+    _val.hasServerTimestamp = other._val.hasServerTimestamp;
+    _val.serverTimestamp = other._val.serverTimestamp;
+    _val.hasSourceTimestamp = other._val.hasSourceTimestamp;
+    _val.sourceTimestamp = other._val.sourceTimestamp;
+    _val.hasValue = other._val.hasValue;
+    _val.hasSourcePicoseconds = other._val.hasSourcePicoseconds;
+    _val.sourcePicoseconds = other._val.sourcePicoseconds;
+    _val.hasServerPicoseconds = other._val.hasServerPicoseconds;
+    _val.serverPicoseconds = other._val.serverPicoseconds;
     if(other.hasValue()) {
-      // set data pointer to the others data pointer
-      _val.value.data = other._val.value.data;
-      _val.value.arrayLength = other._val.value.arrayLength;
-      _val.value.type = other._val.value.type;
       _clearData = true;
-      _val.hasValue = true;
-      if(other._val.hasSourceTimestamp) {
-        _val.hasSourceTimestamp = true;
-        _val.sourceTimestamp = other._val.sourceTimestamp;
-      }
-      if(other._val.hasServerTimestamp) {
-        _val.hasServerTimestamp = true;
-        _val.sourceTimestamp = other._val.serverTimestamp;
-      }
-    }
-    else {
-      _val.hasValue = false;
     }
     other._clearData = false;
     return *this;

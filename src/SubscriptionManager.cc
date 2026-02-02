@@ -329,9 +329,8 @@ namespace ChimeraTK {
           }
         }
         else {
-          auto dataFromQueue = tmp->notifications.front();
-          if(dataFromQueue.hasValue()) {
-            ManagedDataValue data(tmp->data);
+          ManagedDataValue data(tmp->notifications.front());
+          if(data.hasValue()) {
             accessor->notifications.push_overwrite(std::move(data));
           }
         }
