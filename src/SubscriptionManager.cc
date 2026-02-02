@@ -9,6 +9,7 @@
 
 #include "SubscriptionManager.h"
 
+#include "ManagedTypes.h"
 #include "OPC-UA-BackendRegisterAccessor.h"
 
 #include <ChimeraTK/Exception.h>
@@ -178,9 +179,7 @@ namespace ChimeraTK {
         UA_LOG_DEBUG(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND, "Pushing data to queue for %zu accessors.",
             base->subscriptionMap[monId]->accessors.size());
         for(auto& accessor : base->subscriptionMap[monId]->accessors) {
-          UA_DataValue data;
-          UA_DataValue_init(&data);
-          UA_DataValue_copy(value, &data);
+          ManagedDataValue data(value);
           accessor->notifications.push_overwrite(std::move(data));
         }
       }
@@ -320,10 +319,8 @@ namespace ChimeraTK {
         std::lock_guard<std::mutex> lock(tmp->dataUpdateLock);
         // wait for initial values that might be process in postRead at the moment
         if(tmp->notifications.empty()) {
-          if(!UA_Variant_isEmpty(&tmp->data.value)) {
-            UA_DataValue data;
-            UA_DataValue_init(&data);
-            UA_DataValue_copy(&tmp->data, &data);
+          if(tmp->data.hasValue()) {
+            ManagedDataValue data(tmp->data);
             accessor->notifications.push_overwrite(std::move(data));
           }
           else {
@@ -332,11 +329,8 @@ namespace ChimeraTK {
           }
         }
         else {
-          auto dataFromQueue = tmp->notifications.front();
-          if(!UA_Variant_isEmpty(&dataFromQueue.value)) {
-            UA_DataValue data;
-            UA_DataValue_init(&data);
-            UA_DataValue_copy(&tmp->data, &data);
+          ManagedDataValue data(tmp->notifications.front());
+          if(data.hasValue()) {
             accessor->notifications.push_overwrite(std::move(data));
           }
         }

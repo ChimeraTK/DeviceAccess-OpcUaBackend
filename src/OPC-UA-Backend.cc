@@ -31,19 +31,6 @@
 
 using tokenizer = boost::tokenizer<boost::char_separator<char>>;
 
-extern "C" {
-boost::shared_ptr<ChimeraTK::DeviceBackend> ChimeraTK_DeviceAccess_createBackend(
-    std::string address, std::map<std::string, std::string> parameters) {
-  return ChimeraTK::OpcUABackend::createInstance(address, parameters);
-}
-
-std::vector<std::string> ChimeraTK_DeviceAccess_sdmParameterNames{"port", "username", "password", "map"};
-
-std::string ChimeraTK_DeviceAccess_version{CHIMERATK_DEVICEACCESS_VERSION};
-
-std::string backend_name = "opcua";
-}
-
 namespace ChimeraTK {
   OpcUABackend::BackendRegisterer OpcUABackend::backendRegisterer;
   std::map<UA_Client*, OpcUABackend*> OpcUABackend::backendClients;
@@ -195,7 +182,16 @@ namespace ChimeraTK {
     if(_opened) {
       close();
     }
-    OpcUABackend::backendClients.erase(_connection->client.get());
+    //\ToDo: When removing the backend enty from the map I observed errors when shutting down e.g. the generic chimeratk server
+    //       when using the backend.
+    //       Not sure why - the global object should still be alive.
+    //       Errors:
+    //         - corrupted double-linked list
+    //         - corrupted size vs. prev_size
+    // std::cout << "Map size is: " << OpcUABackend::backendClients.size() << std::endl;
+    // if(OpcUABackend::backendClients.contains(_connection->client.get())) {
+    // OpcUABackend::backendClients.erase(_connection->client.get());
+    // }
   };
   void OpcUABackend::browseRecursive(UA_NodeId startingNode) {
     // connection is locked in fillCatalogue
@@ -450,6 +446,7 @@ namespace ChimeraTK {
         arrayLength = (uaRange.dimensions->max - uaRange.dimensions->min) + 1;
         UA_LOG_INFO(&OpcUABackend::backendLogger, UA_LOGCATEGORY_USERLAND,
             "Array length is set to %ld. You passed range string: %s", arrayLength, range.c_str());
+        UA_free(uaRange.dimensions);
       }
     }
     UA_Variant_delete(val);

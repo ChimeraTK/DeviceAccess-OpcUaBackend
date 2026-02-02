@@ -10,6 +10,7 @@
 #include "DummyServer.h"
 
 #include <open62541/plugin/log_stdout.h>
+#include <open62541/types_generated_handling.h>
 
 #include <chrono>
 #include <cstddef>
@@ -173,10 +174,13 @@ struct ScalarDefaults<UA_String> : AllRegisterDefaults {
   void setRemoteValue() {
     std::vector<UA_String> value;
     std::string tmp = generateValue<std::string>().at(0).at(0);
-    value.push_back(UA_STRING((char*)tmp.c_str()));
+    value.push_back(UA_String_fromChars(tmp.c_str()));
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting value:   %s", tmp.c_str());
     OPCUALauncher::threadedServer->server.setValue(path(), value);
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
+    for(auto val : value) {
+      UA_String_clear(&val);
+    }
   }
 
  private:
@@ -309,7 +313,7 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
   using AllRegisterDefaults::AllRegisterDefaults;
   static size_t nElementsPerChannel() { return 5; }
   virtual std::string path() = 0;
-  UA_String* data;
+  UA_String* data{nullptr};
 
   // \ToDo: Is that needed for OPC UA?
   //  static constexpr auto capabilities = ScalarDefaults::capabilities.enableAsyncReadInconsistency();
@@ -324,7 +328,7 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
     auto* variant = OPCUALauncher::threadedServer->server.getValue(path());
     data = (UA_String*)variant->data;
     std::vector<UserType> values;
-    int tmpInt;
+    int tmpInt = 0;
     for(size_t i = 0; i < nElementsPerChannel(); ++i) {
       std::stringstream ss(std::string((char*)data[i].data, data[i].length));
       ss >> tmpInt;
@@ -340,12 +344,15 @@ struct ArrayDefaults<UA_String> : AllRegisterDefaults {
     auto v = generateValue<std::string>().at(0);
     std::stringstream ss;
     for(auto& t : v) {
-      values.push_back(UA_STRING((char*)t.c_str()));
+      values.push_back(UA_String_fromChars(t.c_str()));
       ss << " " << t;
     }
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Setting array:   %s", ss.str().c_str());
     OPCUALauncher::threadedServer->server.setValue(path(), values, nElementsPerChannel());
     std::this_thread::sleep_for(std::chrono::milliseconds(2 * publishingInterval));
+    for(auto val : values) {
+      UA_String_clear(&val);
+    }
   }
 
  private:
@@ -397,6 +404,7 @@ struct ArrayDefaults<UA_Boolean> : AllRegisterDefaults {
       idata = data[i];
       d.push_back(ChimeraTK::numericToUserType<UserType>(idata));
     }
+    UA_Variant_delete(variant);
     return {d};
   }
 
@@ -683,6 +691,7 @@ BOOST_AUTO_TEST_CASE(unifiedBackendTest) {
   // wait for the server to come up
   std::this_thread::sleep_for(std::chrono::seconds(1));
   std::stringstream ss;
+  // \attention In order to run valgrind on tests increase connectionTimeout to e.g. 2000
   ss << "(" << path << "?port=" << port << "&publishingInterval=" << publishingInterval << "&connectionTimeout=50"
      << "&logLevel=error"
      << ")";
