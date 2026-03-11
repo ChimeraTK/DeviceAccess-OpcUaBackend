@@ -10,7 +10,6 @@
 #include "ManagedTypes.h"
 
 #include <open62541/types.h>
-#include <open62541/types_generated_handling.h>
 
 namespace ChimeraTK {
   ManagedVariant::ManagedVariant() {

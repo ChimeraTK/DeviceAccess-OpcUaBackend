@@ -10,7 +10,6 @@
 #include "DummyServer.h"
 
 #include <open62541/plugin/log_stdout.h>
-#include <open62541/types_generated_handling.h>
 
 #include <chrono>
 #include <cstddef>
