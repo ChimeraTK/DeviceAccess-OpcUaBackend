@@ -225,7 +225,7 @@ namespace ChimeraTK {
      * Browse for nodes of type Variable.
      * If type Object is found move into the object and recall browseRecursive.
      */
-    void browseRecursive(UA_NodeId startingNode = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER));
+    void browseRecursive(UA_NodeId startingNode = UA_NS0ID(OBJECTSFOLDER));
 
     /**
      * Read nodes from the file supplied as mapping file.
