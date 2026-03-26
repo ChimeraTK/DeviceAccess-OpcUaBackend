@@ -18,6 +18,7 @@
 #include <ChimeraTK/RegisterPath.h>
 
 #include <open62541/plugin/log_stdout.h>
+#include <open62541/types.h>
 
 #include <boost/fusion/container/map.hpp>
 #include <boost/numeric/conversion/cast.hpp>
