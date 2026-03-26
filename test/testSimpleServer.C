@@ -15,10 +15,12 @@
 using namespace boost::unit_test_framework;
 
 #include "DummyServer.h"
+
 #include <open62541/server_config_default.h>
 
-#include <chrono>
 #include <signal.h>
+
+#include <chrono>
 #include <thread>
 
 UA_Boolean running = true;
@@ -54,10 +56,10 @@ struct Server {
     /* Add the variable node to the information model */
     UA_NodeId myIntegerNodeId = UA_NODEID("ns=1;s=the.answer");
     UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(1, "the answer");
-    UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-    UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
+    UA_NodeId parentNodeId = UA_NS0ID(OBJECTSFOLDER);
+    UA_NodeId parentReferenceNodeId = UA_NS0ID(ORGANIZES);
     UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId, parentReferenceNodeId, myIntegerName,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
+        UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
   }
 
   void writeVariableA() {

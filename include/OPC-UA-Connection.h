@@ -9,16 +9,19 @@
  */
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
+#include <open62541/plugin/certificategroup_default.h>
 #include <open62541/plugin/log_stdout.h>
-#include <open62541/plugin/pki_default.h>
 #include <open62541/plugin/securitypolicy.h>
 
 #include <dirent.h>
+#include <stdio.h>
 
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 
 namespace ChimeraTK {
 
@@ -50,21 +53,19 @@ namespace ChimeraTK {
     std::string certificate;
     std::string key;
 
-    double publishingInterval;
-    uint32_t connectionTimeout;
+    unsigned long publishingInterval;
+    unsigned long connectionTimeout;
 
     UA_Logger logger;
 
     OPCUAConnection(const std::string& address, const std::string& username, const std::string& password,
-        double publishingInterval, const uint32_t& connectionTimeout, const UA_LogLevel& logLevel,
+        unsigned long publishingInterval, const long int& connectionTimeout, const UA_LogLevel& logLevel,
         const std::string& certificate, const std::string& privateKey, const bool trustAny,
-        const std::string& trustListFolder, const std::string& revocationListFolder)
+        const std::string trustListFolder, const std::string revocationListFolder)
     : client(UA_Client_new()), config(UA_Client_getConfig(client.get())), serverAddress(address),
       channelState(UA_SECURECHANNELSTATE_CLOSED), sessionState(UA_SESSIONSTATE_CLOSED), username(username),
       password(password), certificate(certificate), key(privateKey), publishingInterval(publishingInterval),
       connectionTimeout(connectionTimeout), logger(UA_Log_Stdout_withLevel(logLevel)) {
-      // store pointer to original logging to be cleared in the end to avoid memory leak
-      defaultLogger = config->logging;
       config->logging = &logger;
       config->eventLoop->logger = &logger;
       if(!certificate.empty() && !key.empty()) {
@@ -75,7 +76,7 @@ namespace ChimeraTK {
         cert = loadFile(certificate.c_str());
         if(trustAny) {
           UA_ClientConfig_setDefaultEncryption(config, cert, privateKey, 0, 0, NULL, 0);
-          UA_CertificateVerification_AcceptAll(&config->certificateVerification);
+          UA_CertificateGroup_AcceptAll(&config->certificateVerification);
         }
         else {
           /* Load the trustList. Load revocationList is not supported now */
@@ -106,11 +107,6 @@ namespace ChimeraTK {
       config->timeout = connectionTimeout;
     };
 
-    ~OPCUAConnection() {
-      client.reset();
-      defaultLogger->clear(defaultLogger);
-    }
-
     void close() {
       auto ret = UA_Client_disconnect(client.get());
       if(ret != UA_STATUSCODE_GOOD) {
@@ -125,7 +121,6 @@ namespace ChimeraTK {
     }
 
    private:
-    UA_Logger* defaultLogger{nullptr};
     /**
      * loadFile parses the certificate file.
      *
@@ -149,9 +144,7 @@ namespace ChimeraTK {
       if(fileContents.data) {
         fseek(fp, 0, SEEK_SET);
         size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
-        if(read != fileContents.length) {
-          UA_ByteString_clear(&fileContents);
-        }
+        if(read != fileContents.length) UA_ByteString_clear(&fileContents);
       }
       else {
         fileContents.length = 0;
@@ -169,9 +162,7 @@ namespace ChimeraTK {
       listSize = 0;
       if(dp != nullptr) {
         while((entry = readdir(dp))) {
-          if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
-            continue;
-          }
+          if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
           listSize++;
           list = (UA_ByteString*)UA_realloc(list, sizeof(UA_ByteString) * listSize);
           char sbuf[1024];

@@ -3,11 +3,12 @@
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
 
-#include <iterator>
-#include <set>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <iterator>
+#include <set>
 #include <string>
 
 static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId referenceTypeId, void* handle) {
@@ -121,8 +122,7 @@ int main(int argc, char* argv[]) {
   UA_UInt32* resultCounter = UA_UInt32_new();
   UA_ReferenceDescription* referenceDescription = UA_ReferenceDescription_new();
   //    browseRecursive(client, UA_NODEID_NUMERIC(1, 166), UA_NODECLASS_VARIABLE, &referenceDescription, resultCounter);
-  browseRecursive(client, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODECLASS_VARIABLE, &referenceDescription,
-      resultCounter);
+  browseRecursive(client, UA_NS0ID(OBJECTSFOLDER), UA_NODECLASS_VARIABLE, &referenceDescription, resultCounter);
   printf("Result size %u\n", *resultCounter);
   for(size_t i = 0; i < *resultCounter; i++) {
     printf("%s\n", referenceDescription[i].browseName.name.data);

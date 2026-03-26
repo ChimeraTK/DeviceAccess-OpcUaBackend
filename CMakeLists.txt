@@ -10,7 +10,7 @@ include(cmake/set_version_numbers.cmake)
 find_package(Boost COMPONENTS unit_test_framework)
 
 find_package(ChimeraTK-DeviceAccess 03.14 REQUIRED)
-find_package(open62541 01.04 REQUIRED)
+find_package(open62541 01.05 REQUIRED)
 FIND_PACKAGE(PkgConfig REQUIRED)
 set(LIBXML++_VERSION "libxml++-2.6")
 PKG_CHECK_MODULES(LibXML++ REQUIRED IMPORTED_TARGET ${LIBXML++_VERSION})

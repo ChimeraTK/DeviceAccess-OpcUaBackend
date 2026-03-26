@@ -94,8 +94,8 @@ struct VariableAttacher {
     /* Add the variable node to the information model */
     UA_NodeId nodeId = UA_NODEID_STRING(1, &name[0]);
     UA_QualifiedName nodeName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-    UA_Server_addVariableNode(server, nodeId, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), nodeName,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
+    UA_Server_addVariableNode(
+        server, nodeId, parent, UA_NS0ID(ORGANIZES), nodeName, UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
     UA_LocalizedText_clear(&locText);
@@ -149,8 +149,8 @@ struct VariableAttacher {
     /* Add the variable node to the information model */
     UA_NodeId myNodeId = UA_NODEID_STRING(1, &name[0]);
     UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-    UA_Server_addVariableNode(server, myNodeId, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
+    UA_Server_addVariableNode(
+        server, myNodeId, parent, UA_NS0ID(ORGANIZES), myName, UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
     UA_LocalizedText_clear(&locText);
@@ -203,8 +203,8 @@ struct VariableAttacher {
     /* Add the variable node to the information model */
     UA_NodeId myNodeId = UA_NODEID_STRING(1, &name[0]);
     UA_QualifiedName myName = UA_QUALIFIEDNAME(1, &mypair.first[0]);
-    UA_Server_addVariableNode(server, myNodeId, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), myName,
-        UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATAVARIABLETYPE), attr, NULL, NULL);
+    UA_Server_addVariableNode(
+        server, myNodeId, parent, UA_NS0ID(ORGANIZES), myName, UA_NS0ID(BASEDATAVARIABLETYPE), attr, NULL, NULL);
     UA_LOG_DEBUG(&OPCUAServer::logger, UA_LOGCATEGORY_USERLAND, "Trying to add node:  %s with name: %s", name.c_str(),
         mypair.first.c_str());
     UA_LocalizedText_clear(&locText);
@@ -289,9 +289,9 @@ void OPCUAServer::addFolder(std::string name, UA_NodeId parent) {
   attrObj.displayName = UA_LOCALIZEDTEXT_ALLOC("en_US", &displayName[0]);
   UA_QualifiedName qname = UA_QUALIFIEDNAME(1, &displayName[0]);
   UA_NodeId objNode = UA_NODEID_STRING(1, &name[0]);
-  UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-  UA_Server_addObjectNode(server, objNode, parent, UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES),
-      UA_QUALIFIEDNAME(1, (char*)name.c_str()), UA_NODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), attrObj, NULL, NULL);
+  UA_NodeId parentReferenceNodeId = UA_NS0ID(ORGANIZES);
+  UA_Server_addObjectNode(server, objNode, parent, UA_NS0ID(ORGANIZES), UA_QUALIFIEDNAME(1, (char*)name.c_str()),
+      UA_NS0ID(FOLDERTYPE), attrObj, NULL, NULL);
   UA_ObjectAttributes_clear(&attrObj);
 }
 
@@ -303,8 +303,8 @@ void OPCUAServer::addVariables() {
   oAttr.description = UA_LOCALIZEDTEXT_ALLOC("en_US", "Dummy");
   UA_NodeId id = UA_NODEID("ns=1;s=Dummy");
   UA_QualifiedName qName = UA_QUALIFIEDNAME_ALLOC(1, "Dummy");
-  UA_Server_addObjectNode(server, id, UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER),
-      UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES), qName, UA_NODEID_NUMERIC(0, UA_NS0ID_FOLDERTYPE), oAttr, NULL, NULL);
+  UA_Server_addObjectNode(
+      server, id, UA_NS0ID(OBJECTSFOLDER), UA_NS0ID(ORGANIZES), qName, UA_NS0ID(FOLDERTYPE), oAttr, NULL, NULL);
   UA_QualifiedName_clear(&qName);
   addFolder("Dummy/scalar", id);
   boost::fusion::for_each(dummyMap, VariableAttacher(UA_NODEID("ns=1;s=Dummy/scalar"), server, false, false));
