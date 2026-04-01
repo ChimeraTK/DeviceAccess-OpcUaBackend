@@ -15,6 +15,8 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <utility>
+
 namespace ChimeraTK {
   OPCUAMapFileReader::OPCUAMapFileReader(const std::string& filePath, const std::string& rootNode)
   : _file(filePath), _serverRootNode(rootNode) {
@@ -80,7 +82,51 @@ namespace ChimeraTK {
   MapElement::MapElement(const UA_UInt32& id, const UA_UInt16& ns, const std::string& range, const std::string& name)
   : _iNode(id), _namespace(ns), _node(UA_NODEID_NUMERIC(ns, id)), _range(range), _name(name) {}
   MapElement::MapElement(const std::string& id, const UA_UInt16& ns, const std::string& range, const std::string& name)
-  : _strNode(id), _namespace(ns), _node(UA_NODEID_STRING(ns, const_cast<char*>(_strNode.c_str()))), _range(range),
-    _name(name) {}
+  : _strNode(id), _namespace(ns), _range(range), _name(name) {
+    _node = UA_NODEID_STRING_ALLOC(ns, _strNode.c_str());
+  }
+
+  MapElement::~MapElement() {
+    UA_NodeId_clear(&_node);
+  }
+
+  MapElement::MapElement(const MapElement& other)
+  : _namespace(other._namespace), _strNode(other._strNode), _iNode(other._iNode), _range(other._range),
+    _name(other._name) {
+    UA_NodeId_copy(&other._node, &_node);
+  }
+
+  MapElement& MapElement::operator=(const MapElement& other) {
+    if(this != &other) {
+      UA_NodeId_clear(&_node);
+      _namespace = other._namespace;
+      _strNode = other._strNode;
+      _iNode = other._iNode;
+      _range = other._range;
+      _name = other._name;
+      UA_NodeId_copy(&other._node, &_node);
+    }
+    return *this;
+  }
+
+  MapElement::MapElement(MapElement&& other) noexcept
+  : _namespace(other._namespace), _strNode(std::move(other._strNode)), _iNode(other._iNode), _node(other._node),
+    _range(std::move(other._range)), _name(std::move(other._name)) {
+    UA_NodeId_init(&other._node); // Reset source so it won't free our data
+  }
+
+  MapElement& MapElement::operator=(MapElement&& other) noexcept {
+    if(this != &other) {
+      UA_NodeId_clear(&_node);
+      _namespace = other._namespace;
+      _strNode = std::move(other._strNode);
+      _iNode = other._iNode;
+      _node = other._node;
+      _range = std::move(other._range);
+      _name = std::move(other._name);
+      UA_NodeId_init(&other._node); // Reset source
+    }
+    return *this;
+  }
 
 } // namespace ChimeraTK
