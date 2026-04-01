@@ -21,7 +21,7 @@ namespace ChimeraTK {
     UA_UInt16 _namespace;     ///< Namespace
     std::string _strNode{""}; ///< String node ID
     UA_UInt32 _iNode{0};
-    UA_NodeId _node;        ///< OPC UA Node Id
+    UA_NodeId _node{};      ///< OPC UA Node Id (zero-initialized)
     std::string _range{""}; ///< Range string, e.g. 2:4
     std::string _name{""};  ///< Name that is used in the device. If empty it is constructed from the nodeID
     /**
@@ -40,6 +40,16 @@ namespace ChimeraTK {
      * @param name Name that is used in the device. If empty it is constructed from the nodeID
      */
     MapElement(const std::string& id, const UA_UInt16& ns, const std::string& range, const std::string& name);
+    ~MapElement();
+
+    // Copy constructor - deep copy the NodeId
+    MapElement(const MapElement& other);
+    // Copy assignment
+    MapElement& operator=(const MapElement& other);
+    // Move constructor - transfer ownership
+    MapElement(MapElement&& other) noexcept;
+    // Move assignment
+    MapElement& operator=(MapElement&& other) noexcept;
   };
 
   struct OPCUAMapFileReader {
