@@ -1,7 +1,7 @@
 # DeviceAccess-OPC-UA-Backend
 
 [![License](https://img.shields.io/badge/license-LGPLv3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.html)
-[![DOI](https://rodare.hzdr.de/badge/DOI/10.14278/rodare.3255.svg)](https://doi.org/10.14278/rodare.3255)
+[![DOI](https://rodare.hzdr.de/badge/DOI/10.14278/rodare.3254.svg)](https://doi.org/10.14278/rodare.3254)
 ![Supported Platforms][api-platforms]
 
 [api-platforms]: https://img.shields.io/badge/platforms-linux%20-blue.svg "Supported Platforms"
