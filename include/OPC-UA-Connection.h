@@ -90,13 +90,11 @@ namespace ChimeraTK {
               config, cert, privateKey, trustList, trustListSize, revocationList, revocationListSize);
         }
         if(!username.empty() && !password.empty()) {
-          UA_UserNameIdentityToken* identityToken = UA_UserNameIdentityToken_new();
-          identityToken->userName = UA_STRING_ALLOC(username.c_str());
-          identityToken->password = UA_STRING_ALLOC(password.c_str());
-          UA_ExtensionObject_clear(&config->userIdentityToken);
-          config->userIdentityToken.encoding = UA_EXTENSIONOBJECT_DECODED;
-          config->userIdentityToken.content.decoded.type = &UA_TYPES[UA_TYPES_USERNAMEIDENTITYTOKEN];
-          config->userIdentityToken.content.decoded.data = identityToken;
+          auto ret = UA_ClientConfig_setAuthenticationUsername(config, username.c_str(), password.c_str());
+          if(ret != UA_STATUSCODE_GOOD) {
+            UA_LOG_ERROR(&logger, UA_LOGCATEGORY_USERLAND,
+                "Failed to set username and password for opcua connection. Error: %s", UA_StatusCode_name(ret));
+          }
         }
         UA_ByteString_clear(&cert);
         UA_ByteString_clear(&privateKey);
